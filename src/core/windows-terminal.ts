@@ -1,12 +1,12 @@
 /**
  * Windows Terminal fragment installer.
  *
- * When ori bridge runs on Windows, this installs:
- *   1. ori-icon.svg → %APPDATA%\ori\ori-icon.svg
- *   2. A WT fragment  → %LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\ori\ori.json
+ * When mnemos bridge runs on Windows, this installs:
+ *   1. mnemos-icon.svg → %APPDATA%\mnemos\mnemos-icon.svg
+ *   2. A WT fragment  → %LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\mnemos\mnemos.json
  *
- * The fragment adds an "Ori" profile to Windows Terminal with the Ori circle icon,
- * so any user who installs ori-memory gets the branded tab automatically.
+ * The fragment adds an "Mnemos" profile to Windows Terminal with the Mnemos circle icon,
+ * so any user who installs mnemos gets the branded tab automatically.
  *
  * Non-fatal: if anything fails (non-Windows, WT not installed, permissions) we log
  * a warning and continue. Never block the bridge install.
@@ -20,22 +20,22 @@ import { fileURLToPath } from "node:url";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-/** Absolute path to assets/ori-icon.svg inside the package. */
+/** Absolute path to assets/mnemos-icon.svg inside the package. */
 function getPackageIconPath(): string {
   // __dirname is dist/core/ at runtime; assets/ is two levels up
-  return path.resolve(__dirname, "..", "..", "assets", "ori-icon.svg");
+  return path.resolve(__dirname, "..", "..", "assets", "mnemos-icon.svg");
 }
 
-/** %APPDATA%\ori\ori-icon.svg */
+/** %APPDATA%\mnemos\mnemos-icon.svg */
 function getInstalledIconPath(): string {
   const appData = process.env.APPDATA ?? path.join(os.homedir(), "AppData", "Roaming");
-  return path.join(appData, "ori", "ori-icon.svg");
+  return path.join(appData, "mnemos", "mnemos-icon.svg");
 }
 
-/** %LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\ori\ori.json */
+/** %LOCALAPPDATA%\Microsoft\Windows Terminal\Fragments\mnemos\mnemos.json */
 function getFragmentPath(): string {
   const localAppData = process.env.LOCALAPPDATA ?? path.join(os.homedir(), "AppData", "Local");
-  return path.join(localAppData, "Microsoft", "Windows Terminal", "Fragments", "ori", "ori.json");
+  return path.join(localAppData, "Microsoft", "Windows Terminal", "Fragments", "mnemos", "mnemos.json");
 }
 
 function buildFragment(iconPath: string): object {
@@ -44,7 +44,7 @@ function buildFragment(iconPath: string): object {
     $schema: "https://aka.ms/terminal-profiles-schema#fragment",
     profiles: [
       {
-        name: "Ori",
+        name: "Mnemos",
         icon: iconPath,
         // Use the system's default shell — we're branding the tab, not changing the shell.
         commandline: process.env.COMSPEC ?? "cmd.exe",
@@ -80,7 +80,7 @@ export async function installWindowsTerminalProfile(): Promise<WindowsTerminalIn
       return { installed: false, error: `Source icon not found at ${srcIcon}` };
     }
 
-    // Copy icon to %APPDATA%\ori\
+    // Copy icon to %APPDATA%\mnemos\
     await fs.mkdir(path.dirname(dstIcon), { recursive: true });
     await fs.copyFile(srcIcon, dstIcon);
 

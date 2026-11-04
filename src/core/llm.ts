@@ -113,24 +113,24 @@ export function llmKeyProblem(config: LlmConfig): string | null {
     // Same test resolveApiKey applies, so health and runtime agree.
     if (process.env[config.api_key_env]) return null;
     return (
-      `llm.api_key_env "${config.api_key_env}" is set in ori.config.yaml, but ` +
+      `llm.api_key_env "${config.api_key_env}" is set in mnemos.config.yaml, but ` +
       `${config.api_key_env} is not present in the environment — LLM features are disabled.`
     );
   }
   return (
-    `llm.provider "${config.provider}" is set in ori.config.yaml, but neither ` +
+    `llm.provider "${config.provider}" is set in mnemos.config.yaml, but neither ` +
     `llm.api_key_env nor llm.api_key_cmd is set — LLM features are disabled.`
   );
 }
 
 // One stderr line per distinct problem per process: createProvider runs once
-// per promote/explore, and a long-lived `ori serve` should not repeat itself.
+// per promote/explore, and a long-lived `mnemos serve` should not repeat itself.
 const reportedKeyProblems = new Set<string>();
 
 function reportKeyProblem(message: string): void {
   if (reportedKeyProblems.has(message)) return;
   reportedKeyProblems.add(message);
-  console.error(`[ori] ${message}`);
+  console.error(`[mnemos] ${message}`);
 }
 
 /**

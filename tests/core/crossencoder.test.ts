@@ -1,5 +1,5 @@
 /**
- * Ori Mnemos — Cross-Encoder Rerank Tests (Layer 1.5)
+ * Mnemos — Cross-Encoder Rerank Tests (Layer 1.5)
  *
  * Pure-function tests with an injected scorer — no model download.
  */

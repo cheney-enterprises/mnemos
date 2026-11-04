@@ -52,9 +52,9 @@ const NOTES: Array<[string, string, string]> = [
 ];
 
 beforeEach(async () => {
-  vault = await fs.mkdtemp(path.join(os.tmpdir(), "ori-bm25store-"));
+  vault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-bm25store-"));
   await fs.mkdir(path.join(vault, "notes"), { recursive: true });
-  await fs.mkdir(path.join(vault, ".ori"), { recursive: true });
+  await fs.mkdir(path.join(vault, ".mnemos"), { recursive: true });
   for (const [name, description, body] of NOTES) {
     await fs.writeFile(
       path.join(vault, "notes", `${name}.md`),
@@ -62,7 +62,7 @@ beforeEach(async () => {
       "utf8",
     );
   }
-  db = new Database(path.join(vault, ".ori", "embeddings.db"));
+  db = new Database(path.join(vault, ".mnemos", "embeddings.db"));
   initIndexStore(db);
   await syncIndex(db, path.join(vault, "notes"));
 });
@@ -171,7 +171,7 @@ describe("store-backed BM25 (fix-list item 13)", () => {
     // blames the query. The migration drops the derived rows so the next sync
     // rebuilds them, which is the disposability the design promises being
     // cashed in. A mutation removing that drop leaves this test red.
-    const old = path.join(vault, ".ori", "legacy.db");
+    const old = path.join(vault, ".mnemos", "legacy.db");
     const legacy = new Database(old);
     try {
       // The v0.6.1 shape: postings with no term frequencies, notes with no

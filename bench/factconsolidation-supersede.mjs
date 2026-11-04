@@ -1,4 +1,4 @@
-// Can Ori detect a conflicting fact on its own, from the new fact alone?
+// Can Mnemos detect a conflicting fact on its own, from the new fact alone?
 //
 // factconsolidation.mjs found stale@1 = 50% vs a 33.2% floor, and
 // factconsolidation-why.mjs found the cause: the stale line genuinely
@@ -15,9 +15,9 @@
 // by construction and no amount of embedding quality wins it. Recency has to
 // be represented explicitly.
 //
-// Ori has an explicit mechanism for this -- supersede() -- and the passive
+// Mnemos has an explicit mechanism for this -- supersede() -- and the passive
 // run never invoked it. This file asks the honest question: given only the
-// INCOMING fact, can Ori's own matcher find the note it supersedes?
+// INCOMING fact, can Mnemos's own matcher find the note it supersedes?
 //
 // No oracle is used for detection. matchForForget sees the new fact text and
 // nothing else. The oracle stems are used ONLY to score what it found, as
@@ -25,7 +25,7 @@
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { matchForForget, loadConfig } from "ori-memory";
+import { matchForForget, loadConfig } from "mnemos";
 
 const DATA = process.env.MAB_JSONL ?? "C:/tmp/mabdata/conflict.jsonl";
 const THRESHOLD = Number(process.argv[process.argv.indexOf("--threshold") + 1]) || 0.35;
@@ -63,23 +63,23 @@ for (const g of bucket.values()) {
 
 const vault = mkdtempSync(join(tmpdir(), "mab-sup-"));
 mkdirSync(join(vault, "notes"), { recursive: true });
-mkdirSync(join(vault, ".ori"), { recursive: true });
-writeFileSync(join(vault, "ori.config.yaml"), "engine:\n  db_path: .ori/embeddings.db\n");
+mkdirSync(join(vault, ".mnemos"), { recursive: true });
+writeFileSync(join(vault, "mnemos.config.yaml"), "engine:\n  db_path: .mnemos/embeddings.db\n");
 const notesDir = join(vault, "notes");
-const cfg = (await loadConfig(join(vault, "ori.config.yaml"))).engine;
+const cfg = (await loadConfig(join(vault, "mnemos.config.yaml"))).engine;
 
 const slugOf = new Map(); // idx -> slug
 const trace = [];
 let tp = 0, fp = 0, fn = 0, tn = 0, considered = 0;
 const misses = [], falseHits = [];
 
-console.log(`Ori's own conflict detection on FactConsolidation sh_6k`);
+console.log(`Mnemos's own conflict detection on FactConsolidation sh_6k`);
 console.log(`matchForForget sees only the incoming fact. threshold=${THRESHOLD}\n`);
 
 for (const { idx, text } of lines) {
   const expected = truePartner.get(idx) ?? null;
 
-  // ask Ori, BEFORE writing, what this new fact supersedes
+  // ask Mnemos, BEFORE writing, what this new fact supersedes
   let found = null;
   if (slugOf.size > 0) {
     try {

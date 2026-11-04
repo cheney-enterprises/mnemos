@@ -191,7 +191,7 @@ export async function writeTempFrontmatter(
   data: Record<string, unknown>,
   body: string
 ): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-frontmatter-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-frontmatter-"));
   const filePath = path.join(dir, "note.md");
   await writeFrontmatterFile(filePath, data, body);
   return filePath;

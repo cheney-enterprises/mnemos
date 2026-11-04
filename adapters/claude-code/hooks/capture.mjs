@@ -4,14 +4,14 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 function findVaultRoot(startDir) {
-  const explicit = process.env.ORI_VAULT;
-  if (explicit && existsSync(path.join(explicit, ".ori"))) {
+  const explicit = process.env.MNEMOS_VAULT;
+  if (explicit && existsSync(path.join(explicit, ".mnemos"))) {
     return explicit;
   }
 
   let current = path.resolve(startDir);
   while (true) {
-    if (existsSync(path.join(current, ".ori"))) return current;
+    if (existsSync(path.join(current, ".mnemos"))) return current;
     const parent = path.dirname(current);
     if (parent === current) return null;
     current = parent;
@@ -58,6 +58,6 @@ if (!findVaultRoot(process.cwd())) {
   process.exit(0);
 }
 
-const result = spawnSync("ori", ["add", title, "--type", "insight"], { stdio: "inherit" });
+const result = spawnSync("mnemos", ["add", title, "--type", "insight"], { stdio: "inherit" });
 if (result.error) process.exit(0);
 process.exit(result.status ?? 0);

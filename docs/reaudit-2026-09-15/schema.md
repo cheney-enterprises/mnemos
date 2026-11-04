@@ -1,8 +1,8 @@
-# Ori re-audit — slice `schema` (2026-09-15)
+# Mnemos re-audit — slice `schema` (2026-09-15)
 
-Method: copied `<vault>/.ori/embeddings.db` + `-wal` + `-shm` to `%TEMP%/ori-schema-audit.db` (222,146,560 B main; the WAL is 103 MB uncheckpointed since 09-13 and IS included in every number below). Inspected with the project's own driver (`better-sqlite3` ^12.6.2 per package.json, SQLite 3.51.2). To measure the derived index I ran the compiled `dist/core/indexstore.js` `syncIndex` against the copy with `notesDir=<vault>/notes`. The real DB was never opened for writing.
+Method: copied `<vault>/.mnemos/embeddings.db` + `-wal` + `-shm` to `%TEMP%/mnemos-schema-audit.db` (222,146,560 B main; the WAL is 103 MB uncheckpointed since 09-13 and IS included in every number below). Inspected with the project's own driver (`better-sqlite3` ^12.6.2 per package.json, SQLite 3.51.2). To measure the derived index I ran the compiled `dist/core/indexstore.js` `syncIndex` against the copy with `notesDir=<vault>/notes`. The real DB was never opened for writing.
 
-> `local://ori-reaudit-schema.md` could not be written: this agent has no `write` tool. This `report` field is the full deliverable.
+> `local://mnemos-reaudit-schema.md` could not be written: this agent has no `write` tool. This `report` field is the full deliverable.
 
 ---
 
@@ -27,7 +27,7 @@ Columns abbreviated; PK/UNIQUE in **bold**. "Rows (prod)" is the real DB; "Rows 
 | `note` | D | indexstore.ts:59-92 | **absent** | 1,538 | **id** INTEGER, **slug** UNIQUE = raw basename | autoindex(slug) | 308 non-slug-shaped slugs; 22 has_frontmatter=0; 943 empty description; 1 archived |
 | `note_project` | D | indexstore.ts:93-97 | absent | 745 | (note_id→note.id CASCADE, project) | PK only; no idx(project) | |
 | `edge` | D | indexstore.ts:98-103 | absent | 4,884 | (src,dst)→note.id CASCADE | idx_edge_dst | |
-| `dangling_link` | D | indexstore.ts:107-111 | absent | 1,966 | (src→note.id, target TEXT) | PK | relevant-map 882, related-note 853, ori-map 20, meta-map 12 |
+| `dangling_link` | D | indexstore.ts:107-111 | absent | 1,966 | (src→note.id, target TEXT) | PK | relevant-map 882, related-note 853, mnemos-map 20, meta-map 12 |
 | `graph_metric` | D | indexstore.ts:112-117 | absent | 0 | (note_id, metric) | PK | Never populated by the query path — metrics are cached as one JSON blob in `index_meta.graph_metrics` (indexstore.ts:823-849) |
 | `note_access` | S | indexstore.ts:127-132 | absent | 0 | **slug** = raw basename | PK | flushed_count for idempotent nap flush |
 | `note_term` | D | indexstore.ts:145-158 | absent | 337,300 (22,654 terms) | (note_id→note.id, term) | idx_note_term_term | tf_title/tf_desc/tf_body; 6.6 MB + 5.25 MB index |
@@ -40,7 +40,7 @@ Size by object (dbstat, prod): co_occurrence 72.97 MB, its PK autoindex 65.70 MB
 ## 2. Findings
 
 **F1 — HIGH. The production DB has never seen the derived index; first real query pays 6.5 s inline.**
-`sqlite_master` of the real DB lists 13 tables; none of note/edge/note_term/note_access/note_project/dangling_link/graph_metric/index_meta exist (dump above). `meta.built_at = 2026-09-13T04:06:44Z`; `embeddings.indexed_at` max 2026-09-13. The fix-list's 350 ms figure was measured on a copy. `openSyncedIndex` (indexstore.ts:708-717) calls `syncIndex` unconditionally and synchronously before any query answers; on the empty store that is **6,502 ms** (1,538 reparsed, 4,884 edges, 1,966 dangling), then **260 ms** for a no-change resync (fix-list claims 152 ms; different run, same order). "A stale index never stops a session" holds, but the first session after upgrading blocks 6.5 s with no message saying why. There is also no `ori index build` gate: nothing tells the user their DB predates the schema.
+`sqlite_master` of the real DB lists 13 tables; none of note/edge/note_term/note_access/note_project/dangling_link/graph_metric/index_meta exist (dump above). `meta.built_at = 2026-09-13T04:06:44Z`; `embeddings.indexed_at` max 2026-09-13. The fix-list's 350 ms figure was measured on a copy. `openSyncedIndex` (indexstore.ts:708-717) calls `syncIndex` unconditionally and synchronously before any query answers; on the empty store that is **6,502 ms** (1,538 reparsed, 4,884 edges, 1,966 dangling), then **260 ms** for a no-change resync (fix-list claims 152 ms; different run, same order). "A stale index never stops a session" holds, but the first session after upgrading blocks 6.5 s with no message saying why. There is also no `mnemos index build` gate: nothing tells the user their DB predates the schema.
 
 **F2 — HIGH. Note identity is split three ways and index↔state joins are not expressible in SQL.**
 - `note.slug` is the raw basename (`slug: p.title`, indexstore.ts:391), as are `embeddings.title` (engine.ts:474), `boosts.title`, `note_access.slug` (recordAccess receives titles, noteindex.ts:163).
@@ -54,7 +54,7 @@ Size by object (dbstat, prod): co_occurrence 72.97 MB, its PK autoindex 65.70 MB
 `grep schema_version|user_version|application_id` over src/: 0 hits. DDL lives in engine.ts:54-82, indexstore.ts:58-217, qvalue.ts:52-93, stage-learner.ts:39-64, cooccurrence.ts:60-74, serve.ts:212-218, and is invoked from at least search.ts:320-322 and serve.ts. Migration = ALTER-in-try (indexstore.ts:171-217, engine.ts:76-82) and "if any ALTER succeeded, `DELETE FROM note`" (indexstore.ts:210-216). That detects exactly one kind of change (column added) and has one response (drop all derived rows). It cannot express: a state-table migration (e.g. rekeying note_q), a targeted rebuild of one derived table, or "this DB is newer than this binary". Two tables in production are declared nowhere in `src/` (`memory_events`, `q_history_genuine`), which is what happens without a registry.
 
 **F4 — MEDIUM. `co_occurrence` is 92% of the file and half of that is waste.**
-204.4 MB of 222 MB. (a) `idx_cooc_a ON co_occurrence(note_a)` (cooccurrence.ts:72) duplicates the PK's leading column: EXPLAIN `WHERE note_a=?` uses `idx_cooc_a` when present and `sqlite_autoindex_co_occurrence_1` when dropped — same plan class, 33.2 MB for nothing. (b) TEXT keys average 216.8 bytes/row across four b-trees. (c) 223,917 of 239,993 rows are `source='bootstrap'`, i.e. derived from wiki-links and regenerable (`ori index build` regenerates them), yet they sit in a state table with the 16,076 real retrieval rows. (d) Canonical pair order is enforced in JS only (cooccurrence.ts:144); 19,515 rows have `note_a > note_b` (bootstrap path). 0 reversed duplicates today, but nothing prevents them — no `CHECK (note_a < note_b)`.
+204.4 MB of 222 MB. (a) `idx_cooc_a ON co_occurrence(note_a)` (cooccurrence.ts:72) duplicates the PK's leading column: EXPLAIN `WHERE note_a=?` uses `idx_cooc_a` when present and `sqlite_autoindex_co_occurrence_1` when dropped — same plan class, 33.2 MB for nothing. (b) TEXT keys average 216.8 bytes/row across four b-trees. (c) 223,917 of 239,993 rows are `source='bootstrap'`, i.e. derived from wiki-links and regenerable (`mnemos index build` regenerates them), yet they sit in a state table with the 16,076 real retrieval rows. (d) Canonical pair order is enforced in JS only (cooccurrence.ts:144); 19,515 rows have `note_a > note_b` (bootstrap path). 0 reversed duplicates today, but nothing prevents them — no `CHECK (note_a < note_b)`.
 
 **F5 — MEDIUM. JSON-in-TEXT and opaque columns that block SELECTs.**
 - `stage_q.a_matrix` / `b_vector` (stage-learner.ts:42-43): 8×8 LinUCB matrix as JSON. Fine as an opaque learner blob, but `total_reward`/`sample_count` are the only queryable facts.
@@ -72,7 +72,7 @@ Size by object (dbstat, prod): co_occurrence 72.97 MB, its PK autoindex 65.70 MB
 Inside the index group every child references `note(id) ON DELETE CASCADE` (indexstore.ts:94-146) and `foreign_keys=ON` is set (indexstore.ts:51-55). State tables cannot reference `note.id` because `DELETE FROM note` (indexstore.ts:216) regenerates ids — so the only durable identity is the TEXT key, which F2 shows is inconsistent. `embeddings`/`boosts` (engine.ts) have no FK either and are cleaned by `removeNoteFromDB` by title.
 
 **F8 — LOW. Index/embeddings drift is real but small and now measurable.**
-After sync: 1 `embeddings` row not in `note` (`loop-3---bash-code-mode-and-the-body---codex-aries-2`), 7 `note` rows without embeddings (6 notes created 2026-09-14 after the last `ori index build`, 1 archived). Expected under the rebuild policy; a `v_note` view should expose `has_embedding`.
+After sync: 1 `embeddings` row not in `note` (`loop-3---bash-code-mode-and-the-body---codex-aries-2`), 7 `note` rows without embeddings (6 notes created 2026-09-14 after the last `mnemos index build`, 1 archived). Expected under the rebuild policy; a `v_note` view should expose `has_embedding`.
 
 **F9 — INFO. `meta` mixes derived facts with ad-hoc state markers** (`learning_reset_2026_08_28`, `bm25_arm_reset_2026_09_06` = `{"before": [56, -19.84]}`). Harmless; belongs in a `schema_version`/`maintenance_log` once one exists.
 
@@ -92,7 +92,7 @@ After sync: 1 `embeddings` row not in `note` (`loop-3---bash-code-mode-and-the-b
 ## 4. Target schema for an agent-queryable memory DB
 
 ### 4.1 Split: one file, two groups, one `schema_version` row per group
-ATTACH (two files) was considered and rejected: it doubles WAL/busy handling and file handles for the MCP long-lived connection, cross-database FKs are unsupported, and `DELETE FROM note` already gives "rebuild the index" for free via CASCADE. What ATTACH would buy ("rm index.db" as the repair) is achieved by `ori index build --force`. One file; the group is a fact recorded in `schema_version`, and a `ori db schema` command prints it.
+ATTACH (two files) was considered and rejected: it doubles WAL/busy handling and file handles for the MCP long-lived connection, cross-database FKs are unsupported, and `DELETE FROM note` already gives "rebuild the index" for free via CASCADE. What ATTACH would buy ("rm index.db" as the repair) is achieved by `mnemos index build --force`. One file; the group is a fact recorded in `schema_version`, and a `mnemos db schema` command prints it.
 
 ```sql
 -- Replaces the scattered CREATE TABLE IF NOT EXISTS + ALTER-in-try.
@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS schema_version (
   grp        TEXT PRIMARY KEY CHECK (grp IN ('index','state')),
   version    INTEGER NOT NULL,
   applied_at TEXT NOT NULL,
-  ori_version TEXT NOT NULL
+  mnemos_version TEXT NOT NULL
 );
 -- Rules: index migrations may always be "DELETE and resync" (disposable).
 -- state migrations are numbered, forward-only, run in one transaction,
@@ -111,13 +111,13 @@ CREATE TABLE IF NOT EXISTS schema_version (
 ### 4.2 Canonical note identity
 - **INDEX group**: `note.id` INTEGER for all FKs (already correct). `note.slug` renamed in meaning to *file key*: it IS the basename, never passed through `slugify`. Add `note.path TEXT` (relative to vault root) so multi-root (fix-list #30) is one column away, and `note.slug_norm TEXT` = `slugify(slug)` GENERATED/maintained by sync for link resolution.
 - **STATE group**: key by `note_key TEXT` = basename. Reason: 4 of the 8 keyed tables already use it, it is what the filesystem uses, it is what an agent sees in `path`, and `slugify` is lossy (F2). `slugify()` is for **creating** filenames (add.ts) and **resolving** wiki-links (graph.ts) only — remove the normalisation at qvalue.ts:99 etc. and the `// Canonical keys` rationale at qvalue.ts:10-15 (that rationale was solving raw-title-vs-slug drift in retrieval_log; the fix is one key everywhere, not a lossy normaliser).
-- **Migration (state v1→v2)**: for each state table, `UPDATE t SET note_key = n.slug FROM note n WHERE n.slug = t.note_id OR slugify(n.slug) = t.note_id` (UDF registered), merging duplicates by summing counts; rows matching nothing move to `note_q_orphan` and are reported by `ori health`. Measured coverage: 710/750 note_q, 1,060/1,149 retrieval_log ids.
+- **Migration (state v1→v2)**: for each state table, `UPDATE t SET note_key = n.slug FROM note n WHERE n.slug = t.note_id OR slugify(n.slug) = t.note_id` (UDF registered), merging duplicates by summing counts; rows matching nothing move to `note_q_orphan` and are reported by `mnemos health`. Measured coverage: 710/750 note_q, 1,060/1,149 retrieval_log ids.
 
 ### 4.3 Table changes (DDL deltas)
 ```sql
 -- co_occurrence: split derived from state, integer-free but smaller
 DROP INDEX IF EXISTS idx_cooc_a;                       -- redundant with PK, 33 MB
-CREATE TABLE cooc_bootstrap (                          -- INDEX group, regenerated by ori index build
+CREATE TABLE cooc_bootstrap (                          -- INDEX group, regenerated by mnemos index build
   a INTEGER NOT NULL REFERENCES note(id) ON DELETE CASCADE,
   b INTEGER NOT NULL REFERENCES note(id) ON DELETE CASCADE,
   npmi REAL NOT NULL,
@@ -235,7 +235,7 @@ Similarity is not a view (needs a bound query vector) — expose it as the UDF: 
 | Q6 | dangling targets by count | 0.581 | SCAN dangling_link; TEMP B-TREE GROUP/ORDER | fine at 1,966 rows |
 | Q7 | stale notes (no access 90 d ∧ no inbound) | 0.079 | SCAN n covering; correlated idx_edge_dst; SEARCH a PK | fine |
 | Q8 | df for term | 0.056 | SEARCH covering idx_note_term_term | fine |
-| Q9 | notes in project `'ori'` | 0.074 | SCAN p; SEARCH n rowid | scan of 745 rows; add idx(project) before it matters |
+| Q9 | notes in project `'mnemos'` | 0.074 | SCAN p; SEARCH n rowid | scan of 745 rows; add idx(project) before it matters |
 
 Vector path (§3): JS brute force 6.08 ms; SQL UDF 13.74 ms (`SCAN embeddings | TEMP B-TREE`); normalized-table SQL 1,538–1,673 ms.
 
@@ -245,9 +245,9 @@ Vector path (§3): JS brute force 6.08 ms; SQL UDF 13.74 ms (`SCAN embeddings | 
 
 - **Tier 0 #3/#4 (busy_timeout, FK + CASCADE)**: present in code (indexstore.ts:51-55, :94-146). Not yet applied to the production DB (F1). Note `embeddings`/`boosts` are outside the FK graph (F7).
 - **Tier 0 #1 (counters in SQL)**: `note_access` exists; production has 0 rows because the table does not exist there yet (F1).
-- **Tier 1 #5/#8 (Q learning decorative)**: schema-side contributor found — 207/750 note_q rows orphaned by the 09-06 slug cap (F2); `ori health`'s "never updated" warning cannot see it.
+- **Tier 1 #5/#8 (Q learning decorative)**: schema-side contributor found — 207/750 note_q rows orphaned by the 09-06 slug cap (F2); `mnemos health`'s "never updated" warning cannot see it.
 - **Tier 1 #9 (CLI never logs stage_log)**: prod `stage_log` = 1,862 rows, all from serve; will change once CLI path with `initStageTables` (search.ts:322) runs.
-- **Tier 2 #16 (bootstrap O(N²))**: production still holds 223,917 bootstrap rows = 92% of file (F4). The cap (`BOOTSTRAP_HUB_POSTER_CAP`) only applies on next `ori index build`; no VACUUM follows, so the file will not shrink without one.
+- **Tier 2 #16 (bootstrap O(N²))**: production still holds 223,917 bootstrap rows = 92% of file (F4). The cap (`BOOTSTRAP_HUB_POSTER_CAP`) only applies on next `mnemos index build`; no VACUUM follows, so the file will not shrink without one.
 - **Tier 3 (dangling placeholders)**: confirmed in the derived index: `relevant-map` 882, `related-note` 853 of 1,966 dangling rows (88%).
 - **Tier 4 #30 (multi-root)**: needs `note.path`/`root` column (§4.2) — not present.
 - **New, not on the list**: no schema version (F3); legacy tables in prod (F3); missing timestamp indexes (F6); embedding model/dims not recorded (F5).
@@ -256,10 +256,10 @@ Vector path (§3): JS brute force 6.08 ms; SQL UDF 13.74 ms (`SCAN embeddings | 
 
 ## 7. Recommendations (ordered)
 
-1. **`src/core/schema.ts`** — single owner of all DDL + `schema_version(grp)` + ordered migration list; `initDB` (engine.ts:49) calls it once; delete the six `init*Tables` DDL blocks and the ALTER-in-try loops. Add `ori db schema` (prints group, version, table, rows) and make `ori health` fail loudly when `schema_version` is missing or behind.
-2. **First-run gate** — in `openSyncedIndex` (indexstore.ts:708), if `note` is empty and the vault has >N notes, return `{reason: 'Derived index not built (1,538 notes, ~6.5 s); run ori index build'}` and use scans for that request instead of blocking 6.5 s silently — or print the reason and proceed; either way the session sees why.
-3. **One key** — state tables keyed by basename (`note_key`); remove `slugify` at qvalue.ts storage boundary; state migration v2 remaps 710/750 note_q rows and moves the rest to `note_q_orphan`; `ori health` reports orphan count. Register `slugify` and `cosine_f32` UDFs in `initDB` regardless, so hand-written SQL works before and after.
-4. **co_occurrence** — `DROP INDEX idx_cooc_a`; move bootstrap rows to `cooc_bootstrap` (INDEX group, integer FKs, `CHECK (a<b)`); `VACUUM` in `ori index build --force`. Expected: ~200 MB → ~15 MB.
+1. **`src/core/schema.ts`** — single owner of all DDL + `schema_version(grp)` + ordered migration list; `initDB` (engine.ts:49) calls it once; delete the six `init*Tables` DDL blocks and the ALTER-in-try loops. Add `mnemos db schema` (prints group, version, table, rows) and make `mnemos health` fail loudly when `schema_version` is missing or behind.
+2. **First-run gate** — in `openSyncedIndex` (indexstore.ts:708), if `note` is empty and the vault has >N notes, return `{reason: 'Derived index not built (1,538 notes, ~6.5 s); run mnemos index build'}` and use scans for that request instead of blocking 6.5 s silently — or print the reason and proceed; either way the session sees why.
+3. **One key** — state tables keyed by basename (`note_key`); remove `slugify` at qvalue.ts storage boundary; state migration v2 remaps 710/750 note_q rows and moves the rest to `note_q_orphan`; `mnemos health` reports orphan count. Register `slugify` and `cosine_f32` UDFs in `initDB` regardless, so hand-written SQL works before and after.
+4. **co_occurrence** — `DROP INDEX idx_cooc_a`; move bootstrap rows to `cooc_bootstrap` (INDEX group, integer FKs, `CHECK (a<b)`); `VACUUM` in `mnemos index build --force`. Expected: ~200 MB → ~15 MB.
 5. **Indexes** — `retrieval_log(timestamp)`, `q_history(timestamp)`, `stage_log(timestamp)`, `note_project(project)`.
 6. **Populate `graph_metric` on the query path** (call `saveGraphMetrics` from `cachedGraphMetrics` on miss) so pagerank/betweenness are columns; keep `index_meta.graph_metrics` for `communityStats` only.
 7. **Record provenance** — `index_meta` rows for embedding_model/embedding_dims/community_dims; mismatch ⇒ loud rebuild warning.
@@ -269,6 +269,6 @@ Vector path (§3): JS brute force 6.08 ms; SQL UDF 13.74 ms (`SCAN embeddings | 
 ## 8. Open questions
 
 - Should `note_key` be the basename or `path` (relative, with `notes/` prefix)? `path` is the only choice that survives multi-root (#30) and is what an agent sees in results; basename is what four tables already use. Recommend `path` if #30 is in scope this quarter, else basename now with `path` as an extra column.
-- Does anything outside `src/` (scripts/ori_refresh.py, aries-cli) read `note_q.note_id` by the slugified form? If so the rekey needs those callers too — not searched here.
-- Is the 103 MB uncheckpointed WAL on the production DB a symptom of the MCP server never closing cleanly (serve.ts:180-193 says TerminateProcess is the norm)? `PRAGMA wal_checkpoint(TRUNCATE)` on `ori nap` would bound it; safety slice's call.
+- Does anything outside `src/` (scripts/mnemos_refresh.py, aries-cli) read `note_q.note_id` by the slugified form? If so the rekey needs those callers too — not searched here.
+- Is the 103 MB uncheckpointed WAL on the production DB a symptom of the MCP server never closing cleanly (serve.ts:180-193 says TerminateProcess is the norm)? `PRAGMA wal_checkpoint(TRUNCATE)` on `mnemos nap` would bound it; safety slice's call.
 - `graph_metric` vs `index_meta.graph_metrics` — the comment at indexstore.ts:812-820 argues one encoder to avoid #32-style drift. Populating both from the same `GraphMetrics` value in one transaction satisfies that and makes pagerank queryable; confirm the maintainer accepts two representations written atomically.

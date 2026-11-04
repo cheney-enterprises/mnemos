@@ -2,12 +2,12 @@
  * Navigated Recursion (v0.5.1) — session state machine for caller-steered
  * exploration. RMH Constraint 2 made real: the NAVIGATOR (frontier LLM via
  * MCP, a human at the CLI, or any technology that can ask) steers the
- * traversal. Ori exposes capabilities and computes options; it does not
+ * traversal. Mnemos exposes capabilities and computes options; it does not
  * decide. The legacy internal-LLM loop (exploreRecursive) remains as the
  * autopilot fallback.
  *
  * Session state is plain JSON — serializable across MCP calls (in-memory
- * map) and CLI invocations (file-backed), and renderable by ori view later.
+ * map) and CLI invocations (file-backed), and renderable by mnemos view later.
  */
 
 import type { ExploreConfig } from "./config.js";

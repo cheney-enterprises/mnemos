@@ -2,7 +2,7 @@
 
 ## Context
 
-Ori v0.5.1 ships LLM-backed recursive explore. The LLM does exactly one thing: read retrieved results and identify gaps (generate sub-questions). All graph navigation is deterministic code. The question: can we replace that one LLM step with math?
+Mnemos v0.5.1 ships LLM-backed recursive explore. The LLM does exactly one thing: read retrieved results and identify gaps (generate sub-questions). All graph navigation is deterministic code. The question: can we replace that one LLM step with math?
 
 Currently, without an LLM key configured, `exploreRecursive` returns Phase 1 only (single-pass PPR). This plan implements a **no-LLM gap detection and sub-query generation** layer using NMF topic decomposition + community coverage analysis, so recursive explore works for everyone out of the box — zero API keys, zero cost, zero latency.
 
@@ -36,7 +36,7 @@ interface TopicModel {
 }
 ```
 
-**Build pipeline (runs during `ori index`):**
+**Build pipeline (runs during `mnemos index`):**
 1. For each note: tokenize title + description + body into terms
 2. Build term-document matrix V (TF-IDF weighted, same tokenizer as BM25)
    - Reuse `src/core/bm25.ts` tokenizer for consistency
@@ -321,7 +321,7 @@ This gives us two independent signals of what's missing: NMF (semantic) + Louvai
 
 ## Step 7: Audit System for NMF Recursion
 
-The existing audit system (`src/core/explore-audit.ts`) logs to `.ori/explore-audit.jsonl` when `ORI_EXPLORE_AUDIT=true`. It already captures flat vs final results, recursion gains/losses, sub-queries, and per-pass breakdowns.
+The existing audit system (`src/core/explore-audit.ts`) logs to `.mnemos/explore-audit.jsonl` when `MNEMOS_EXPLORE_AUDIT=true`. It already captures flat vs final results, recursion gains/losses, sub-queries, and per-pass breakdowns.
 
 **What's missing for NMF tuning:**
 
@@ -419,7 +419,7 @@ nmfAudit.timing: {
 
 ### Audit Analysis Script
 
-Create `src/cli/audit-analyze.ts` — a CLI command `ori audit analyze` that reads the JSONL and produces:
+Create `src/cli/audit-analyze.ts` — a CLI command `mnemos audit analyze` that reads the JSONL and produces:
 
 1. **Coverage threshold histogram**: across all queries, what's the distribution of topic deficits? This tells us the right `coverage_threshold`.
 2. **Gap closure rate**: what % of detected gaps show improvement > 0.1 after the sub-query pass? This is the core quality metric.
@@ -444,7 +444,7 @@ Output format: structured text to stdout, suitable for copy-paste into a researc
 ### Existing Audit Patterns to Preserve
 
 The current audit system has good patterns we keep:
-- `ORI_EXPLORE_AUDIT` env var toggle (no audit overhead when disabled)
+- `MNEMOS_EXPLORE_AUDIT` env var toggle (no audit overhead when disabled)
 - JSONL append-only format (grep-friendly, no corruption risk)
 - `queryExploreAudit()` for programmatic querying
 - `recursionGains` / `recursionLosses` diff (directly answers "did recursion help?")
@@ -452,7 +452,7 @@ The current audit system has good patterns we keep:
 
 ### Paper Data Collection
 
-For RMH Paper 2, the audit log IS the dataset. Every `ori explore` query with `ORI_EXPLORE_AUDIT=true` produces one row of benchmark data. The analysis script aggregates across all rows to produce the tables and figures for the paper:
+For RMH Paper 2, the audit log IS the dataset. Every `mnemos explore` query with `MNEMOS_EXPLORE_AUDIT=true` produces one row of benchmark data. The analysis script aggregates across all rows to produce the tables and figures for the paper:
 
 - Table 1: Recall@15 across flat / local-recursive / Grok-recursive
 - Table 2: Gap detection accuracy (NMF vs LLM agreement rate)

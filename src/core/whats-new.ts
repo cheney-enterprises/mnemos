@@ -76,7 +76,7 @@ export async function writeLastSeen(version: string): Promise<void> {
   await fs.writeFile(file, JSON.stringify({ version, seenAt: new Date().toISOString() }), "utf8");
 }
 
-/** True if an earlier Ori ran on this machine (it leaves an update-check cache). */
+/** True if an earlier Mnemos ran on this machine (it leaves an update-check cache). */
 async function hadPriorInstall(): Promise<boolean> {
   try {
     await fs.access(getUpdateCachePath());
@@ -115,15 +115,15 @@ export async function takeWhatsNewNotice(
 
   let notes = shown.map((s) => s.body).join("\n\n");
   if (notes.length > MAX_NOTICE_CHARS) {
-    notes = `${notes.slice(0, MAX_NOTICE_CHARS)}\n\n[truncated; call ori_whats_new for the rest]`;
+    notes = `${notes.slice(0, MAX_NOTICE_CHARS)}\n\n[truncated; call mnemos_whats_new for the rest]`;
   }
   return (
-    `Ori was updated${lastSeen ? ` from v${lastSeen}` : ""} to v${current}. ` +
+    `Mnemos was updated${lastSeen ? ` from v${lastSeen}` : ""} to v${current}. ` +
     `Tell the user briefly, in your own words, what changed for them. Release notes:\n\n${notes}`
   );
 }
 
-/** Notes for one version (default: the installed one), for ori_whats_new / `ori whats-new`. */
+/** Notes for one version (default: the installed one), for mnemos_whats_new / `mnemos whats-new`. */
 export function whatsNew(version: string = VERSION, changelog: string | null = readChangelog()): string {
   const section = changelog ? parseChangelog(changelog).find((s) => s.version === version) : undefined;
   return section?.body ?? `No release notes found for v${version}.`;

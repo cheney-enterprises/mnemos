@@ -68,7 +68,7 @@ export async function runSql(
       return {
         success: false,
         data: { ...EMPTY_DATA },
-        warnings: [...warnings, `no index at ${dbPath}; run \`ori index build\` (${message})`],
+        warnings: [...warnings, `no index at ${dbPath}; run \`mnemos index build\` (${message})`],
       };
     }
   }
@@ -91,7 +91,7 @@ export async function runSql(
       data: { ...EMPTY_DATA },
       warnings: [
         ...warnings,
-        `index at ${dbPath} is zero bytes (truncated or never built); run \`ori index build\``,
+        `index at ${dbPath} is zero bytes (truncated or never built); run \`mnemos index build\``,
       ],
     };
   }
@@ -102,7 +102,7 @@ export async function runSql(
     return {
       success: false,
       data: { ...EMPTY_DATA },
-      warnings: [...warnings, `no index at ${dbPath}; run \`ori index build\``],
+      warnings: [...warnings, `no index at ${dbPath}; run \`mnemos index build\``],
     };
   }
 

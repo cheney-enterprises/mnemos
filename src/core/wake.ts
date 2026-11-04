@@ -1,5 +1,5 @@
 /**
- * ori wake — bounded session boot (docs/wake-nap-design.md).
+ * mnemos wake — bounded session boot (docs/wake-nap-design.md).
  * Pure functions: no I/O, no LLM. Budget is a hard law.
  */
 export type WakeInputs = {

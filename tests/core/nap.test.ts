@@ -9,7 +9,7 @@ import { generateNapQueue, takeNapItem, recordKeptSeparate } from "../../src/cor
 // recordKeptSeparate(dir, a, b) -> that pair never re-offered by subsequent generateNapQueue calls.
 
 let tmp: string;
-beforeEach(async () => { tmp = await fs.mkdtemp(path.join(os.tmpdir(), "ori-nap-")); });
+beforeEach(async () => { tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-nap-")); });
 afterEach(async () => { await fs.rm(tmp, { recursive: true, force: true }); });
 
 const scan = (over: Record<string, unknown> = {}) => ({

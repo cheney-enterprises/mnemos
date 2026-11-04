@@ -1,9 +1,9 @@
 #!/usr/bin/env npx tsx
 /**
- * HotpotQA Benchmark: ori_query_ranked vs ori_explore head-to-head
+ * HotpotQA Benchmark: mnemos_query_ranked vs mnemos_explore head-to-head
  *
  * Each question has 10 context paragraphs (2 gold, 8 distractors).
- * Converts paragraphs to Ori notes in a temp vault, runs both retrieval
+ * Converts paragraphs to Mnemos notes in a temp vault, runs both retrieval
  * methods, measures which finds the 2 gold paragraphs.
  *
  * Usage:
@@ -32,7 +32,7 @@ import type { SignalResults } from "../src/core/fusion.js";
 import { rankByImportance } from "../src/core/ranking.js";
 import type { ScoredNote } from "../src/core/ranking.js";
 import { applyConfigDefaults } from "../src/core/config.js";
-import type { OriConfig } from "../src/core/config.js";
+import type { MnemosConfig } from "../src/core/config.js";
 import { stringifyFrontmatter } from "../src/core/frontmatter.js";
 import { explore, exploreRecursive } from "../src/core/explore.js";
 import { createProvider, NullProvider } from "../src/core/llm.js";
@@ -87,13 +87,13 @@ function buildContextNotes(q: HotpotQuestion): ContextNote[] {
 }
 
 async function createTempVault(notes: ContextNote[]): Promise<string> {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-hotpot-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-hotpot-"));
   const notesDir = path.join(tmpDir, "notes");
-  const oriDir = path.join(tmpDir, ".ori");
+  const mnemosDir = path.join(tmpDir, ".mnemos");
   await fs.mkdir(notesDir, { recursive: true });
-  await fs.mkdir(oriDir, { recursive: true });
+  await fs.mkdir(mnemosDir, { recursive: true });
 
-  await fs.writeFile(path.join(tmpDir, "ori.config.yaml"), `vault:\n  version: "0.3"\n`, "utf-8");
+  await fs.writeFile(path.join(tmpDir, "mnemos.config.yaml"), `vault:\n  version: "0.3"\n`, "utf-8");
 
   for (const note of notes) {
     const fm: Record<string, unknown> = {
@@ -118,7 +118,7 @@ async function createTempVault(notes: ContextNote[]): Promise<string> {
 
 interface PipelineState {
   vaultRoot: string;
-  config: OriConfig;
+  config: MnemosConfig;
   linkGraph: LinkGraph;
   graphMetrics: GraphMetrics;
   bm25Index: BM25Index;
@@ -170,7 +170,7 @@ async function buildPipeline(vaultRoot: string, useEmbeddings: boolean): Promise
 }
 
 // ---------------------------------------------------------------------------
-// Flat retrieval (ori_query_ranked style)
+// Flat retrieval (mnemos_query_ranked style)
 // ---------------------------------------------------------------------------
 
 async function runFlat(pipeline: PipelineState, query: string, topK: number): Promise<string[]> {
@@ -207,7 +207,7 @@ async function runFlat(pipeline: PipelineState, query: string, topK: number): Pr
 }
 
 // ---------------------------------------------------------------------------
-// Explore retrieval (ori_explore style)
+// Explore retrieval (mnemos_explore style)
 // ---------------------------------------------------------------------------
 
 async function runExploreQuery(pipeline: PipelineState, query: string, topK: number): Promise<string[]> {

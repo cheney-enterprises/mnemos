@@ -1,13 +1,13 @@
-# Ori 0.7.0 — the correctness release
+# Mnemos 0.7.0 — the correctness release
 
-`0.6.1` was published on 2026-07-29 and is what `npm i ori-memory` has served
+`0.6.1` was published on 2026-07-29 and is what `npm i mnemos` has served
 since. The repository moved on; the release did not. Every fix below is
 behaviour reachable on the build people are running today.
 
 ## If you are on 0.6.1, these are the ones that matter
 
 **A crash mid-write could truncate a note to zero bytes.** Frontmatter was
-written in place. Markdown is the source of truth in Ori, so a partial write is
+written in place. Markdown is the source of truth in Mnemos, so a partial write is
 data loss, not a cosmetic glitch. Writes are now atomic — temp sibling, fsync,
 rename — with a bounded retry for the Windows case. In an 8-writer
 reproduction, 374 of 480 renames failed with `EPERM`; exactly one raw
@@ -28,7 +28,7 @@ frontmatter on the query path. A query now leaves note files byte-identical;
 counts accumulate in the derived index and flush explicitly.
 
 **The CLI never learned.** `useIntelligence` required an external database and a
-caller-supplied session id, which only the MCP server passed. So `ori query
+caller-supplied session id, which only the MCP server passed. So `mnemos query
 ranked` never tracked a stage, wrote `stage_log`, persisted a bandit policy,
 logged exposure, or credited a Q-value — the same query answered differently
 depending on which transport asked it. Production vault: 717 `note_q` rows, 707
@@ -40,9 +40,9 @@ Measured on a real 1,538-note vault, not a fixture:
 
 | entry point | 0.6.1 | 0.7.0 |
 |---|---|---|
-| `ori query ranked` | 3,344 ms | **350 ms** |
-| `ori query warmth` | 2,487 ms | **231 ms** |
-| `ori explore` | 3,785 ms | **474 ms** |
+| `mnemos query ranked` | 3,344 ms | **350 ms** |
+| `mnemos query warmth` | 2,487 ms | **231 ms** |
+| `mnemos explore` | 3,785 ms | **474 ms** |
 
 Every query previously re-read and re-parsed the whole vault three to four
 times. A derived index (`src/core/indexstore.ts`) now persists notes, links,
@@ -79,15 +79,15 @@ here: **57 files, 862 tests**, `tsc` clean.
 - The derived index never invalidated on an edit — freshness compared indexed
   note count to file count, which is blind to a note changed in place.
 - Warmth and explore bypassed the index entirely; one seam (`openSyncedIndex`)
-  now serves all four entry points plus `ori add`.
+  now serves all four entry points plus `mnemos add`.
 - One of six composite scoring spaces was a constant: `communityScore` returned
   0.5 for every note while `community_vec` held 96 distinct patterns.
 - `getDecayedQ` decayed the initialisation constant for exposure-created rows
   and parsed SQLite's `datetime('now')` as local time — west of UTC every fresh
   row had negative age, so decay became growth.
-- `ori index build` rebuilt embeddings only; it now rebuilds all three derived
-  stores, and MCP `ori_index_build` calls the same function.
-- `ori health` warns when learning is absent.
+- `mnemos index build` rebuilt embeddings only; it now rebuilds all three derived
+  stores, and MCP `mnemos_index_build` calls the same function.
+- `mnemos health` warns when learning is absent.
 
 Full detail in [CHANGELOG.md](../CHANGELOG.md). The audit this release came
 from is in [docs/reaudit-2026-09-15/](reaudit-2026-09-15/), split by area:
@@ -103,7 +103,7 @@ Stated plainly so nobody has to discover it:
 - **An existing production database is not migrated.** A vault that has been
   running 0.6.1 carries co-occurrence bootstrap rows from the pre-cap code
   (223,917 of 239,993 rows in the reference vault). They are not wrong, just
-  low-value bulk. `ori index build --force` drops and reparses the derived
+  low-value bulk. `mnemos index build --force` drops and reparses the derived
   index if you want it clean.
 - **`flushAccessToFrontmatter` has no caller.** Access counts live in the index
   and are correct there; the explicit flush path is not wired to a command yet.

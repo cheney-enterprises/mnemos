@@ -13,7 +13,7 @@ import { runHealth } from "../../src/cli/health.js";
 import { runInit } from "../../src/cli/init.js";
 import { createProvider, llmKeyProblem, NullProvider, type LlmConfig } from "../../src/core/llm.js";
 
-const VAR = "ORI_TEST_KEY_42_NEVER_SET";
+const VAR = "MNEMOS_TEST_KEY_42_NEVER_SET";
 
 function cfg(overrides: Partial<LlmConfig>): LlmConfig {
   return { provider: "anthropic", model: null, api_key_env: null, api_key_cmd: null, base_url: null, ...overrides };
@@ -57,10 +57,10 @@ describe("createProvider with an unresolvable key", () => {
   });
 });
 
-describe("ori health reports a configured-but-unusable LLM", () => {
+describe("mnemos health reports a configured-but-unusable LLM", () => {
   let vault: string;
   beforeEach(async () => {
-    vault = await fs.mkdtemp(path.join(os.tmpdir(), "ori-llmhealth-"));
+    vault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-llmhealth-"));
     await runInit({ targetDir: vault });
   });
   afterEach(async () => {
@@ -69,7 +69,7 @@ describe("ori health reports a configured-but-unusable LLM", () => {
   });
 
   async function setLlm(llm: Record<string, unknown>): Promise<void> {
-    const file = path.join(vault, "ori.config.yaml");
+    const file = path.join(vault, "mnemos.config.yaml");
     const doc = (YAML.parse(await fs.readFile(file, "utf8")) ?? {}) as Record<string, unknown>;
     doc.llm = llm;
     await fs.writeFile(file, YAML.stringify(doc), "utf8");

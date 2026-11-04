@@ -53,15 +53,15 @@ async function writeNote(name: string, body: string): Promise<void> {
 }
 
 beforeEach(async () => {
-  vault = await fs.mkdtemp(path.join(os.tmpdir(), "ori-gmcache-"));
+  vault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-gmcache-"));
   notesDir = path.join(vault, "notes");
   await fs.mkdir(notesDir, { recursive: true });
-  await fs.mkdir(path.join(vault, ".ori"), { recursive: true });
+  await fs.mkdir(path.join(vault, ".mnemos"), { recursive: true });
   await writeNote("hub", "links to [[spoke-a]] and [[spoke-b]] and [[spoke-c]]");
   await writeNote("spoke-a", "back to [[hub]]");
   await writeNote("spoke-b", "back to [[hub]] and across to [[spoke-a]]");
   await writeNote("spoke-c", "isolated except for [[hub]]");
-  db = new Database(path.join(vault, ".ori", "embeddings.db"));
+  db = new Database(path.join(vault, ".mnemos", "embeddings.db"));
   initIndexStore(db);
   await syncIndex(db, notesDir);
 });

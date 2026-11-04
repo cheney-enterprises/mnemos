@@ -1,19 +1,19 @@
 ---
-name: ori-memory
+name: mnemos
 description: Persistent agent memory with learning retrieval. Knowledge graph on markdown files — capture insights, decisions, research, and learnings during work, then retrieve them weeks or months later. Use when knowledge is too valuable to lose but too much to inject into every prompt.
 version: 1.0.0
-author: Ori Mnemos
+author: Mnemos
 license: Apache-2.0
 metadata:
   hermes:
     tags: [Memory, Knowledge Graph, MCP, Persistent, Identity, Session, Retrieval]
-    homepage: https://github.com/aayoawoyemi/Ori-Mnemos
+    homepage: https://github.com/aayoawoyemi/Mnemos
     related_skills: [native-mcp]
 prerequisites:
   commands: [node, npm]
 ---
 
-# Ori Mnemos
+# Mnemos
 
 Durable memory that compounds over time. A knowledge graph on markdown files with learning retrieval — capture what you find, decide, or learn during work, and retrieve it when the same problem comes up weeks or months later. The system gets better at finding things the more you use it.
 
@@ -29,21 +29,21 @@ Use this skill when:
 
 The core question: **would losing this hurt if the same situation comes up again?** If yes, capture it.
 
-### Ori vs Hermes built-in memory
+### Mnemos vs Hermes built-in memory
 
 Hermes has `MEMORY.md` and `USER.md` — a frozen snapshot injected into every system prompt. That is the right place for always-on context: user preferences, environment facts, communication style, things the agent needs on every turn.
 
-Ori is a searchable knowledge graph. It scales to thousands of notes because you retrieve on demand, not inject everything. Use Ori for durable knowledge that is too much to carry in every prompt but too valuable to lose — research findings, architectural decisions, project history, lessons learned, accumulated insights.
+Mnemos is a searchable knowledge graph. It scales to thousands of notes because you retrieve on demand, not inject everything. Use Mnemos for durable knowledge that is too much to carry in every prompt but too valuable to lose — research findings, architectural decisions, project history, lessons learned, accumulated insights.
 
-Do not use Ori for ephemeral task state: current file being edited, intermediate reasoning steps, temporary paths, things that only matter in this conversation.
+Do not use Mnemos for ephemeral task state: current file being edited, intermediate reasoning steps, temporary paths, things that only matter in this conversation.
 
 ## Prerequisites
 
-Install Ori globally:
+Install Mnemos globally:
 
 ```bash
-npm install -g ori-memory
-ori --version
+npm install -g mnemos
+mnemos --version
 ```
 
 ## Setup
@@ -51,18 +51,18 @@ ori --version
 ### One-command bridge install
 
 ```bash
-ori init ~/brain
-ori bridge hermes --vault ~/brain
+mnemos init ~/brain
+mnemos bridge hermes --vault ~/brain
 ```
 
-This writes the MCP server config to `~/.hermes/config.yaml` and installs a native lifecycle plugin at `~/.hermes/plugins/ori/`. Restart Hermes after running.
+This writes the MCP server config to `~/.hermes/config.yaml` and installs a native lifecycle plugin at `~/.hermes/plugins/mnemos/`. Restart Hermes after running.
 
 ### What the bridge installs
 
 | Component | Location | Purpose |
 |-----------|----------|---------|
-| MCP server | `~/.hermes/config.yaml` → `mcp_servers.ori` | 16 tools for memory operations |
-| Lifecycle plugin | `~/.hermes/plugins/ori/` | Auto-orient at session start, capture at session end |
+| MCP server | `~/.hermes/config.yaml` → `mcp_servers.mnemos` | 16 tools for memory operations |
+| Lifecycle plugin | `~/.hermes/plugins/mnemos/` | Auto-orient at session start, capture at session end |
 
 ### Manual setup (if you prefer)
 
@@ -70,11 +70,11 @@ Add to `~/.hermes/config.yaml`:
 
 ```yaml
 mcp_servers:
-  ori:
-    command: ori
+  mnemos:
+    command: mnemos
     args: ["serve", "--mcp", "--vault", "/path/to/brain"]
     env:
-      ORI_VAULT: "/path/to/brain"
+      MNEMOS_VAULT: "/path/to/brain"
 ```
 
 ## Core Concepts
@@ -141,7 +141,7 @@ Every wiki-link is a directed edge in the knowledge graph. PageRank flows along 
 
 ### The inbox
 
-Never write directly to `notes/`. Capture to `inbox/` first with `ori_add`, then promote with `ori_promote`. The promotion step classifies the note, detects links, and assigns it to map areas.
+Never write directly to `notes/`. Capture to `inbox/` first with `mnemos_add`, then promote with `mnemos_promote`. The promotion step classifies the note, detects links, and assigns it to map areas.
 
 ## Session Rhythm
 
@@ -149,7 +149,7 @@ Every session follows three phases.
 
 ### 1. Orient
 
-Call `ori_orient` at session start. It returns:
+Call `mnemos_orient` at session start. It returns:
 
 - today's completed and pending items
 - active goals and threads
@@ -157,7 +157,7 @@ Call `ori_orient` at session start. It returns:
 - vault health (orphans, fading notes, inbox queue)
 - embedding index freshness
 
-Use `ori_orient brief=false` for full context including identity and methodology.
+Use `mnemos_orient brief=false` for full context including identity and methodology.
 
 ### 2. Work
 
@@ -165,13 +165,13 @@ While working, use these tools:
 
 | Tool | When |
 |------|------|
-| `ori_query_ranked` | Before creating anything — check if related knowledge exists |
-| `ori_add` | Capture an insight, decision, or learning to inbox |
-| `ori_explore` | Deep question that needs multi-hop reasoning across notes |
-| `ori_query_similar` | Quick semantic search for a specific concept |
-| `ori_validate` | After writing or editing a note |
+| `mnemos_query_ranked` | Before creating anything — check if related knowledge exists |
+| `mnemos_add` | Capture an insight, decision, or learning to inbox |
+| `mnemos_explore` | Deep question that needs multi-hop reasoning across notes |
+| `mnemos_query_similar` | Quick semantic search for a specific concept |
+| `mnemos_validate` | After writing or editing a note |
 
-**Before you create a new note, always search first.** Call `ori_query_ranked` with the core concept. If a related note exists, update it or link to it rather than creating a duplicate.
+**Before you create a new note, always search first.** Call `mnemos_query_ranked` with the core concept. If a related note exists, update it or link to it rather than creating a duplicate.
 
 ### 3. Persist
 
@@ -179,9 +179,9 @@ Before the session ends:
 
 | Tool | What to update |
 |------|---------------|
-| `ori_update file=daily` | Mark today's completed items |
-| `ori_update file=goals` | Update active threads and next steps |
-| `ori_add` | Capture any insights that surfaced during work |
+| `mnemos_update file=daily` | Mark today's completed items |
+| `mnemos_update file=goals` | Update active threads and next steps |
+| `mnemos_add` | Capture any insights that surfaced during work |
 
 The lifecycle plugin handles session capture automatically if auto-activation is enabled.
 
@@ -189,68 +189,68 @@ The lifecycle plugin handles session capture automatically if auto-activation is
 
 ### Retrieval tools
 
-**`ori_query_ranked`** — Full intelligent retrieval. Fuses semantic search, BM25 keywords, PageRank authority, and associative warmth. Reranked by learned Q-values. This is the primary search tool.
+**`mnemos_query_ranked`** — Full intelligent retrieval. Fuses semantic search, BM25 keywords, PageRank authority, and associative warmth. Reranked by learned Q-values. This is the primary search tool.
 
 ```
-ori_query_ranked query="how does token incentive design affect user retention"
+mnemos_query_ranked query="how does token incentive design affect user retention"
 ```
 
-**`ori_explore`** — Recursive graph traversal for complex questions. Decomposes the query into sub-questions, retrieves against each, and synthesizes. Use for multi-hop reasoning that spans several notes.
+**`mnemos_explore`** — Recursive graph traversal for complex questions. Decomposes the query into sub-questions, retrieves against each, and synthesizes. Use for multi-hop reasoning that spans several notes.
 
 ```
-ori_explore query="what architectural decisions led to the current caching strategy"
+mnemos_explore query="what architectural decisions led to the current caching strategy"
 ```
 
-**`ori_query_similar`** — Pure semantic search. Faster than `ori_query_ranked` but misses graph structure. Use when you know the concept and want a quick lookup.
+**`mnemos_query_similar`** — Pure semantic search. Faster than `mnemos_query_ranked` but misses graph structure. Use when you know the concept and want a quick lookup.
 
 ```
-ori_query_similar query="authentication middleware"
+mnemos_query_similar query="authentication middleware"
 ```
 
-**`ori_query_important`** — Returns notes ranked by PageRank authority. The most structurally central knowledge.
+**`mnemos_query_important`** — Returns notes ranked by PageRank authority. The most structurally central knowledge.
 
-**`ori_query_fading`** — Returns notes losing vitality. These are candidates for review, update, or archiving.
+**`mnemos_query_fading`** — Returns notes losing vitality. These are candidates for review, update, or archiving.
 
 ### Capture tools
 
-**`ori_add`** — Capture an insight to inbox. Always provide a prose-as-title claim and a type.
+**`mnemos_add`** — Capture an insight to inbox. Always provide a prose-as-title claim and a type.
 Pass `description` and `project`.
 
 ```
-ori_add title="redis was chosen over memcached because we need pub/sub for real-time updates" type=decision
+mnemos_add title="redis was chosen over memcached because we need pub/sub for real-time updates" type=decision
 ```
 
 Types: `idea`, `decision`, `learning`, `insight`, `blocker`, `opportunity`
 
-**`ori_promote`** — Move a note from inbox to the knowledge graph. Classifies, detects wiki-links, suggests area assignments.
+**`mnemos_promote`** — Move a note from inbox to the knowledge graph. Classifies, detects wiki-links, suggests area assignments.
 
 ```
-ori_promote note="redis was chosen over memcached"
+mnemos_promote note="redis was chosen over memcached"
 ```
 
 ### State tools
 
-**`ori_orient`** — Session briefing. Call at session start.
+**`mnemos_orient`** — Session briefing. Call at session start.
 
-**`ori_update`** — Write to identity, goals, methodology, daily, or reminders.
+**`mnemos_update`** — Write to identity, goals, methodology, daily, or reminders.
 
 ```
-ori_update file=goals content="## Active\n- Redis migration in progress\n- Auth rewrite blocked on token design"
+mnemos_update file=goals content="## Active\n- Redis migration in progress\n- Auth rewrite blocked on token design"
 ```
 
-**`ori_status`** — Quick vault overview (note count, inbox size).
+**`mnemos_status`** — Quick vault overview (note count, inbox size).
 
-**`ori_health`** — Full diagnostics (orphans, dangling links, fading notes, schema compliance).
+**`mnemos_health`** — Full diagnostics (orphans, dangling links, fading notes, schema compliance).
 
 ### Maintenance tools
 
-**`ori_validate`** — Schema validation for a note. Run after creating or editing.
+**`mnemos_validate`** — Schema validation for a note. Run after creating or editing.
 
-**`ori_warmth`** — Inspect the associative warmth field around a concept. Shows what's "hot" in the graph.
+**`mnemos_warmth`** — Inspect the associative warmth field around a concept. Shows what's "hot" in the graph.
 
-**`ori_prune`** — Analyzes the full activation topology and suggests archive candidates. Notes with low vitality, no incoming links, and no structural importance are candidates.
+**`mnemos_prune`** — Analyzes the full activation topology and suggests archive candidates. Notes with low vitality, no incoming links, and no structural importance are candidates.
 
-**`ori_index_build`** — Rebuild the embedding index. Run when index freshness warnings appear in orient.
+**`mnemos_index_build`** — Rebuild the embedding index. Run when index freshness warnings appear in orient.
 
 ## Workflow Patterns
 
@@ -258,17 +258,17 @@ ori_update file=goals content="## Active\n- Redis migration in progress\n- Auth 
 
 When something worth remembering surfaces during work:
 
-1. Call `ori_query_ranked` with the concept to check for duplicates
-2. If no match, call `ori_add` with a prose-as-title claim and the right type
+1. Call `mnemos_query_ranked` with the concept to check for duplicates
+2. If no match, call `mnemos_add` with a prose-as-title claim and the right type
 3. Move on — promotion happens later
 
 Do not defer capture. If you do not write it down now, it will not exist next session.
 
 ### Finding knowledge from a previous session
 
-1. Call `ori_query_ranked` with a natural language description of what you need
+1. Call `mnemos_query_ranked` with a natural language description of what you need
 2. If the top results are relevant, use the information directly
-3. If results are partial, call `ori_explore` for a deeper multi-hop search
+3. If results are partial, call `mnemos_explore` for a deeper multi-hop search
 4. If nothing is found, the knowledge was never captured — create it now
 
 ### Cross-project discovery
@@ -279,9 +279,9 @@ If you work across multiple projects, notes from all of them live in the same gr
 
 When you encounter a decision or learning that is outdated:
 
-1. Call `ori_update` on the existing note to add new context
+1. Call `mnemos_update` on the existing note to add new context
 2. If the note is superseded, change its `status` to `superseded` and add `superseded_by: "[[newer note title]]"` to frontmatter
-3. Create the newer note with `ori_add`
+3. Create the newer note with `mnemos_add`
 
 Never delete notes. Archive or supersede them so link targets are preserved.
 
@@ -297,12 +297,12 @@ Before considering a note complete:
 
 ## Troubleshooting
 
-### `ori` command not found
+### `mnemos` command not found
 
 Install globally:
 
 ```bash
-npm install -g ori-memory
+npm install -g mnemos
 ```
 
 If installed but not found, check that your npm global bin directory is on PATH:
@@ -316,19 +316,19 @@ npm config get prefix
 Verify the server starts:
 
 ```bash
-ori serve --mcp --vault ~/brain
+mnemos serve --mcp --vault ~/brain
 ```
 
-If it fails, check that the vault exists and contains a `.ori` directory:
+If it fails, check that the vault exists and contains a `.mnemos` directory:
 
 ```bash
-ls ~/brain/.ori
+ls ~/brain/.mnemos
 ```
 
 If missing, initialize:
 
 ```bash
-ori init ~/brain
+mnemos init ~/brain
 ```
 
 ### Search returns no results
@@ -336,23 +336,23 @@ ori init ~/brain
 The embedding index may need building:
 
 ```bash
-ori index build --force
+mnemos index build --force
 ```
 
 Keyword search (BM25) works without an index. Semantic search requires embeddings.
 
 ### Orient shows stale data
 
-The lifecycle plugin reads vault state from disk. If you edited files outside Ori, the data is already current — Ori reads markdown directly with no cache.
+The lifecycle plugin reads vault state from disk. If you edited files outside Mnemos, the data is already current — Mnemos reads markdown directly with no cache.
 
 If the embedding index is stale (orient will warn), rebuild:
 
 ```bash
-ori index build
+mnemos index build
 ```
 
 ## Remote and Serverless Environments
 
-If Hermes runs with a remote terminal backend (Docker, SSH, Modal, Daytona), `ori` must be installed and on PATH inside that environment. The vault must be on persistent storage — not ephemeral disk. For serverless backends where the environment hibernates, mount the vault on a persistent volume so memory survives between wake cycles.
+If Hermes runs with a remote terminal backend (Docker, SSH, Modal, Daytona), `mnemos` must be installed and on PATH inside that environment. The vault must be on persistent storage — not ephemeral disk. For serverless backends where the environment hibernates, mount the vault on a persistent volume so memory survives between wake cycles.
 
 For local and Docker backends this works out of the box. The entire stack — embeddings, SQLite index, markdown files — runs offline with zero cloud dependencies.

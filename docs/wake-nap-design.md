@@ -1,22 +1,22 @@
-# Design: `ori wake` (bounded orient) + `ori nap` (agent-loop consolidation)
+# Design: `mnemos wake` (bounded orient) + `mnemos nap` (agent-loop consolidation)
 
 Status: DESIGN — approved-for-build pending Aayo review. 2026-07-31.
-Grounded in: src/cli/serve.ts ori_orient (unbounded file dumps), src/cli/prune.ts (zone machinery),
+Grounded in: src/cli/serve.ts mnemos_orient (unbounded file dumps), src/cli/prune.ts (zone machinery),
 promote/health/cooccurrence (existing maintenance ops), OptMem `_cover` mechanism (arxiv-adjacent prior art:
 VictorTaelin/OptMem), FS-memory paper 2607.26637 ("organization erodes under weak management agents" —
 hence: nap serves MECHANICAL candidates, the agent only judges, never reorganizes freely).
 
 ---
 
-## 1. `ori wake` — bounded session boot
+## 1. `mnemos wake` — bounded session boot
 
 ### Problem
-ori_orient concatenates raw files (daily.md, reminders.md, goals.md, identity/methodology when brief=false)
+mnemos_orient concatenates raw files (daily.md, reminders.md, goals.md, identity/methodology when brief=false)
 plus warmth landscape. Payload grows with vault/file size. At 5k notes or a long daily.md, session boot
 becomes context debt. No budget exists anywhere in the path.
 
 ### Contract
-`ori wake [--budget N]` (CLI) and `ori_wake` (MCP): return a session-boot payload GUARANTEED <= N lines
+`mnemos wake [--budget N]` (CLI) and `mnemos_wake` (MCP): return a session-boot payload GUARANTEED <= N lines
 (default 96, config `wake.budget_lines`), regardless of vault size. Deterministic given same state.
 
 ### Mechanism — budget ladder (not OptMem's temporal cover; a priority cover over SECTIONS)
@@ -38,18 +38,18 @@ daily_recent uses a cover over daily.md ENTRIES (dated blocks): today raw, this 
 older 1-line/week. Same alpha-style rule: keep a block whole iff its size <= alpha * age. Pure arithmetic.
 
 ### Non-goals
-- Does NOT replace ori_orient (kept for compat; orient gains a deprecation note pointing to wake).
+- Does NOT replace mnemos_orient (kept for compat; orient gains a deprecation note pointing to wake).
 - No LLM calls, no embeddings reads beyond existing boost query. p95 < 150ms target.
 
 ### Files touched (build est. S)
 - src/core/wake.ts (new: budget ladder + covers; pure functions, unit-testable)
-- src/cli/boot.ts or new src/cli/wake.ts (CLI verb), serve.ts (ori_wake tool)
+- src/cli/boot.ts or new src/cli/wake.ts (CLI verb), serve.ts (mnemos_wake tool)
 - config.ts: wake { budget_lines: 96, daily_alpha: 2 }
 - tests/core/wake.test.ts (blind-contract: output NEVER exceeds budget for adversarial vault fixtures)
 
 ---
 
-## 2. `ori nap` — consolidation as agent-loop work
+## 2. `mnemos nap` — consolidation as agent-loop work
 
 ### Problem
 Maintenance today = separate manual commands (prune --apply, promote, index build, health) that nobody runs,
@@ -58,7 +58,7 @@ shows LLM-discretion housekeeping ERODES stores. Need: continuous small maintena
 LLM reorganization.
 
 ### Contract
-`ori nap` (CLI + MCP `ori_nap`): return AT MOST ONE due maintenance item, fully prepared, for the agent to
+`mnemos nap` (CLI + MCP `mnemos_nap`): return AT MOST ONE due maintenance item, fully prepared, for the agent to
 answer or apply. Idempotent when queue empty ("nothing due"). Each item is atomic + reversible.
 
 ### The due-queue (mechanically generated, priority order)
@@ -72,7 +72,7 @@ answer or apply. Idempotent when queue empty ("nothing due"). Each item is atomi
   4. dangling_repair: one dangling wikilink with fuzzy-match suggestions -> agent picks target or removes link.
   5. summary_refresh: community whose membership changed >30% since its map note was written -> prepared
      new map skeleton. Agent fills/approves. [only item allowed LLM drafting, and only on request]
-Queue state in .ori/nap-queue.json (rebuildable from scratch — a cache, OptMem-style: derived, never precious).
+Queue state in .mnemos/nap-queue.json (rebuildable from scratch — a cache, OptMem-style: derived, never precious).
 Generation runs lazily at nap-call time if queue stale (>24h) — measured, capped at 2s; else serve from cache.
 
 ### Why agent-in-the-loop (design principle)
@@ -82,12 +82,12 @@ ordinary git-visible file edits). One item per call keeps it inside any session'
 as OptMem's one-merge-per-note.
 
 ### Prompt-block integration (the plug-and-play piece)
-Installer prints: "At session start run `ori wake`. When idle or ending a session, run `ori nap` once and
+Installer prints: "At session start run `mnemos wake`. When idle or ending a session, run `mnemos nap` once and
 do what it says." — that's the whole harness contract. Works in Claude Code/Cursor/anything with shell.
 
 ### Files touched (build est. M)
 - src/core/nap.ts (queue generation: reuse prune zone scan, promote scan, health dangling scan, engine cosine)
-- src/cli/nap.ts + serve.ts ori_nap; config: nap { merge_sim: 0.86, fade_batch: 5, queue_ttl_hours: 24 }
+- src/cli/nap.ts + serve.ts mnemos_nap; config: nap { merge_sim: 0.86, fade_batch: 5, queue_ttl_hours: 24 }
 - tests: queue determinism, no-articulation-point-fading, kept-separate never re-offered, one-item contract.
 
 ---

@@ -2,6 +2,7 @@
 import { Command } from "commander";
 import { VERSION } from "./core/version.js";
 import { checkForUpdate } from "./core/update-check.js";
+import { disposeEmbedder } from "./core/engine.js";
 import { readFileSync } from "node:fs";
 
 import { runInitInteractive } from "./cli/init.js";
@@ -48,9 +49,9 @@ function assertBridgeActivation(value: string | undefined): "auto" | "manual" | 
 }
 
 program
-  .name("ori")
+  .name("mnemos")
   .description(
-    "Ori Mnemos - markdown-native cognitive harness for persistent agent memory"
+    "Mnemos - markdown-native cognitive harness for persistent agent memory"
   )
   .version(VERSION);
 
@@ -61,7 +62,7 @@ program
   .action(async (dir: string, options: { json?: boolean }) => {
     const result = await runInitInteractive({ targetDir: dir, json: options.json });
     if (options.json || !process.stdout.isTTY) {
-      console.log(JSON.stringify({ success: true, data: result, warnings: [] }));
+      await emit({ success: true, data: result, warnings: [] });
     }
   });
 
@@ -77,19 +78,19 @@ program
   .command("status")
   .action(async () => {
     const result = await runStatus(process.cwd());
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
   .command("health")
   .action(async () => {
     const result = await runHealth(process.cwd());
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
   .command("whats-new [version]")
-  .description("Release notes for the installed Ori version, or the one given")
+  .description("Release notes for the installed Mnemos version, or the one given")
   .action(async (version?: string) => {
     const { whatsNew } = await import("./core/whats-new.js");
     console.log(whatsNew(version));
@@ -180,7 +181,7 @@ program
       default:
         throw new Error(`Unknown query kind: ${kind}`);
     }
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -188,7 +189,7 @@ program
   .argument("<note>", "path to note")
   .action(async (note: string) => {
     const result = await runValidate({ notePath: note });
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -211,7 +212,7 @@ program
       content = Buffer.concat(chunks).toString("utf8");
     }
     const result = await runAdd({ startDir: process.cwd(), title, type: options.type, content, description: options.description, project: options.project });
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -248,7 +249,7 @@ program
         links: options.links,
         project: options.project,
       });
-      console.log(JSON.stringify(result));
+      await emit(result);
     }
   );
 
@@ -260,7 +261,7 @@ program
       startDir: process.cwd(),
       dryRun: options.dryRun,
     });
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -270,7 +271,7 @@ program
   .option("--scope <scope>", "install scope: project | global")
   .option("--activation <activation>", "activation mode: auto | manual")
   .option("--vault <path>", "explicit vault path")
-  .option("--uninstall", "remove Ori bridge config for this target/scope")
+  .option("--uninstall", "remove Mnemos bridge config for this target/scope")
   .option("--json", "output JSON for install planning")
   .action(async (
     target: string,
@@ -344,7 +345,7 @@ program
         return;
       }
 
-      console.log(JSON.stringify(result));
+      await emit(result);
       return;
     }
 
@@ -417,7 +418,7 @@ program
       return;
     }
 
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -435,7 +436,7 @@ program
   .command("index")
   .argument("<action>", "build | status | export-learned | import-learned")
   .option("--force", "rebuild all embeddings")
-  .option("--file <path>", "export/import path (default ops/ori-learned.ndjson)")
+  .option("--file <path>", "export/import path (default ops/mnemos-learned.ndjson)")
   .action(async (action: string, options: { force?: boolean; file?: string }) => {
     let result;
     switch (action) {
@@ -446,7 +447,7 @@ program
         result = await runIndexStatus(process.cwd());
         break;
       // The index is only disposable if the learning has somewhere else to
-      // live. These two are what make `rm -rf .ori/` a safe instruction.
+      // live. These two are what make `rm -rf .mnemos/` a safe instruction.
       case "export-learned":
         result = await runIndexExportLearned(process.cwd(), options.file);
         break;
@@ -456,7 +457,7 @@ program
       default:
         throw new Error(`Unknown index action: ${action}`);
     }
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -474,7 +475,7 @@ program
       default:
         throw new Error(`Unknown graph action: ${action}`);
     }
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -487,7 +488,7 @@ program
       dryRun: !options.apply,
       verbose: options.verbose,
     });
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 program
@@ -508,7 +509,7 @@ program
         excludeArchived: options.includeArchived ? false : true,
       },
     );
-    console.log(JSON.stringify(result));
+    await emit(result);
   });
 
 
@@ -524,8 +525,8 @@ program
       query,
       options.budget ? parseInt(options.budget, 10) : undefined,
     );
-    if (options.json) { console.log(JSON.stringify(result)); return; }
-    printNavigated(result);
+    if (options.json) { await emit(result); return; }
+    await printNavigated(result);
   });
 
 program
@@ -540,7 +541,7 @@ program
   .action(async (id: string, options: { ask?: string; branch?: string; neighbors?: string; extend?: string; json?: boolean }) => {
     if (options.extend) {
       const ext = await runExploreExtendCli(process.cwd(), id, parseInt(options.extend, 10));
-      if (!ext.success) { console.log(JSON.stringify(ext)); return; }
+      if (!ext.success) { await emit(ext); return; }
       console.log(`budget extended: ${(ext.data as { budget_remaining: number }).budget_remaining} remaining`);
       if (!options.ask && !options.branch && !options.neighbors) return;
     }
@@ -549,12 +550,12 @@ program
     else if (options.branch) direction = { branch: options.branch };
     else if (options.neighbors) direction = { neighbors: options.neighbors };
     else {
-      console.log(JSON.stringify({ success: false, warnings: ["provide exactly one of --ask, --branch, --neighbors (or --extend alone)"] }));
+      await emit({ success: false, warnings: ["provide exactly one of --ask, --branch, --neighbors (or --extend alone)"] });
       return;
     }
     const result = await runExploreExpandCli(process.cwd(), id, direction);
-    if (options.json) { console.log(JSON.stringify(result)); return; }
-    printNavigated(result);
+    if (options.json) { await emit(result); return; }
+    await printNavigated(result);
   });
 
 program
@@ -569,13 +570,13 @@ program
       answered: options.answered ?? false,
       usedNotes: options.used ? options.used.split(",").map((s) => s.trim()) : [],
     });
-    console.log(JSON.stringify(result, null, options.json ? 0 : 2));
+    await emit(result, 0, options.json ? 0 : 2);
   });
 
 /** Render a navigated session: tree, then numbered frontier. */
-function printNavigated(result: { success: boolean; data: Record<string, unknown>; warnings: string[] }): void {
+async function printNavigated(result: { success: boolean; data: Record<string, unknown>; warnings: string[] }): Promise<void> {
   if (!result.success) {
-    console.log(JSON.stringify(result));
+    await emit(result);
     return;
   }
   const d = result.data as {
@@ -587,7 +588,7 @@ function printNavigated(result: { success: boolean; data: Record<string, unknown
   };
   const exhausted = (d as unknown as { budget_exhausted?: boolean }).budget_exhausted;
   if (exhausted) {
-    console.log(`budget exhausted — nothing expanded. Conclude, or grant more: ori explore-expand ${d.exploration_id} --extend 3 ...`);
+    console.log(`budget exhausted — nothing expanded. Conclude, or grant more: mnemos explore-expand ${d.exploration_id} --extend 3 ...`);
   }
   console.log(`exploration: ${d.exploration_id}   budget left: ${d.budget_remaining}`);
   console.log("");
@@ -612,13 +613,13 @@ function printNavigated(result: { success: boolean; data: Record<string, unknown
       : `--neighbors "${f.direction.neighbors}"`;
     console.log(`   ${f.option}. ${dir}   # ${f.reason}`);
   }
-  console.log(`\nnext: ori explore-expand ${d.exploration_id} <direction>   |   ori explore-conclude ${d.exploration_id} --answered --used "titles"`);
+  console.log(`\nnext: mnemos explore-expand ${d.exploration_id} <direction>   |   mnemos explore-conclude ${d.exploration_id} --answered --used "titles"`);
 }
 
 async function maybeNotifyUpdate(): Promise<void> {
   // Best-effort CLI update notice (issue #34): stderr only, suppressed for
   // scripts (no TTY), CI, opt-out env, and the long-running serve command.
-  if (process.env.ORI_NO_UPDATE_CHECK || process.env.CI) return;
+  if (process.env.MNEMOS_NO_UPDATE_CHECK || process.env.CI) return;
   if (process.argv.includes("serve")) return;
   if (!process.stderr.isTTY) return;
   try {
@@ -631,6 +632,22 @@ async function maybeNotifyUpdate(): Promise<void> {
   }
 }
 
+// Every command handler ends by printing one JSON document. add/promote touch
+// SQLite and the embedding model, whose onnxruntime worker pool both (a) can
+// park the event loop forever after printing and (b) aborts with a libc++abi
+// mutex error if the process is force-exited while the session lives. So
+// emit() disposes the embedder first (natural exit is then clean — verified),
+// runs the TTY-gated update notice, flushes the JSON, and returns; the
+// unref'd backstop only fires if something ELSE parks the loop, trading the
+// old infinite hang for a bounded exit.
+async function emit(result: unknown, code = 0, space?: number): Promise<void> {
+  await disposeEmbedder();
+  await maybeNotifyUpdate();
+  process.stdout.write(JSON.stringify(result, null, space) + "\n", () => {
+    setTimeout(() => process.exit(code), 4000).unref();
+  });
+}
+
 // A statement may legitimately begin with a `--` line comment. The spec allows
 // it; commander parses it as an unknown option, so the CLI printed a commander
 // error to stderr and no JSON at all -- breaking the output contract for a
@@ -639,7 +656,7 @@ async function maybeNotifyUpdate(): Promise<void> {
 // Commander treats a bare `--` as end-of-options, but everything after one is
 // positional. The first version of this guard inserted the separator before
 // the first non-option argument, which silently killed every option written
-// *after* the statement -- `ori sql "<q>" --limit 1` returned all rows with
+// *after* the statement -- `mnemos sql "<q>" --limit 1` returned all rows with
 // warnings:[] -- and the spec's own synopsis puts them there. So the
 // separator goes in only immediately before an argument that actually looks
 // like an option and is not one of ours; a plain statement is left alone.

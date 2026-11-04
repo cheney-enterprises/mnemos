@@ -37,7 +37,7 @@ async function note(name: string, frontmatter: string, body = ""): Promise<void>
 }
 
 beforeEach(async () => {
-  root = await fs.mkdtemp(path.join(os.tmpdir(), "ori-idx-"));
+  root = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-idx-"));
   notesDir = path.join(root, "notes");
   await fs.mkdir(notesDir, { recursive: true });
   db = new Database(path.join(root, "index.db"));
@@ -298,7 +298,7 @@ describe("openSyncedIndex refuses an index that does not cover the vault", () =>
     const short = await openSyncedIndex(db, notesDir, 999);
     expect(short.index, "must not hand back an index it cannot vouch for").toBeUndefined();
     expect(short.reason).toBeTruthy();
-    expect(short.reason).toContain("ori index build --force");
+    expect(short.reason).toContain("mnemos index build --force");
   });
 
   it("returns the index when coverage is complete", async () => {

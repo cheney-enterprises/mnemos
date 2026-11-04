@@ -10,7 +10,7 @@ import { loadWakeSources, assembleWakeInputs } from "../../src/core/wake-sources
 
 let tmp: string;
 beforeEach(async () => {
-  tmp = await fs.mkdtemp(path.join(os.tmpdir(), "ori-wake-mf-"));
+  tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-wake-mf-"));
   await fs.mkdir(path.join(tmp, "self"), { recursive: true });
   await fs.mkdir(path.join(tmp, "ops"), { recursive: true });
   await fs.writeFile(path.join(tmp, "self", "identity.md"), "# id\nName: TestBot. Tester.\n");

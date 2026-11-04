@@ -13,7 +13,7 @@ import Database from "better-sqlite3";
 import { readdirSync, readFileSync } from "node:fs";
 
 const VAULT = "C:/Users/aayoa/brain/notes";
-const DB = "C:/Users/aayoa/brain/.ori/embeddings.db";
+const DB = "C:/Users/aayoa/brain/.mnemos/embeddings.db";
 
 const isMap = (slug) => /(^|[\s-])map$/.test(slug) || slug.endsWith("-map") || slug.endsWith(" map");
 

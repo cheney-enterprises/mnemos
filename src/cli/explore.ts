@@ -1,5 +1,5 @@
 /**
- * CLI orchestrator for ori_explore — deep graph traversal via PPR.
+ * CLI orchestrator for mnemos_explore — deep graph traversal via PPR.
  * Follows the same vault setup pattern as runQueryRanked in search.ts.
  */
 
@@ -176,7 +176,7 @@ export async function runExplore(
   // 6. Classify intent
   const classified = classifyIntent(query, allTitles);
 
-  // 7. Full flat pipeline (same as ori_query_ranked) — explore is a SUPERSET
+  // 7. Full flat pipeline (same as mnemos_query_ranked) — explore is a SUPERSET
   const resultLimit = exploreConfig.default_limit;
   const candidateLimit = resultLimit * config.retrieval.candidate_multiplier;
 
@@ -580,7 +580,7 @@ const sessions = new Map<string, { state: ExploreSessionState; deps: ExploreSess
 /* ------------------------------------------------------------------ */
 
 function sessionFilePath(vaultRoot: string, id: string): string {
-  return path.join(vaultRoot, ".ori", "explore-sessions", `${id}.json`);
+  return path.join(vaultRoot, ".mnemos", "explore-sessions", `${id}.json`);
 }
 
 async function saveSessionState(vaultRoot: string, state: ExploreSessionState): Promise<void> {
@@ -604,7 +604,7 @@ async function deleteSessionState(vaultRoot: string, id: string): Promise<void> 
 
 /**
  * CLI: start a navigated exploration, persist the session to
- * .ori/explore-sessions/, print tree + numbered frontier.
+ * .mnemos/explore-sessions/, print tree + numbered frontier.
  */
 export async function runExploreStartCli(
   startDir: string,
@@ -636,7 +636,7 @@ export async function runExploreExpandCli(
   const vaultRoot = await findVaultRoot(startDir);
   const state = await loadSessionState(vaultRoot, explorationId);
   if (!state) {
-    return { success: false, data: {}, warnings: [`unknown exploration_id: ${explorationId} — no session file in .ori/explore-sessions/`] };
+    return { success: false, data: {}, warnings: [`unknown exploration_id: ${explorationId} — no session file in .mnemos/explore-sessions/`] };
   }
   const { deps, warnings, closeDb } = await buildSessionDeps(startDir);
   try {

@@ -72,7 +72,7 @@ export async function resolveBridgePlan(request: BridgeRequest): Promise<BridgeP
       "No project vault was found from the current directory. The generated config will rely on runtime discovery unless you pass --vault.",
     );
     instructions.push(
-      "Create a project vault with `ori init` or pass `--vault <path>` so project scope resolves predictably.",
+      "Create a project vault with `mnemos init` or pass `--vault <path>` so project scope resolves predictably.",
     );
   }
 
@@ -102,12 +102,12 @@ export async function resolveBridgePlan(request: BridgeRequest): Promise<BridgeP
       `${request.target === "codex" ? "Codex" : "Generic installs"} cannot auto-orient by themselves. Treat activation=auto as a request for client-side startup wiring.`,
     );
     instructions.push(
-      "If your client supports startup hooks or startup prompts, call `ori_orient` automatically at session start. Otherwise use manual activation.",
+      "If your client supports startup hooks or startup prompts, call `mnemos_orient` automatically at session start. Otherwise use manual activation.",
     );
   }
 
   if (!request.uninstall && activation === "manual") {
-    instructions.push("Manual activation disables auto-orient. Call `ori_orient` explicitly when you want session context loaded.");
+    instructions.push("Manual activation disables auto-orient. Call `mnemos_orient` explicitly when you want session context loaded.");
   }
 
   instructions.push("Project installs override global installs when both exist for the same client.");
@@ -130,11 +130,11 @@ export function buildServerConfig(vaultPath: string | null): BridgeServerConfig 
 
   if (vaultPath) {
     args.push("--vault", vaultPath);
-    env.ORI_VAULT = vaultPath;
+    env.MNEMOS_VAULT = vaultPath;
   }
 
   return {
-    command: "ori",
+    command: "mnemos",
     args,
     env,
   };
@@ -184,7 +184,7 @@ export function getClaudeGlobalPaths() {
   return {
     homeDir,
     claudeDir,
-    hooksDir: path.join(claudeDir, "hooks", "ori"),
+    hooksDir: path.join(claudeDir, "hooks", "mnemos"),
     settingsPath: path.join(claudeDir, "settings.json"),
     mcpPath: path.join(homeDir, ".claude.json"),
     instructionsPath: path.join(claudeDir, "CLAUDE.md"),
@@ -228,7 +228,7 @@ export function getHermesGlobalPaths() {
     homeDir,
     hermesDir,
     configPath: path.join(hermesDir, "config.yaml"),
-    pluginDir: path.join(hermesDir, "plugins", "ori"),
+    pluginDir: path.join(hermesDir, "plugins", "mnemos"),
   };
 }
 

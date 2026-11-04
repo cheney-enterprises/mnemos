@@ -20,7 +20,7 @@ interface Input {
 // Spawned by fork() with the job in an env var, so the parent can SIGKILL a
 // runaway query without taking itself down. A worker thread could not be
 // stopped once inside a synchronous SQLite call.
-const input = JSON.parse(process.env.ORI_SQL_JOB ?? "{}") as Input;
+const input = JSON.parse(process.env.MNEMOS_SQL_JOB ?? "{}") as Input;
 const send = (m: unknown): void => { process.send?.(m); };
 
 /**

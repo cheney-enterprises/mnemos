@@ -1,5 +1,5 @@
 /**
- * Ori Mnemos — Navigated Recursion Session Tests (v0.5.1)
+ * Mnemos — Navigated Recursion Session Tests (v0.5.1)
  *
  * Session lifecycle for caller-steered exploration: start, expand by all
  * three direction types, frontier computation, budget enforcement,
@@ -104,7 +104,7 @@ function makeDeps(overrides?: Partial<ExploreSessionDeps>): ExploreSessionDeps {
 }
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-nav-explore-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-nav-explore-"));
   for (const t of TITLES) await writeNote(t, `Body of ${t} with [[alpha]] link.`);
 });
 

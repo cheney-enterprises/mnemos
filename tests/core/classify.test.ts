@@ -189,7 +189,7 @@ describe("detectProjects", () => {
     keywords: {
       courtshare: ["courtshare", "basketball", "player eval"],
       crypto: ["token", "blockchain", "wallet"],
-      "ai-agents": ["agent", "memory", "ori", "vault"],
+      "ai-agents": ["agent", "memory", "mnemos", "vault"],
     },
   };
 

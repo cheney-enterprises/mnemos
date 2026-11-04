@@ -8,7 +8,7 @@
 
 import Database from "better-sqlite3";
 
-const DB = process.argv[2] ?? "C:/Users/aayoa/brain/.ori/embeddings.db";
+const DB = process.argv[2] ?? "C:/Users/aayoa/brain/.mnemos/embeddings.db";
 const db = new Database(DB, { readonly: true });
 
 // Mirrors src/core/rerank.ts.

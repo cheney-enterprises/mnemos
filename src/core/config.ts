@@ -135,7 +135,7 @@ export type ExploreConfig = {
   ppr_iteration_decay: number;  // multiply PPR iterations per recursion depth
 };
 
-export type OriConfig = {
+export type MnemosConfig = {
   vault: {
     version: string;
   };
@@ -173,7 +173,7 @@ const DEFAULT_ENGINE_CONFIG: EngineConfig = {
   embedding_dims: 384,
   piecewise_bins: 8,
   community_dims: 16,
-  db_path: ".ori/embeddings.db",
+  db_path: ".mnemos/embeddings.db",
 };
 
 const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
@@ -262,7 +262,7 @@ const DEFAULT_EXPLORE_CONFIG: ExploreConfig = {
   ppr_iteration_decay: 0.67,
 };
 
-const DEFAULT_CONFIG: OriConfig = {
+const DEFAULT_CONFIG: MnemosConfig = {
   vault: { version: "0.1" },
   templates: {
     default: "templates/note.md",
@@ -285,7 +285,7 @@ const DEFAULT_CONFIG: OriConfig = {
   explore: { ...DEFAULT_EXPLORE_CONFIG },
 };
 
-export function applyConfigDefaults(raw: Partial<OriConfig>): OriConfig {
+export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
   const rawPromote = (raw as Record<string, unknown>).promote as
     | Partial<PromoteConfig>
     | undefined;
@@ -370,9 +370,9 @@ export function applyConfigDefaults(raw: Partial<OriConfig>): OriConfig {
     retrieval: {
       default_limit: rawRetrieval?.default_limit ?? DEFAULT_RETRIEVAL_CONFIG.default_limit,
       candidate_multiplier: rawRetrieval?.candidate_multiplier ?? DEFAULT_RETRIEVAL_CONFIG.candidate_multiplier,
-      // ORI_RRF_K: eval-only override so bench/eval-rrf.mjs can sweep k without
-      // rewriting the live ori.config.yaml (2026-09-06). Unset in normal use.
-      rrf_k: Number(process.env.ORI_RRF_K) > 0 ? Number(process.env.ORI_RRF_K) : (rawRetrieval?.rrf_k ?? DEFAULT_RETRIEVAL_CONFIG.rrf_k),
+      // MNEMOS_RRF_K: eval-only override so bench/eval-rrf.mjs can sweep k without
+      // rewriting the live mnemos.config.yaml (2026-09-06). Unset in normal use.
+      rrf_k: Number(process.env.MNEMOS_RRF_K) > 0 ? Number(process.env.MNEMOS_RRF_K) : (rawRetrieval?.rrf_k ?? DEFAULT_RETRIEVAL_CONFIG.rrf_k),
       signal_weights: {
         composite: rawRetrieval?.signal_weights?.composite ?? DEFAULT_RETRIEVAL_CONFIG.signal_weights.composite,
         keyword: rawRetrieval?.signal_weights?.keyword ?? DEFAULT_RETRIEVAL_CONFIG.signal_weights.keyword,
@@ -440,7 +440,7 @@ export function applyConfigDefaults(raw: Partial<OriConfig>): OriConfig {
   };
 }
 
-export function validateConfig(config: OriConfig): string[] {
+export function validateConfig(config: MnemosConfig): string[] {
   const errors: string[] = [];
   if (!config.vault.version) {
     errors.push("vault.version is required");
@@ -454,7 +454,7 @@ export function validateConfig(config: OriConfig): string[] {
   return errors;
 }
 
-export async function loadConfig(filePath: string): Promise<OriConfig> {
+export async function loadConfig(filePath: string): Promise<MnemosConfig> {
   let content: string;
   try {
     content = await fs.readFile(filePath, "utf8");
@@ -464,7 +464,7 @@ export async function loadConfig(filePath: string): Promise<OriConfig> {
     }
     throw err;
   }
-  const raw = yaml.parse(content) as Partial<OriConfig> | undefined;
+  const raw = yaml.parse(content) as Partial<MnemosConfig> | undefined;
   const config = applyConfigDefaults(raw ?? {});
   const errors = validateConfig(config);
   if (errors.length > 0) {
@@ -474,7 +474,7 @@ export async function loadConfig(filePath: string): Promise<OriConfig> {
 }
 
 export function resolveTemplatePath(
-  config: OriConfig,
+  config: MnemosConfig,
   vaultRoot: string,
   type: string | null
 ): string {

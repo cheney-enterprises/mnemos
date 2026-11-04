@@ -30,15 +30,15 @@ Seven-one.
 
 let dir: string;
 beforeEach(async () => {
-  dir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-whatsnew-"));
-  process.env.ORI_UPDATE_CACHE_DIR = dir;
+  dir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-whatsnew-"));
+  process.env.MNEMOS_UPDATE_CACHE_DIR = dir;
 });
 afterEach(async () => {
-  delete process.env.ORI_UPDATE_CACHE_DIR;
+  delete process.env.MNEMOS_UPDATE_CACHE_DIR;
   await fs.rm(dir, { recursive: true, force: true });
 });
 
-/** What any earlier Ori leaves behind: the update-check cache. */
+/** What any earlier Mnemos leaves behind: the update-check cache. */
 async function priorInstall(): Promise<void> {
   const cache = getUpdateCachePath();
   await fs.mkdir(path.dirname(cache), { recursive: true });
@@ -101,7 +101,7 @@ describe("what's new notice", () => {
     const long = `## [0.8.0] - x\n\n${"word ".repeat(2000)}`;
     const n = (await takeWhatsNewNotice("0.8.0", long))!;
     expect(n.length).toBeLessThan(4400);
-    expect(n).toContain("call ori_whats_new");
+    expect(n).toContain("call mnemos_whats_new");
   });
 });
 

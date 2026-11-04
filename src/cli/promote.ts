@@ -127,7 +127,7 @@ function mergeEnhancementOverrides(
 } {
   // Priority: explicit caller override > what the note already says > LLM (#39).
   // The LLM fills gaps; it never replaces a description or project someone
-  // wrote (e.g. `ori_add` with description, promoted later).
+  // wrote (e.g. `mnemos_add` with description, promoted later).
   const hasDescription =
     typeof existing.description === "string" && existing.description.trim().length > 0;
   const hasProject = Array.isArray(existing.project) && existing.project.length > 0;

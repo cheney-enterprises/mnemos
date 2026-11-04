@@ -53,7 +53,7 @@ describe("#41 note_q only for real notes", () => {
   let db: InstanceType<typeof Database>;
 
   beforeEach(async () => {
-    root = await fs.mkdtemp(path.join(os.tmpdir(), "ori-41-"));
+    root = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-41-"));
     notesDir = path.join(root, "notes");
     await fs.mkdir(notesDir);
     db = new Database(":memory:");

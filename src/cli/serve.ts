@@ -96,16 +96,16 @@ async function buildInstructions(paths: VaultPaths, autoCreated = false): Promis
 
   const prefix = autoCreated
     ? `No vault found — created a global vault at ${getGlobalVaultPath()}.\n` +
-      "This is your default memory space. Run 'ori init' in any project folder " +
+      "This is your default memory space. Run 'mnemos init' in any project folder " +
       "to create a project-specific vault instead.\n\n"
     : "";
 
   if (isFirstRun(identity)) {
     return (
       prefix +
-      "You have persistent memory managed by Ori Mnemos — the Git of AI memory. Memory is sovereignty.\n\n" +
+      "You have persistent memory managed by Mnemos — the Git of AI memory. Memory is sovereignty.\n\n" +
       "This is a NEW vault. Run the onboarding flow:\n\n" +
-      "1. AGENT NAME: Ask what they want to name their agent. Default is 'Ori'. " +
+      "1. AGENT NAME: Ask what they want to name their agent. Default is 'Mnemos'. " +
       "This becomes your identity — you ARE this agent.\n\n" +
       "2. PURPOSE: Ask what this agent is for. Offer these options:\n" +
       "   - General-purpose AI agent (grows with you across all domains — life, work, projects, learning)\n" +
@@ -119,7 +119,7 @@ async function buildInstructions(paths: VaultPaths, autoCreated = false): Promis
       "The more you share, the more useful I become from day one.'\n\n" +
       "4. COMMUNICATION STYLE: Ask how they want their agent to communicate — " +
       "direct and opinionated? Formal? Casual? Supportive? Let them describe it.\n\n" +
-      "After collecting answers, use ori_update to write:\n" +
+      "After collecting answers, use mnemos_update to write:\n" +
       "- file=identity (name, personality, communication style, values)\n" +
       "- file=goals (projects and threads from their brain dump)\n" +
       "- file=methodology (session rhythm based on their purpose)\n\n" +
@@ -130,8 +130,8 @@ async function buildInstructions(paths: VaultPaths, autoCreated = false): Promis
   const summary = stripFrontmatter(identity).slice(0, 1000);
   return (
     prefix +
-    "You have persistent memory managed by Ori Mnemos. " +
-    "Call ori_orient at session start to load your daily status and active goals. " +
+    "You have persistent memory managed by Mnemos. " +
+    "Call mnemos_orient at session start to load your daily status and active goals. " +
     "Never start cold — always orient first.\n\n" +
     `Identity:\n${summary}`
   );
@@ -179,7 +179,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   let sessionQueryFeatures: number[] | null = null;
 
   // Open persistent DB for intelligence layers
-  const intelligenceDbPath = path.resolve(vaultDir, ".ori", "embeddings.db");
+  const intelligenceDbPath = path.resolve(vaultDir, ".mnemos", "embeddings.db");
   let intelligenceDb: Database.Database | null = null;
   try {
     await fs.access(intelligenceDbPath);
@@ -188,7 +188,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     initCoOccurrenceTables(intelligenceDb);
     initStageTables(intelligenceDb);
   } catch {
-    // DB doesn't exist yet — intelligence layers will activate after first ori_index_build
+    // DB doesn't exist yet — intelligence layers will activate after first mnemos_index_build
   }
 
   // ─── Crash-safe reward checkpointing ───
@@ -278,7 +278,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       }
       if (recovered > 0) {
         process.stderr.write(
-          `[ori] recovered ${recovered} note reward(s) from ${rows.length} killed session(s)\n`,
+          `[mnemos] recovered ${recovered} note reward(s) from ${rows.length} killed session(s)\n`,
         );
       }
     } catch {
@@ -354,7 +354,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
             .map(([k, v]) => `${k}=${v}`)
             .join(" ");
           if (summary) {
-            process.stderr.write(`[ori] session learning: ${summary}\n`);
+            process.stderr.write(`[mnemos] session learning: ${summary}\n`);
           }
         }
 
@@ -416,11 +416,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
   // A crash is still a session that happened and still earned its rewards.
   process.on("uncaughtException", (err) => {
-    process.stderr.write(`[ori] uncaught: ${err?.stack ?? err}\n`);
+    process.stderr.write(`[mnemos] uncaught: ${err?.stack ?? err}\n`);
     flushAndExit(1);
   });
   process.on("unhandledRejection", (err) => {
-    process.stderr.write(`[ori] unhandled rejection: ${String(err)}\n`);
+    process.stderr.write(`[mnemos] unhandled rejection: ${String(err)}\n`);
     flushAndExit(1);
   });
 
@@ -430,13 +430,13 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // change with its own correctness argument, deliberately not made here.
 
   const server = new McpServer(
-    { name: "ori-memory", version: VERSION },
+    { name: "mnemos", version: VERSION },
     { instructions },
   );
 
   // ─── Resources: identity layer (5 resources) ───
 
-  server.resource("identity", "ori://identity", async (uri) => ({
+  server.resource("identity", "mnemos://identity", async (uri) => ({
     contents: [{
       uri: uri.href,
       mimeType: "text/markdown",
@@ -444,7 +444,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
-  server.resource("goals", "ori://goals", async (uri) => ({
+  server.resource("goals", "mnemos://goals", async (uri) => ({
     contents: [{
       uri: uri.href,
       mimeType: "text/markdown",
@@ -452,7 +452,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
-  server.resource("methodology", "ori://methodology", async (uri) => ({
+  server.resource("methodology", "mnemos://methodology", async (uri) => ({
     contents: [{
       uri: uri.href,
       mimeType: "text/markdown",
@@ -460,7 +460,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
-  server.resource("daily", "ori://daily", async (uri) => ({
+  server.resource("daily", "mnemos://daily", async (uri) => ({
     contents: [{
       uri: uri.href,
       mimeType: "text/markdown",
@@ -468,7 +468,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
-  server.resource("reminders", "ori://reminders", async (uri) => ({
+  server.resource("reminders", "mnemos://reminders", async (uri) => ({
     contents: [{
       uri: uri.href,
       mimeType: "text/markdown",
@@ -512,7 +512,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
 
   server.tool(
-    "ori_wake",
+    "mnemos_wake",
     "Session boot: constant-size briefing, budget-capped. Call this first in a session. " +
       "On a vault with no identity written yet it also returns an onboarding script.",
     { budget: z.number().optional().describe("Max lines (default 96)") },
@@ -521,8 +521,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       attachLearningResetNotice(payload);
       await attachWhatsNew(payload);
 
-      // First-run detection and onboarding used to live in ori_orient, whose
-      // own description said "prefer ori_wake for session start". Removing
+      // First-run detection and onboarding used to live in mnemos_orient, whose
+      // own description said "prefer mnemos_wake for session start". Removing
       // orient as superseded would have silently dropped the only path that
       // bootstraps a brand-new vault, because wake never carried this. Moving
       // it here is what makes that supersession true rather than asserted.
@@ -531,22 +531,22 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       if (payload.firstRun === true) {
         payload.onboarding = {
           steps: [
-            "Ask the user to NAME their agent (default: Ori)",
+            "Ask the user to NAME their agent (default: Mnemos)",
             "Ask the PURPOSE — offer: general-purpose AI agent, personal knowledge, research, work/professional, learning journal, or custom",
             "BRAIN DUMP — ask them to share everything about themselves, projects, goals. More context = better agent from day one",
             "COMMUNICATION STYLE — how should the agent talk? Direct? Formal? Casual? Opinionated?",
           ],
-          save_with: "Use ori_update to write identity, goals, and methodology based on their answers",
+          save_with: "Use mnemos_update to write identity, goals, and methodology based on their answers",
         };
       }
       return textResult(payload);
     }
   );
 
-  // ori_update_decision — record the user's answer to the update question (#34 follow-on)
+  // mnemos_update_decision — record the user's answer to the update question (#34 follow-on)
   server.tool(
-    "ori_update_decision",
-    "Record the user's answer to an Ori update notice. Call ONLY after the user explicitly answers. " +
+    "mnemos_update_decision",
+    "Record the user's answer to an Mnemos update notice. Call ONLY after the user explicitly answers. " +
       "decision=accepted after a successful update; decision=declined if they want to stay. " +
       "If the user defers, do not call this — the reminder resurfaces next session.",
     {
@@ -560,17 +560,17 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   );
 
   server.tool(
-    "ori_whats_new",
-    "Release notes for an Ori version (default: the installed one). Use when the user asks what changed, " +
+    "mnemos_whats_new",
+    "Release notes for an Mnemos version (default: the installed one). Use when the user asks what changed, " +
       "or to read notes cut short in a whats_new notice.",
     { version: z.string().optional().describe("e.g. 0.8.0; omit for the installed version") },
     async ({ version }) => textResult({ version: version ?? VERSION, notes: whatsNew(version) }),
   );
 
-  // ori_learning_reset — record the user's answer to the #37 reset question
+  // mnemos_learning_reset — record the user's answer to the #37 reset question
   server.tool(
-    "ori_learning_reset",
-    "Record the user's answer to Ori's learning-reset question (learning_reset_notice). Call ONLY after the " +
+    "mnemos_learning_reset",
+    "Record the user's answer to Mnemos's learning-reset question (learning_reset_notice). Call ONLY after the " +
       "user explicitly answers. decision=accepted clears learned ranking scores (notes are untouched; the " +
       "database is backed up first). decision=declined keeps them and permanently stops the question. If " +
       "the user says 'not now', do not call this; the question is raised at most 3 times in total.",
@@ -586,9 +586,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_update — write to self/ or ops/ files with auto-backup
+  // mnemos_update — write to self/ or ops/ files with auto-backup
   server.tool(
-    "ori_update",
+    "mnemos_update",
     "Update agent files: identity, goals, methodology (self/), or daily, reminders (ops/). " +
       "Auto-backs up previous version before writing.",
     {
@@ -627,9 +627,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   );
 
 
-  // ori_add
+  // mnemos_add
   server.tool(
-    "ori_add",
+    "mnemos_add",
     "Create a note in inbox. Always pass description and project: you know them now, and a note " +
       "without them fails the vault schema.",
     {
@@ -663,9 +663,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_validate
+  // mnemos_validate
   server.tool(
-    "ori_validate",
+    "mnemos_validate",
     "Validate a note against schema",
     {
       path: z.string().describe("Path to note file"),
@@ -676,15 +676,15 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_health
-  server.tool("ori_health", "Full diagnostic", {}, async () => {
+  // mnemos_health
+  server.tool("mnemos_health", "Full diagnostic", {}, async () => {
     const result = await runHealth(vaultDir, await graphCache.get(paths.notes));
     return textResult(result);
   });
 
-  // ori_promote
+  // mnemos_promote
   server.tool(
-    "ori_promote",
+    "mnemos_promote",
     "Promote an inbox note to notes/ with classification, linking, and area assignment. " +
       "YOU are the intelligence layer — read the note, decide its type, write a description, " +
       "identify links to existing notes, and pass your decisions as overrides. " +
@@ -740,7 +740,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
           return textResult({ success: true, data: describeSchema(intelligenceDbPath), warnings: [] });
         } catch {
           // A missing index is a state the agent can fix, not a crash.
-          return errorResult("no index at " + intelligenceDbPath + "; run ori_index_build");
+          return errorResult("no index at " + intelligenceDbPath + "; run mnemos_index_build");
         }
       }
       if (sql === undefined || sql.trim() === "") {
@@ -759,9 +759,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_query_ranked
+  // mnemos_query_ranked
   server.tool(
-    "ori_query_ranked",
+    "mnemos_query_ranked",
     "Full ranked retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning. " +
       "4 base signals (composite + keyword + graph + warmth) fused via RRF, then Phase B Q-value reranking. " +
       "Excludes archived notes by default. Triggers spreading activation.",
@@ -848,13 +848,13 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_explore
+  // mnemos_explore
   server.tool(
-    "ori_explore",
+    "mnemos_explore",
     "Deep memory exploration via PPR graph traversal. Propagates through wiki-links " +
       "at exploration-tuned parameters (α=0.45), returns ranked notes with content snippets. " +
       "Use for multi-hop questions, connection discovery, and deep recall. " +
-      "Heavier than ori_query_ranked but finds notes flat retrieval misses.",
+      "Heavier than mnemos_query_ranked but finds notes flat retrieval misses.",
     {
       query: z.string().describe("Natural language query to explore"),
       limit: z.number().optional().describe("Max notes to return (default 15, max 30)"),
@@ -904,7 +904,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
           // Per-query Q-writes removed 2026-08-28 — second copy of the same
           // proxy, on the explore path. Explore returns more notes per call, so
           // this copy inflated the contamination faster. See the postmortem on
-          // the ori_query_ranked site above.
+          // the mnemos_query_ranked site above.
 
           // Live stage learning
           if (sessionStageTracker.hasResults()) {
@@ -931,9 +931,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
 
 
-  // ori_warmth
+  // mnemos_warmth
   server.tool(
-    "ori_warmth",
+    "mnemos_warmth",
     "Associative warmth field for the current context. Returns low-token note titles, scores, and sources showing what memory is resonating before and alongside retrieval.",
     {
       context: z.string().describe("Current conversation text or retrieval context"),
@@ -950,9 +950,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_query_similar
+  // mnemos_query_similar
   server.tool(
-    "ori_query_similar",
+    "mnemos_query_similar",
     "Composite vector search only (semantic + metadata, no keyword/graph). Faster but single-signal. Excludes archived notes by default.",
     {
       query: z.string().describe("Natural language search query"),
@@ -973,9 +973,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
 
 
-  // ori_prune
+  // mnemos_prune
   server.tool(
-    "ori_prune",
+    "mnemos_prune",
     "Analyze activation topology and identify archive candidates. " +
       "Dry-run by default. Set apply=true to archive.",
     {
@@ -993,9 +993,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // ori_index_build
+  // mnemos_index_build
   server.tool(
-    "ori_index_build",
+    "mnemos_index_build",
     "Build or update the embedding index. Only re-embeds changed notes unless force=true. " +
       "Also bootstraps co-occurrence edges from wiki-link structure.",
     {
@@ -1019,7 +1019,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   try {
     const update = await checkForUpdate();
     if (update.updateAvailable && update.message) {
-      console.error(`[ori] ${update.message}`);
+      console.error(`[mnemos] ${update.message}`);
     }
   } catch {
     // best effort; ignore failures

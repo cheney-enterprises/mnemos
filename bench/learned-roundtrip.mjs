@@ -1,4 +1,4 @@
-// Prove `rm -rf .ori/ && ori index build && ori index import-learned` is
+// Prove `rm -rf .mnemos/ && mnemos index build && mnemos index import-learned` is
 // lossless — on a COPY of the vault, never the live one.
 //
 // The claim being tested is the one the README made for months without it
@@ -11,23 +11,23 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 const VAULT = process.argv[2] ?? "C:/Users/aayoa/brain";
-const ORI = "C:/Users/aayoa/Desktop/ori/dist/index.js";
+const MNEMOS = "C:/Users/aayoa/Desktop/mnemos/dist/index.js";
 
 const work = mkdtempSync(join(tmpdir(), "rt-"));
 const vault = join(work, "v");
 console.log("staging a copy of the vault (markdown + config + index)…");
 mkdirSync(vault, { recursive: true });
-for (const d of ["notes", "ops", "self", "inbox", ".ori"]) {
+for (const d of ["notes", "ops", "self", "inbox", ".mnemos"]) {
   if (existsSync(join(VAULT, d))) cpSync(join(VAULT, d), join(vault, d), { recursive: true });
 }
-for (const f of ["ori.config.yaml"]) {
+for (const f of ["mnemos.config.yaml"]) {
   if (existsSync(join(VAULT, f))) cpSync(join(VAULT, f), join(vault, f));
 }
 
-const ori = (...args) =>
-  JSON.parse(execFileSync("node", [ORI, ...args], { cwd: vault, encoding: "utf8", maxBuffer: 1 << 28 }));
+const mnemos = (...args) =>
+  JSON.parse(execFileSync("node", [MNEMOS, ...args], { cwd: vault, encoding: "utf8", maxBuffer: 1 << 28 }));
 
-const db = () => new Database(join(vault, ".ori", "embeddings.db"), { readonly: true });
+const db = () => new Database(join(vault, ".mnemos", "embeddings.db"), { readonly: true });
 const TABLES = ["note_q", "q_history", "q_history_genuine", "retrieval_log", "stage_q", "stage_log", "boosts", "note_access", "memory_events"];
 
 function census(label) {
@@ -56,22 +56,22 @@ function census(label) {
 const before = census("BEFORE: the copied index");
 
 console.log("\nexporting learned state…");
-const exp = ori("index", "export-learned", "--file", "ops/rt.ndjson");
+const exp = mnemos("index", "export-learned", "--file", "ops/rt.ndjson");
 console.log(`  ${exp.data.total} rows, ${(exp.data.bytes / 1048576).toFixed(2)} MB`);
 
-console.log("\nDESTROYING .ori/ …");
-rmSync(join(vault, ".ori"), { recursive: true, force: true });
-console.log("  gone:", !existsSync(join(vault, ".ori")));
+console.log("\nDESTROYING .mnemos/ …");
+rmSync(join(vault, ".mnemos"), { recursive: true, force: true });
+console.log("  gone:", !existsSync(join(vault, ".mnemos")));
 
 console.log("\nrebuilding from markdown alone…");
 const t0 = Date.now();
-const built = ori("index", "build");
+const built = mnemos("index", "build");
 console.log(`  indexed ${built.data.indexed}, ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 
 const afterRebuild = census("AFTER REBUILD (no import yet) — what a bare rebuild loses");
 
 console.log("\nimporting learned state…");
-const imp = ori("index", "import-learned", "--file", "ops/rt.ndjson");
+const imp = mnemos("index", "import-learned", "--file", "ops/rt.ndjson");
 console.log(`  ${imp.data.total} rows restored`);
 if (imp.warnings?.length) console.log("  warnings:", imp.warnings);
 

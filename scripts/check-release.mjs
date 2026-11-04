@@ -17,7 +17,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const GRACE_DAYS = Number(process.env.ORI_RELEASE_GRACE_DAYS ?? 3);
+const GRACE_DAYS = Number(process.env.MNEMOS_RELEASE_GRACE_DAYS ?? 3);
 
 const pkg = JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8"));
 const local = pkg.version;
@@ -150,7 +150,7 @@ console.error(
     "",
     "  Publish it:        npx npm@12 stage publish   (then approve at",
     "                     npmjs.com/settings/<user>/staged-packages — 2FA required)",
-    "  Or hold it:        ORI_RELEASE_GRACE_DAYS=<n> to extend the window",
+    "  Or hold it:        MNEMOS_RELEASE_GRACE_DAYS=<n> to extend the window",
     "",
   ].join("\n"),
 );

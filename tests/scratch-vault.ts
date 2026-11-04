@@ -3,7 +3,7 @@ import path from "node:path";
 import os from "node:os";
 import { isVaultRoot } from "../src/core/vault.js";
 
-// Vault discovery walks upward until it finds a `.ori` marker. Tests that
+// Vault discovery walks upward until it finds a `.mnemos` marker. Tests that
 // assert what happens when there is *no* vault therefore need a scratch
 // directory with no vault anywhere above it — otherwise the walk escapes into
 // whatever the machine happens to have and the negative cases silently stop
@@ -11,7 +11,7 @@ import { isVaultRoot } from "../src/core/vault.js";
 //
 // The filesystem root satisfies that on Windows, where os.tmpdir() lives under
 // the developer's home directory and the walk can reach their real vault. On
-// Linux the root is not writable: `EACCES: mkdtemp '/ori-autoinit-...'`, which
+// Linux the root is not writable: `EACCES: mkdtemp '/mnemos-autoinit-...'`, which
 // failed 13 tests on every ubuntu runner while passing on the author's
 // machine. Two test files had their own copy of the assumption.
 //
@@ -37,7 +37,7 @@ export async function scratchBase(): Promise<string> {
   for (const candidate of candidates) {
     let probe: string | null = null;
     try {
-      probe = await fs.mkdtemp(path.join(candidate, "ori-probe-"));
+      probe = await fs.mkdtemp(path.join(candidate, "mnemos-probe-"));
       if (!(await hasVaultAncestor(candidate))) {
         cached = candidate;
         return cached;
@@ -50,6 +50,6 @@ export async function scratchBase(): Promise<string> {
   }
 
   throw new Error(
-    `no writable scratch directory without a .ori ancestor (tried ${candidates.join(", ")})`,
+    `no writable scratch directory without a .mnemos ancestor (tried ${candidates.join(", ")})`,
   );
 }

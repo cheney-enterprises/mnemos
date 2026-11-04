@@ -16,7 +16,7 @@ let fakeHome: string;
 let realHomedir: typeof os.homedir;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(await scratchBase(), "ori-autoinit-"));
+  tmpDir = await fs.mkdtemp(path.join(await scratchBase(), "mnemos-autoinit-"));
   fakeHome = path.join(tmpDir, "fakehome");
   await fs.mkdir(fakeHome, { recursive: true });
 
@@ -31,8 +31,8 @@ afterEach(async () => {
 });
 
 describe("getGlobalVaultPath", () => {
-  it("returns ~/.ori-memory", () => {
-    expect(getGlobalVaultPath()).toBe(path.join(fakeHome, ".ori-memory"));
+  it("returns ~/.mnemos-memory", () => {
+    expect(getGlobalVaultPath()).toBe(path.join(fakeHome, ".mnemos-memory"));
   });
 });
 
@@ -40,22 +40,22 @@ describe("findVaultRoot — global fallback", () => {
   it("throws when no vault anywhere and no global vault", async () => {
     const noVaultDir = path.join(tmpDir, "empty");
     await fs.mkdir(noVaultDir, { recursive: true });
-    await expect(findVaultRoot(noVaultDir)).rejects.toThrow("No .ori marker found");
+    await expect(findVaultRoot(noVaultDir)).rejects.toThrow("No .mnemos marker found");
   });
 
   it("returns project vault when it exists", async () => {
     const projectDir = path.join(tmpDir, "project");
     await fs.mkdir(projectDir, { recursive: true });
-    await fs.mkdir(path.join(projectDir, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(projectDir, ".mnemos"), { recursive: true });
     const root = await findVaultRoot(projectDir);
     expect(root).toBe(path.resolve(projectDir));
   });
 
   it("returns global vault when no project vault exists", async () => {
-    // Create global vault at fakeHome/.ori-memory/
-    const globalPath = path.join(fakeHome, ".ori-memory");
+    // Create global vault at fakeHome/.mnemos-memory/
+    const globalPath = path.join(fakeHome, ".mnemos-memory");
     await fs.mkdir(globalPath, { recursive: true });
-    await fs.mkdir(path.join(globalPath, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(globalPath, ".mnemos"), { recursive: true });
 
     // Search from a directory with no vault
     const noVaultDir = path.join(tmpDir, "novault");
@@ -66,14 +66,14 @@ describe("findVaultRoot — global fallback", () => {
 
   it("project vault wins over global vault", async () => {
     // Create global vault
-    const globalPath = path.join(fakeHome, ".ori-memory");
+    const globalPath = path.join(fakeHome, ".mnemos-memory");
     await fs.mkdir(globalPath, { recursive: true });
-    await fs.mkdir(path.join(globalPath, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(globalPath, ".mnemos"), { recursive: true });
 
     // Create project vault
     const projectDir = path.join(tmpDir, "myproject");
     await fs.mkdir(projectDir, { recursive: true });
-    await fs.mkdir(path.join(projectDir, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(projectDir, ".mnemos"), { recursive: true });
 
     const root = await findVaultRoot(projectDir);
     expect(root).toBe(path.resolve(projectDir));
@@ -84,7 +84,7 @@ describe("findVaultRootWithSource", () => {
   it("returns source: project for project vault", async () => {
     const projectDir = path.join(tmpDir, "project");
     await fs.mkdir(projectDir, { recursive: true });
-    await fs.mkdir(path.join(projectDir, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(projectDir, ".mnemos"), { recursive: true });
 
     const result = await findVaultRootWithSource(projectDir);
     expect(result.source).toBe("project");
@@ -92,9 +92,9 @@ describe("findVaultRootWithSource", () => {
   });
 
   it("returns source: global for global vault", async () => {
-    const globalPath = path.join(fakeHome, ".ori-memory");
+    const globalPath = path.join(fakeHome, ".mnemos-memory");
     await fs.mkdir(globalPath, { recursive: true });
-    await fs.mkdir(path.join(globalPath, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(globalPath, ".mnemos"), { recursive: true });
 
     const noVaultDir = path.join(tmpDir, "novault");
     await fs.mkdir(noVaultDir, { recursive: true });
@@ -113,9 +113,9 @@ describe("findVaultRootWithSource", () => {
 
   it("--vault override never falls back to global", async () => {
     // Create global vault
-    const globalPath = path.join(fakeHome, ".ori-memory");
+    const globalPath = path.join(fakeHome, ".mnemos-memory");
     await fs.mkdir(globalPath, { recursive: true });
-    await fs.mkdir(path.join(globalPath, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(globalPath, ".mnemos"), { recursive: true });
 
     // Override points to non-vault — should throw, NOT fall back to global
     const badOverride = path.join(tmpDir, "badoverride");
@@ -153,7 +153,7 @@ describe("serve auto-create simulation", () => {
 
     const result = await serveAutoCreate(noVaultDir);
     expect(result.autoCreated).toBe(true);
-    expect(result.vaultRoot).toBe(path.join(fakeHome, ".ori-memory"));
+    expect(result.vaultRoot).toBe(path.join(fakeHome, ".mnemos-memory"));
 
     // Verify scaffold was created
     expect(await isVaultRoot(result.vaultRoot)).toBe(true);
@@ -181,7 +181,7 @@ describe("serve auto-create simulation", () => {
     );
 
     // Global vault should NOT have been created
-    const globalPath = path.join(fakeHome, ".ori-memory");
+    const globalPath = path.join(fakeHome, ".mnemos-memory");
     expect(await isVaultRoot(globalPath)).toBe(false);
   });
 

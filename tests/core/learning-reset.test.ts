@@ -42,7 +42,7 @@ function seedLegacy(notes: number, updatesEach: number, prefix = "note"): void {
 }
 
 beforeEach(async () => {
-  dir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-reset37-"));
+  dir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-reset37-"));
   dbPath = path.join(dir, "embeddings.db");
   db = new Database(dbPath);
   db.pragma("journal_mode = WAL");
@@ -73,7 +73,7 @@ describe("learning reset offer", () => {
     const s = getLearningResetStatus(db);
     expect(s).toMatchObject({ legacyUpdates: 30, legacyNotes: 5, decision: null, offer: true });
     const notice = buildLearningResetNotice(s)!;
-    expect(notice).toContain("ori_learning_reset");
+    expect(notice).toContain("mnemos_learning_reset");
     expect(notice).toContain("#37");
     expect(notice).toContain("30");
     expect(notice).toMatch(/do NOT call the tool/);

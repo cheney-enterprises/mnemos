@@ -59,7 +59,7 @@ export function buildGraphologyGraph(linkGraph: LinkGraph): Graph {
  *
  * A graph with no nodes is not an error condition, it is a new vault.
  * graphology's power iteration throws "failed to converge" on one, which
- * aborted `ori index build` before any view or table was created and left a
+ * aborted `mnemos index build` before any view or table was created and left a
  * 4 KB empty database behind -- so every later query answered "no such table:
  * v_note". The same crash hit a re-index after the last note was deleted,
  * leaving the index still reporting the deleted note with no warning.
@@ -234,7 +234,7 @@ export function computeGraphMetrics(
   // betweenness allocate a fixed stack sized from the node count and throw
   // "capacity should be a positive number". Guarding each one individually
   // would be four places to forget; the graph is empty, so the answer is
-  // empty. Without this, `ori index build` aborted on a brand-new vault
+  // empty. Without this, `mnemos index build` aborted on a brand-new vault
   // before creating any table, and every later query answered "no such
   // table: v_note".
   if (graph.order === 0) {

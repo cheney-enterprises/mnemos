@@ -1,4 +1,4 @@
-# What benchmark must Ori run to be taken seriously in late 2026 — and can it?
+# What benchmark must Mnemos run to be taken seriously in late 2026 — and can it?
 
 > Research date: 2026-09-19 · Scope: agent-memory evaluation landscape · Status: read-only investigation, no repo changes
 
@@ -7,10 +7,10 @@
 ## Verdict (5 lines)
 
 1. **Every headline number in this field is vendor self-reported, and the most-cited benchmark is demonstrably broken** — LoCoMo has a 6.4% wrong-answer-key rate (93.57% ceiling), its judge accepts 62.81% of deliberately wrong answers, and one published system scores *above* the mathematical ceiling.
-2. **Run LongMemEval-S retrieval-only first.** 500 questions, official MIT harness, `print_retrieval_metrics.py` is pure numpy — **$0.00, no API key**, and there are two published tables using the *exact same* `all-MiniLM-L6-v2` embedder Ori already ships, so the comparison is apples-to-apples on the first try.
-3. **Ori's forgetting differentiator is already taken — and Ori would currently score ~0% on the benchmark that measures it.** ForgetEval (MIT, zero LLM judge) tests `supersede`/`release`/`purge`; `grep` of `src/` finds none of them. Ori's ACT-R/Ebbinghaus decay is a *ranking prior*, not a control-plane mutation, and ForgetEval's "decay" family means explicit `release(query)`, not time decay.
-4. **Ori's repo currently publishes three mutually inconsistent LoCoMo numbers.** Fix that before running anything new; it is a bigger credibility risk than any missing benchmark.
-5. **Ori cannot meaningfully run BEAM-10M, LongMemEval-V2, or MemoryArena** — not for cost reasons, but because they require an *acting agent*, and Ori is a retrieval substrate, not an agent.
+2. **Run LongMemEval-S retrieval-only first.** 500 questions, official MIT harness, `print_retrieval_metrics.py` is pure numpy — **$0.00, no API key**, and there are two published tables using the *exact same* `all-MiniLM-L6-v2` embedder Mnemos already ships, so the comparison is apples-to-apples on the first try.
+3. **Mnemos's forgetting differentiator is already taken — and Mnemos would currently score ~0% on the benchmark that measures it.** ForgetEval (MIT, zero LLM judge) tests `supersede`/`release`/`purge`; `grep` of `src/` finds none of them. Mnemos's ACT-R/Ebbinghaus decay is a *ranking prior*, not a control-plane mutation, and ForgetEval's "decay" family means explicit `release(query)`, not time decay.
+4. **Mnemos's repo currently publishes three mutually inconsistent LoCoMo numbers.** Fix that before running anything new; it is a bigger credibility risk than any missing benchmark.
+5. **Mnemos cannot meaningfully run BEAM-10M, LongMemEval-V2, or MemoryArena** — not for cost reasons, but because they require an *acting agent*, and Mnemos is a retrieval substrate, not an agent.
 
 ---
 
@@ -54,7 +54,7 @@ Zep's [own critique](https://blog.getzep.com/lies-damn-lies-statistics-is-mem0-r
 
 Penfield Labs' critique is correct and important: **LongMemEval-S is ~115k tokens per question, and current models have 200k–1M context windows.** The entire corpus fits in one context. Mastra's own numbers prove it — full-context gpt-4o scores **60.20%**, and their Observational Memory scores 84.23% "largely by compressing context to fit more comfortably." As context windows grow, the baseline climbs and the benchmark loses discriminative power.
 
-This matters for Ori in a specific way: **it means the QA track measures the reader model at least as much as the memory system, and Ori has no reader.** The retrieval track does not have this problem.
+This matters for Mnemos in a specific way: **it means the QA track measures the reader model at least as much as the memory system, and Mnemos has no reader.** The retrieval track does not have this problem.
 
 The LongMemEval QA leaderboard (from [Mastra's research post](https://mastra.ai/research/observational-memory), Feb 2026 — the most transparently documented board available, with runner code linked):
 
@@ -95,22 +95,22 @@ A 324-star library does **not** need to beat Mem0. It needs to satisfy four cond
 - **API key: NO.** That script imports `sys`, `json`, `numpy`. Nothing else. The upstream baselines it compares against (`flat-bm25`, `flat-contriever`, `flat-stella`, `flat-gte`) are all local models.
 - **Cost: $0.00.**
 
-**Why this one and not LoCoMo:** Ori already runs LoCoMo, and its LoCoMo result is *unpublishable as a comparison* because Ori scores token-F1 and the leaderboard scores a binary LLM judge. Ori's README already says this, correctly. Running LongMemEval retrieval gives Ori a number on an axis where **directly comparable third-party figures exist using Ori's own embedder**:
+**Why this one and not LoCoMo:** Mnemos already runs LoCoMo, and its LoCoMo result is *unpublishable as a comparison* because Mnemos scores token-F1 and the leaderboard scores a binary LLM judge. Mnemos's README already says this, correctly. Running LongMemEval retrieval gives Mnemos a number on an axis where **directly comparable third-party figures exist using Mnemos's own embedder**:
 
 | System | Embedder | R@1 | R@5 | R@10 | API calls |
 |---|---|---|---|---|---|
 | MemPalace (raw) | all-MiniLM-L6-v2 | 80.6% | **96.6%** | 98.2% | zero |
 | Lethe v1 | all-MiniLM-L6-v2 | **85.4%** | **97.4%** | **99.0%** | zero |
-| **Ori Mnemos** | Xenova/all-MiniLM-L6-v2 (384d) | **?** | **?** | **?** | **zero** |
+| **Mnemos** | Xenova/all-MiniLM-L6-v2 (384d) | **?** | **?** | **?** | **zero** |
 
-Ori's `ori.config.yaml` in `bench/locomo-eval.ts` already pins `Xenova/all-MiniLM-L6-v2` at 384 dims. Same model, same axis, same zero-key story. This is the rarest thing in this field: **a fair fight that Ori can stage without spending a cent.**
+Mnemos's `mnemos.config.yaml` in `bench/locomo-eval.ts` already pins `Xenova/all-MiniLM-L6-v2` at 384 dims. Same model, same axis, same zero-key story. This is the rarest thing in this field: **a fair fight that Mnemos can stage without spending a cent.**
 
 **Calibrate the expectation honestly.** An independent academic analysis of MemPalace ([arXiv:2604.21284](https://arxiv.org/abs/2604.21284)) concluded that the 96.6% R@5 "is the performance of ChromaDB's default embedding model (all-MiniLM-L6-v2) applied to verbatim text chunks" and is "reproducible with a minimal ChromaDB setup — no palace structure required." **R@5 on LongMemEval-S is near-saturated and mostly measures the embedder.** So:
 
-- Ori matching ~96–97% R@5 proves *nothing special* and should be framed as a sanity floor, not a win.
-- **R@1 is where the signal is.** Lethe's own framing: its lead over MemPalace is "6× wider at R@1 than at R@5" (+4.8pp vs +0.8pp). Ori's whole thesis — BM25 + embeddings + PageRank + Q-value reranking fused by score-weighted RRF — is a *ranking* thesis. **R@1 and nDCG@5 are the metrics that can actually vindicate it.** If Ori's fusion is worth anything, it shows up there or nowhere.
+- Mnemos matching ~96–97% R@5 proves *nothing special* and should be framed as a sanity floor, not a win.
+- **R@1 is where the signal is.** Lethe's own framing: its lead over MemPalace is "6× wider at R@1 than at R@5" (+4.8pp vs +0.8pp). Mnemos's whole thesis — BM25 + embeddings + PageRank + Q-value reranking fused by score-weighted RRF — is a *ranking* thesis. **R@1 and nDCG@5 are the metrics that can actually vindicate it.** If Mnemos's fusion is worth anything, it shows up there or nowhere.
 
-### ❌ Fix this first: Ori publishes three different LoCoMo scores
+### ❌ Fix this first: Mnemos publishes three different LoCoMo scores
 
 This is the highest-priority item in the entire report, and it costs nothing but an hour.
 
@@ -126,13 +126,13 @@ A skeptical reader who finds three numbers stops reading. Pick one run, state wh
 
 ---
 
-## 4. Forgetting: the differentiator is taken, and Ori would currently score ~0%
+## 4. Forgetting: the differentiator is taken, and Mnemos would currently score ~0%
 
 This is the section that matters most, and the news is bad in a useful way.
 
 ### What exists
 
-**ForgetEval** ([arXiv:2606.15903](https://arxiv.org/abs/2606.15903), code MIT at [`deeplethe/lethe`](https://github.com/deeplethe/lethe)) is the only benchmark that directly scores forgetting, and it is *perfectly* suited to Ori's zero-key constraint:
+**ForgetEval** ([arXiv:2606.15903](https://arxiv.org/abs/2606.15903), code MIT at [`deeplethe/lethe`](https://github.com/deeplethe/lethe)) is the only benchmark that directly scores forgetting, and it is *perfectly* suited to Mnemos's zero-key constraint:
 
 - **No LLM judge.** Pass/fail is exact substring matching on the joined text of top-k. 
 - **No API, no network.** Cases are template + entity-pool substitution, deterministic at `seed=42`.
@@ -142,43 +142,43 @@ This is the section that matters most, and the news is bad in a useful way.
 
 There is also a companion system, **Lethe** — MIT, Python, local-first, single SQLite file, MCP server, zero API calls, Ed25519-signed purge receipts anchored to a Merkle root over an append-only event log, and `recall(query, at=T)` time travel. Its tagline is *"The first AI memory built to forget."*
 
-**It has 14 stars.** Ori has 324. The *idea* is taken; the *audience* is not. But the idea being taken means Ori can no longer claim novelty on "memory that forgets" without being corrected in the first HN comment.
+**It has 14 stars.** Mnemos has 324. The *idea* is taken; the *audience* is not. But the idea being taken means Mnemos can no longer claim novelty on "memory that forgets" without being corrected in the first HN comment.
 
-### Why Ori would score ~0% today
+### Why Mnemos would score ~0% today
 
-I grepped `src/`. Ori's forgetting machinery is real and genuinely well-built — and **structurally invisible to every forgetting benchmark that exists.**
+I grepped `src/`. Mnemos's forgetting machinery is real and genuinely well-built — and **structurally invisible to every forgetting benchmark that exists.**
 
-**What Ori has** (`src/core/vitality.ts`, `src/core/activation.ts`):
+**What Mnemos has** (`src/core/vitality.ts`, `src/core/activation.ts`):
 - `computeVitalityACTR(accessCount, lifetimeDays, decay=0.5)` — real ACT-R base-level learning.
 - `computeVitalityFull(...)` layering metabolic rate, structural stability boost (`inDegree`), access saturation, revival spike, spreading-activation boost, bridge protection floor, clamp to [0,1].
 - `ebbinghausDecayRate(access, sessions) = BASE_DECAY_RATE / (1 + 0.2·ln(1+access) + 0.3·ln(1+sessions))`, applied as `boost · e^(−rate·days)`.
 - `classifyZone` → active / stale / fading / archived; `rankByFading`; `cli/prune.ts`, `cli/archive.ts`, `health.ts` flagging vitality < 0.2.
 
-**What Ori does not have:**
+**What Mnemos does not have:**
 
-| ForgetEval method | Ori equivalent | Verdict |
+| ForgetEval method | Mnemos equivalent | Verdict |
 |---|---|---|
 | `reset()` | temp vault + rebuild index | ✅ trivial |
-| `inscribe(text) -> id` | `ori add` / write note + index | ✅ trivial |
+| `inscribe(text) -> id` | `mnemos add` / write note + index | ✅ trivial |
 | `recall_texts(query, k) -> list[str]` | `runQueryRanked` / `searchComposite` | ✅ already exercised by `bench/eval-rrf.mjs` |
 | `supersede(old_query, new_text)` | **none** — no supersession edge, no `superseded_by` write path in `src/` | ❌ |
 | `release(query) -> count` | `cli/prune.ts` sweeps by *vitality threshold over the whole vault* — not query-addressed, returns no count | ❌ |
 | `purge(query) -> count` | `removeNoteFromDB(db, title)` — removes by **exact title** from the SQLite index only | ❌ |
 
-**The trap, stated plainly:** ForgetEval's **`decay` family does not mean time-based decay.** It means *"a fact that was explicitly `release`d must stay out of top-k"* — OTP consumed, TTL expired, intent cancelled. The case runs inside one session with no elapsed wall-clock time. **Ori's Ebbinghaus curve never fires.** Passive decay earns exactly zero points on the family whose name suggests it was designed for Ori.
+**The trap, stated plainly:** ForgetEval's **`decay` family does not mean time-based decay.** It means *"a fact that was explicitly `release`d must stay out of top-k"* — OTP consumed, TTL expired, intent cancelled. The case runs inside one session with no elapsed wall-clock time. **Mnemos's Ebbinghaus curve never fires.** Passive decay earns exactly zero points on the family whose name suggests it was designed for Mnemos.
 
-Missing three of six methods, Ori lands where MemPalace landed: **0%, with the report line "no forgetting primitives."** Running ForgetEval today would actively damage Ori's positioning.
+Missing three of six methods, Mnemos lands where MemPalace landed: **0%, with the report line "no forgetting primitives."** Running ForgetEval today would actively damage Mnemos's positioning.
 
 And even after implementing them, calibrate: the three deterministic systems (Mem0 68.3%, Lethe 63.4%, LangGraph 62.9%) **cluster in a 63–68% band with overlapping Wilson CIs — the paper's own conclusion is that "the bench reads the trade-off, not a winner."** The 1,000-case template suite is near-saturated (99.3–99.5%) and does not discriminate at all. Only `ForgetEval-Adv` separates systems, and the +28pt lift from the LLM hook "travels across backends... so it is the *placement* of the hook, not the storage engine, that earns it."
 
 ### Other forgetting-adjacent benchmarks, and why none of them rescue passive decay
 
-- **MemoryAgentBench → FactConsolidation** is the "selective forgetting" competency, but it is really *conflict resolution*: facts are numbered, agents are told "newer facts have larger serial numbers," and they still fail. HippoRAG-v2 **54.0%**, BM25 **48.0%**, Mem0 **18.0%**, Zep/Graphiti **7.0%** on single-hop; **≤7% for every system** on multi-hop. The 2026 survey's verdict: *"No current system masters all four competencies; most fail conspicuously on selective forgetting."* **This is the widest open gap in the field** — and BM25 alone scores 48%, which means Ori's BM25 leg would land respectably with modest work. But it needs an LLM agent backbone.
-- **Memora / FAMA** ([arXiv:2604.20006](https://arxiv.org/abs/2604.20006)) introduces *Forgetting-Aware Memory Accuracy*, which penalizes reliance on obsolete or invalidated memory. Conceptually the closest thing to what Ori's vitality model is *for*. Requires an agent and a judge; public harness not confirmed.
-- **ForgetBench** ([arXiv:2607.26455](https://arxiv.org/html/2607.26455)) benchmarks *parametric* forgetting under continual knowledge editing — LLM weights, not external memory. **Not applicable to Ori.**
+- **MemoryAgentBench → FactConsolidation** is the "selective forgetting" competency, but it is really *conflict resolution*: facts are numbered, agents are told "newer facts have larger serial numbers," and they still fail. HippoRAG-v2 **54.0%**, BM25 **48.0%**, Mem0 **18.0%**, Zep/Graphiti **7.0%** on single-hop; **≤7% for every system** on multi-hop. The 2026 survey's verdict: *"No current system masters all four competencies; most fail conspicuously on selective forgetting."* **This is the widest open gap in the field** — and BM25 alone scores 48%, which means Mnemos's BM25 leg would land respectably with modest work. But it needs an LLM agent backbone.
+- **Memora / FAMA** ([arXiv:2604.20006](https://arxiv.org/abs/2604.20006)) introduces *Forgetting-Aware Memory Accuracy*, which penalizes reliance on obsolete or invalidated memory. Conceptually the closest thing to what Mnemos's vitality model is *for*. Requires an agent and a judge; public harness not confirmed.
+- **ForgetBench** ([arXiv:2607.26455](https://arxiv.org/html/2607.26455)) benchmarks *parametric* forgetting under continual knowledge editing — LLM weights, not external memory. **Not applicable to Mnemos.**
 - **MemoryArena** (ICML 2026) — memory that drives action. Systems near-saturated on LoCoMo **collapse to 40–60%**. Requires an agent.
 
-> **The strategic finding:** *No public benchmark rewards passive, time-based decay.* Every one of them tests explicit, query-addressable forgetting operations. Ori's ACT-R + Ebbinghaus machinery is therefore **currently unprovable** — which means that as a marketing claim it is also unfalsifiable, and a skeptical reader is right to discount it. The fix is not a better benchmark. The fix is to expose the decay model as three primitives the outside world can call and score.
+> **The strategic finding:** *No public benchmark rewards passive, time-based decay.* Every one of them tests explicit, query-addressable forgetting operations. Mnemos's ACT-R + Ebbinghaus machinery is therefore **currently unprovable** — which means that as a marketing claim it is also unfalsifiable, and a skeptical reader is right to discount it. The fix is not a better benchmark. The fix is to expose the decay model as three primitives the outside world can call and score.
 
 ---
 
@@ -190,10 +190,10 @@ And even after implementing them, calibrate: the three deterministic systems (Me
 
 **Why this one:**
 
-1. **It is the only credible run Ori can complete with its own zero-key stack intact.** The selling point and the measurement are the same artifact — Ori proves its thesis *by* the way it runs the benchmark, not just by the score.
-2. **Two published comparison rows already exist on Ori's exact embedder** (MemPalace 96.6 R@5, Lethe 85.4/97.4/99.0 R@1/5/10). Ori does not have to be the only number on the page — the failure mode that sinks every vendor claim in §2.
+1. **It is the only credible run Mnemos can complete with its own zero-key stack intact.** The selling point and the measurement are the same artifact — Mnemos proves its thesis *by* the way it runs the benchmark, not just by the score.
+2. **Two published comparison rows already exist on Mnemos's exact embedder** (MemPalace 96.6 R@5, Lethe 85.4/97.4/99.0 R@1/5/10). Mnemos does not have to be the only number on the page — the failure mode that sinks every vendor claim in §2.
 3. **It is deterministic.** The single strongest attack on every number in this field — "the judge accepts 63% of wrong answers" — does not apply.
-4. **The metric tests Ori's actual thesis.** R@1 and nDCG@5 measure ranking. BM25 + MiniLM + PageRank + Q-value reranking fused via score-weighted RRF is a ranking architecture. `bench/eval-rrf.mjs` already proves Ori's team knows how to read these metrics (the per-signal max-norm experiment that got reverted is exactly the right instinct).
+4. **The metric tests Mnemos's actual thesis.** R@1 and nDCG@5 measure ranking. BM25 + MiniLM + PageRank + Q-value reranking fused via score-weighted RRF is a ranking architecture. `bench/eval-rrf.mjs` already proves Mnemos's team knows how to read these metrics (the per-signal max-norm experiment that got reverted is exactly the right instinct).
 5. **The harness already fits.** `bench/locomo-eval.ts` demonstrates the whole pattern: build a temp vault in `os.tmpdir()`, index, query, score. LongMemEval sessions map to notes the same way LoCoMo sessions already do. This is an afternoon, not a sprint.
 6. **It covers knowledge-update and abstention**, the two abilities Zep correctly notes LoCoMo omits entirely.
 
@@ -211,7 +211,7 @@ Raw output:  committed to bench/results/
 API calls:   0
 ```
 
-**Then, and only then, the optional $2 upgrade.** If a QA number is wanted for the headline, LongMemEval's QA track is *cheap*, because Ori retrieves top-k instead of stuffing 115k tokens:
+**Then, and only then, the optional $2 upgrade.** If a QA number is wanted for the headline, LongMemEval's QA track is *cheap*, because Mnemos retrieves top-k instead of stuffing 115k tokens:
 
 | Path | Tokens | Est. cost |
 |---|---|---|
@@ -220,48 +220,48 @@ API calls:   0
 | **Total** | | **≈ $1–2 per full run** |
 | *(Contrast: full-context baseline, 500 × 115k, gpt-4o)* | *57.5M in* | *~$144* |
 
-The asymmetry is itself a publishable result: **Ori can be measured end-to-end for ~$1 because it retrieves instead of stuffing.** Mem0 makes a version of this argument (≈6,900 tokens/retrieval vs 25,000+ full-context); Ori can make it with a smaller number and a zero-cost ingestion path.
+The asymmetry is itself a publishable result: **Mnemos can be measured end-to-end for ~$1 because it retrieves instead of stuffing.** Mem0 makes a version of this argument (≈6,900 tokens/retrieval vs 25,000+ full-context); Mnemos can make it with a smaller number and a zero-cost ingestion path.
 
 ### 🥈 Second (only after the three inconsistent LoCoMo numbers are reconciled): **ForgetEval**
 
 Not yet — it is a *build* task before it is a *bench* task. Sequence:
 
-1. Implement `supersede(old_query, new_text)`, `release(query) -> count`, `purge(query) -> count` as first-class, query-addressed operations over the vault + index. Ori's frontmatter `status` field, `superseded_by`, and `removeNoteFromDB` are the raw material; `cli/prune.ts` already has the zone logic.
+1. Implement `supersede(old_query, new_text)`, `release(query) -> count`, `purge(query) -> count` as first-class, query-addressed operations over the vault + index. Mnemos's frontmatter `status` field, `superseded_by`, and `removeNoteFromDB` are the raw material; `cli/prune.ts` already has the zone logic.
 2. Write the ~130-line adapter against the `typing.Protocol` in `bench/forgeteval/adapter.py`.
 3. Run `--suite template` (expect ~99%, near-saturated, low information) then `--suite adversarial` (expect the 63–68% band).
 4. **Cost: $0.00 deterministic; $0.17 if the optional LLM mutation hook is wired.**
 
-The genuine opportunity here is not the score. It is that **ForgetEval's `decay` family is currently the only one where a system could plausibly justify a *time-aware* implementation**, and the paper's own roadmap asks for exactly what Ori has: *"Adaptive consolidation policies — `consolidate()` uses one fixed decay law; we want per-domain policies."* Ori's `metabolic_rates` (`self: 0.1`, `notes: 1.0`, `ops: 3.0`) **is** a per-domain decay policy, already shipped. That is a real contribution to an open benchmark, submittable as a PR with cross-published results — far more valuable to a 324-star project than another self-reported percentage.
+The genuine opportunity here is not the score. It is that **ForgetEval's `decay` family is currently the only one where a system could plausibly justify a *time-aware* implementation**, and the paper's own roadmap asks for exactly what Mnemos has: *"Adaptive consolidation policies — `consolidate()` uses one fixed decay law; we want per-domain policies."* Mnemos's `metabolic_rates` (`self: 0.1`, `notes: 1.0`, `ops: 3.0`) **is** a per-domain decay policy, already shipped. That is a real contribution to an open benchmark, submittable as a PR with cross-published results — far more valuable to a 324-star project than another self-reported percentage.
 
 ---
 
-## 6. What Ori CANNOT meaningfully run, and why
+## 6. What Mnemos CANNOT meaningfully run, and why
 
 | Benchmark | Blocker | Honest assessment |
 |---|---|---|
-| **LoCoMo J-score leaderboard** | Ori's harness computes token F1, not binary LLM-judge accuracy. Even matched, the target is corrupt: 6.4% bad keys, 93.57% ceiling, judge accepts 62.81% of wrong answers, an unreproducible field | **Do not chase.** Ori's README already refuses this comparison and is right. Publish LoCoMo as a *retrieval* result (R@k / MRR on evidence sessions) or not at all. Chasing 92.5 means competing on a metric that rewards vague answers |
+| **LoCoMo J-score leaderboard** | Mnemos's harness computes token F1, not binary LLM-judge accuracy. Even matched, the target is corrupt: 6.4% bad keys, 93.57% ceiling, judge accepts 62.81% of wrong answers, an unreproducible field | **Do not chase.** Mnemos's README already refuses this comparison and is right. Publish LoCoMo as a *retrieval* result (R@k / MRR on evidence sessions) or not at all. Chasing 92.5 means competing on a metric that rewards vague answers |
 | **BEAM-10M** | 100 convs × up to 10M tokens = ~1B tokens through local MiniLM. At CPU embedding throughput that is **hundreds of hours** on the target hardware (i7-11800H). Not a dollar problem — a wall-clock problem | **Cannot run.** BEAM-1M (~100M tokens, tens of hours local ingestion + ~$1–2 reader/judge on 2,000 questions) is *technically* reachable but is a weeks-long project for a number nobody will check |
 | **LongMemEval-V2** | Judge defaults to **gpt-5.2 with medium reasoning**; reader is Qwen3.5-9B via vLLM (needs a GPU); `agentrunbook_c`/`codex` modules need a Codex v0.117.0 binary; haystacks up to **115M tokens** | **Cannot run on this hardware.** Genuinely painful, because its public leaderboard with submission packaging is *the most credible venue in the field*. Worth revisiting if GPU access appears — the `small` tier is the entry point |
-| **MemoryArena** | Requires an **acting agent** in a Memory-Agent-Environment loop (web navigation, planning, sequential reasoning) | **Category mismatch.** Ori is a retrieval substrate + MCP server, not an agent. It could be the memory layer *inside* someone's MemoryArena entry, but cannot enter alone |
-| **MemoryAgentBench (full)** | The agent under test is an LLM agent over chunked long corpora. Scoring is mostly key-free (`substring_exact_match`) but the *system* is not | **Partially runnable.** The `Accurate Retrieval` competency (`ruler_qa1`, `ruler_qa2`, `event_qa`) is substring-scored and could be run retrieval-only with disclosure. `Test-Time Learning` and `Long-Range Understanding` are unreachable without an agent. Note the calibration: **BM25 alone scores 48% on FactConsolidation single-hop vs Mem0's 18%** — an Ori retrieval-only run could look surprisingly strong here, but must be labelled a retrieval proxy, not a MemoryAgentBench score |
-| **Memora / FAMA** | Needs an agent + judge; public harness not confirmed | **Watch, don't run.** FAMA is the metric most aligned with Ori's vitality thesis. Track it |
+| **MemoryArena** | Requires an **acting agent** in a Memory-Agent-Environment loop (web navigation, planning, sequential reasoning) | **Category mismatch.** Mnemos is a retrieval substrate + MCP server, not an agent. It could be the memory layer *inside* someone's MemoryArena entry, but cannot enter alone |
+| **MemoryAgentBench (full)** | The agent under test is an LLM agent over chunked long corpora. Scoring is mostly key-free (`substring_exact_match`) but the *system* is not | **Partially runnable.** The `Accurate Retrieval` competency (`ruler_qa1`, `ruler_qa2`, `event_qa`) is substring-scored and could be run retrieval-only with disclosure. `Test-Time Learning` and `Long-Range Understanding` are unreachable without an agent. Note the calibration: **BM25 alone scores 48% on FactConsolidation single-hop vs Mem0's 18%** — an Mnemos retrieval-only run could look surprisingly strong here, but must be labelled a retrieval proxy, not a MemoryAgentBench score |
+| **Memora / FAMA** | Needs an agent + judge; public harness not confirmed | **Watch, don't run.** FAMA is the metric most aligned with Mnemos's vitality thesis. Track it |
 | **LoCoMo-Plus** | Inherits all 99 corrupt answer keys; improved judging was validated **only** on the new cognitive category; judge defaults to gpt-4o-mini | **Skip.** New category is a real contribution; the inherited infrastructure is the same broken instrument |
 
 ---
 
-## 7. What this means for Ori, concretely
+## 7. What this means for Mnemos, concretely
 
-**The honest competitive read:** Ori's "local-first, zero-API-key" position is **not** unique — MemPalace (96.6% R@5, zero API calls) and Lethe (97.4% R@5, zero API calls, MIT, MCP server, SQLite, signed deletion receipts) both occupy it. Ori's "memory that forgets" position is **already claimed in print** by a system whose tagline is literally *"The first AI memory built to forget."* Neither of those is fatal — MemPalace's headline was independently deflated to "that's just ChromaDB's default embedder," and Lethe has 14 stars — but both mean Ori's *claims* now need numbers attached, because someone else's numbers are already on the page.
+**The honest competitive read:** Mnemos's "local-first, zero-API-key" position is **not** unique — MemPalace (96.6% R@5, zero API calls) and Lethe (97.4% R@5, zero API calls, MIT, MCP server, SQLite, signed deletion receipts) both occupy it. Mnemos's "memory that forgets" position is **already claimed in print** by a system whose tagline is literally *"The first AI memory built to forget."* Neither of those is fatal — MemPalace's headline was independently deflated to "that's just ChromaDB's default embedder," and Lethe has 14 stars — but both mean Mnemos's *claims* now need numbers attached, because someone else's numbers are already on the page.
 
-**Ori's genuinely unclaimed ground**, on the evidence gathered:
+**Mnemos's genuinely unclaimed ground**, on the evidence gathered:
 
-1. **Nobody in this landscape combines a wiki-link graph with PageRank/Louvain and learned reranking.** MemPalace is metadata-filtered vectors; Lethe is one `depth` scalar over RRF-blended vec+BM25; Mem0 is extraction + multi-signal fusion; Zep is a temporal KG. Ori's graph-structural prior (PPR, bridge protection, community) is architecturally distinct — and **R@1/nDCG@5 on LongMemEval-S is precisely the instrument that would show it**, because every competitor is saturated at R@5 and differentiated at R@1.
+1. **Nobody in this landscape combines a wiki-link graph with PageRank/Louvain and learned reranking.** MemPalace is metadata-filtered vectors; Lethe is one `depth` scalar over RRF-blended vec+BM25; Mem0 is extraction + multi-signal fusion; Zep is a temporal KG. Mnemos's graph-structural prior (PPR, bridge protection, community) is architecturally distinct — and **R@1/nDCG@5 on LongMemEval-S is precisely the instrument that would show it**, because every competitor is saturated at R@5 and differentiated at R@1.
 2. **`memory_sql` — a read-only SQL surface over six stable views — has no analogue anywhere in this research.** No benchmark scores it. That is a reason to *demo* it, not benchmark it.
 3. **Per-domain decay policy already shipped** (`metabolic_rates`) is the exact thing ForgetEval's roadmap asks for and does not have.
 
 **The one-paragraph plan:**
 
-> Reconcile the three LoCoMo numbers down to the 1,536-question July 2026 run and rename `--llm-judge`. Then run **LongMemEval-S retrieval-only** with the cleaned dataset, publish `recall_all@{5,10}` and `ndcg_any@{5,10}` at session *and* turn level across ≥3 seeds, lead with **R@1** against MemPalace's and Lethe's published MiniLM rows, commit the raw JSON, and state the full protocol. **Zero dollars, zero API keys, one afternoon.** Next quarter, implement `supersede`/`release`/`purge`, write the 130-line ForgetEval adapter, run `--suite adversarial`, and submit it upstream as a PR — turning Ori's most-marketed and least-provable claim into a scored, third-party-published one for $0.17.
+> Reconcile the three LoCoMo numbers down to the 1,536-question July 2026 run and rename `--llm-judge`. Then run **LongMemEval-S retrieval-only** with the cleaned dataset, publish `recall_all@{5,10}` and `ndcg_any@{5,10}` at session *and* turn level across ≥3 seeds, lead with **R@1** against MemPalace's and Lethe's published MiniLM rows, commit the raw JSON, and state the full protocol. **Zero dollars, zero API keys, one afternoon.** Next quarter, implement `supersede`/`release`/`purge`, write the 130-line ForgetEval adapter, run `--suite adversarial`, and submit it upstream as a PR — turning Mnemos's most-marketed and least-provable claim into a scored, third-party-published one for $0.17.
 
 ---
 
@@ -277,7 +277,7 @@ The genuine opportunity here is not the score. It is that **ForgetEval's `decay`
 - ForgetEval — [arXiv:2606.15903](https://arxiv.org/abs/2606.15903) · [github.com/deeplethe/lethe](https://github.com/deeplethe/lethe) · [methodology](https://github.com/deeplethe/lethe/blob/main/docs/forgeteval.md)
 - Memora / FAMA — [arXiv:2604.20006](https://arxiv.org/abs/2604.20006)
 - LoCoMo-Plus — [arXiv:2602.10715](https://arxiv.org/abs/2602.10715)
-- ForgetBench (parametric, N/A to Ori) — [arXiv:2607.26455](https://arxiv.org/html/2607.26455)
+- ForgetBench (parametric, N/A to Mnemos) — [arXiv:2607.26455](https://arxiv.org/html/2607.26455)
 
 **Audits & critiques**
 - LoCoMo audit (99 errors, judge leniency, ceiling analysis) — [github.com/dial481/locomo-audit](https://github.com/dial481/locomo-audit) · [write-up](https://dev.to/penfieldlabs/we-audited-locomo-64-of-the-answer-key-is-wrong-and-the-judge-accepts-up-to-63-of-intentionally-33lg)

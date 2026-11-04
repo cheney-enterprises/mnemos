@@ -32,7 +32,7 @@ import { fuseScoreWeightedRRF } from "../src/core/fusion.js";
 import type { SignalResults } from "../src/core/fusion.js";
 import type { ScoredNote } from "../src/core/ranking.js";
 import { applyConfigDefaults } from "../src/core/config.js";
-import type { OriConfig } from "../src/core/config.js";
+import type { MnemosConfig } from "../src/core/config.js";
 import type { LinkGraph } from "../src/core/graph.js";
 import { buildIndex, initDB, loadVectors, searchComposite } from "../src/core/engine.js";
 
@@ -55,7 +55,7 @@ engine:
   embedding_dims: 384
   piecewise_bins: 8
   community_dims: 16
-  db_path: ".ori/embeddings.db"
+  db_path: ".mnemos/embeddings.db"
 retrieval:
   default_limit: 10
   candidate_multiplier: 5
@@ -73,14 +73,14 @@ bm25:
 `;
 
 /** A session becomes one note. The note title IS the session id, so the
- *  ranking Ori returns maps to corpus ids without a second lookup table --
+ *  ranking Mnemos returns maps to corpus ids without a second lookup table --
  *  the slug/rowid mismatch that silently zeroed an earlier measurement. */
 async function buildVault(q: Question): Promise<string> {
-  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-lme-"));
+  const dir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-lme-"));
   const notesDir = path.join(dir, "notes");
   await fs.mkdir(notesDir, { recursive: true });
-  await fs.mkdir(path.join(dir, ".ori"), { recursive: true });
-  await fs.writeFile(path.join(dir, "ori.config.yaml"), CONFIG_YAML, "utf-8");
+  await fs.mkdir(path.join(dir, ".mnemos"), { recursive: true });
+  await fs.writeFile(path.join(dir, "mnemos.config.yaml"), CONFIG_YAML, "utf-8");
 
   for (let i = 0; i < q.haystack_sessions.length; i++) {
     const sid = q.haystack_session_ids[i];
@@ -96,7 +96,7 @@ async function buildVault(q: Question): Promise<string> {
 }
 
 interface Pipeline {
-  config: OriConfig;
+  config: MnemosConfig;
   linkGraph: LinkGraph;
   bm25Index: BM25Index;
   allTitles: string[];

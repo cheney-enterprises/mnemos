@@ -24,8 +24,8 @@ describe("vault-relative paths", () => {
   });
 
   it("validates vault-relative note paths when the caller is outside the vault", async () => {
-    const vaultDir = await makeTempDir("ori-validate-vault-");
-    const projectDir = await makeTempDir("ori-validate-project-");
+    const vaultDir = await makeTempDir("mnemos-validate-vault-");
+    const projectDir = await makeTempDir("mnemos-validate-project-");
     const originalCwd = process.cwd();
 
     try {

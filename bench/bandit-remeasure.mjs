@@ -15,8 +15,8 @@
 import Database from "better-sqlite3";
 import { runQueryRanked } from "../dist/cli/search.js";
 
-const VAULT = process.env.ORI_VAULT ?? "C:/Users/aayoa/brain";
-const DB = `${VAULT}/.ori/embeddings.db`;
+const VAULT = process.env.MNEMOS_VAULT ?? "C:/Users/aayoa/brain";
+const DB = `${VAULT}/.mnemos/embeddings.db`;
 const N = Number(process.argv[2] ?? 300);
 
 const snapshot = () => {

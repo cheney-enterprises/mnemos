@@ -13,7 +13,7 @@ import {
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-test-fm-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-test-fm-"));
 });
 
 afterEach(async () => {
@@ -104,7 +104,7 @@ describe("stringifyFrontmatter", () => {
   });
 
   it("round-trips with parseFrontmatter", () => {
-    const data = { type: "insight", project: ["ori"], count: 42 };
+    const data = { type: "insight", project: ["mnemos"], count: 42 };
     const body = "Some body content.\n\nWith paragraphs.";
     const stringified = stringifyFrontmatter(data, body);
     const parsed = parseFrontmatter(stringified);
@@ -303,7 +303,7 @@ describe("writeTempFrontmatter", () => {
     const data = { type: "idea" };
     const body = "Temp note.";
     const filePath = await writeTempFrontmatter(data, body);
-    expect(filePath).toContain("ori-frontmatter-");
+    expect(filePath).toContain("mnemos-frontmatter-");
     expect(filePath).toMatch(/note\.md$/);
     const result = await readFrontmatterFile(filePath);
     expect(result.data).toEqual(data);

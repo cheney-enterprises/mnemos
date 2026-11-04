@@ -1,8 +1,8 @@
 /**
  * Query-addressed forgetting: supersede, release, purge.
  *
- * Ori had none of these. Measured on ForgetEval (deeplethe/lethe, MIT, the
- * only benchmark that scores forgetting) Ori returned 0/1000 — every case
+ * Mnemos had none of these. Measured on ForgetEval (deeplethe/lethe, MIT, the
+ * only benchmark that scores forgetting) Mnemos returned 0/1000 — every case
  * N/A, every family, because the adapter could not implement the three
  * optional operations. MemPalace scores the same 0. Meanwhile BM25 from 1994
  * scores 25.5 on MemoryAgentBench's selective-forgetting competency and beats
@@ -28,7 +28,7 @@
  *
  * Status lives in frontmatter because the markdown is the truth. A released
  * note keeps its file and stops being recalled; a purged note is unlinked.
- * Both survive `rm -rf .ori/` for exactly that reason.
+ * Both survive `rm -rf .mnemos/` for exactly that reason.
  */
 import { promises as fs } from "node:fs";
 import path from "node:path";
@@ -245,7 +245,7 @@ async function setStatus(file: string, status: string, extra: Record<string, unk
 /**
  * Options guarding the blast radius of a forget call.
  *
- * Measured on a real 1,550-note vault: `release("Ori positioning strategy")`
+ * Measured on a real 1,550-note vault: `release("Mnemos positioning strategy")`
  * addresses **159 notes**; "CourtShare engagement mechanics" 53; "Kashi token
  * incentives" 41. ForgetEval scores this same matcher at 97.8%, because its
  * cases hold eight facts and four distractors. Raise that to 200 distractors
@@ -260,7 +260,7 @@ async function setStatus(file: string, status: string, extra: Record<string, unk
 export interface ForgetOptions {
   /**
    * Actually change something. DEFAULT FALSE — every forget call is a dry run
-   * until the caller opts in, matching `ori prune`, which has always required
+   * until the caller opts in, matching `mnemos prune`, which has always required
    * `--apply` and previews otherwise.
    *
    * Defaulting the other way is indefensible for an operation whose failure

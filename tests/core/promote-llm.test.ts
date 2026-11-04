@@ -31,7 +31,7 @@ async function writeInboxNote(name: string, body: string): Promise<void> {
 }
 
 async function setConfig(search: string, replacement: string): Promise<void> {
-  const configPath = path.join(tmpDir, "ori.config.yaml");
+  const configPath = path.join(tmpDir, "mnemos.config.yaml");
   const config = await fs.readFile(configPath, "utf8");
   await fs.writeFile(configPath, config.replace(search, replacement), "utf8");
 }
@@ -42,13 +42,13 @@ async function readPromotedFrontmatter(name: string): Promise<Record<string, unk
 }
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-promote-llm-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-promote-llm-"));
   await runInit({ targetDir: tmpDir });
 });
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  delete process.env.ORI_TEST_API_KEY;
+  delete process.env.MNEMOS_TEST_API_KEY;
   await fs.rm(tmpDir, { recursive: true, force: true });
 });
 
@@ -86,9 +86,9 @@ describe("runPromote LLM enhancement", () => {
   });
 
   it("uses LLM type, description, and project suggestions when user overrides are absent", async () => {
-    process.env.ORI_TEST_API_KEY = "test-key";
+    process.env.MNEMOS_TEST_API_KEY = "test-key";
     await setConfig("provider: null", "provider: openai");
-    await setConfig("api_key_env: null", "api_key_env: ORI_TEST_API_KEY");
+    await setConfig("api_key_env: null", "api_key_env: MNEMOS_TEST_API_KEY");
     await writeInboxNote(
       "llm-enhanced-note",
       "We decided to change the memory boundary so agents can call from project folders.",
@@ -122,9 +122,9 @@ describe("runPromote LLM enhancement", () => {
   });
 
   it("keeps user overrides above LLM suggestions", async () => {
-    process.env.ORI_TEST_API_KEY = "test-key";
+    process.env.MNEMOS_TEST_API_KEY = "test-key";
     await setConfig("provider: null", "provider: openai");
-    await setConfig("api_key_env: null", "api_key_env: ORI_TEST_API_KEY");
+    await setConfig("api_key_env: null", "api_key_env: MNEMOS_TEST_API_KEY");
     await writeInboxNote(
       "override-priority-note",
       "The model may suggest fields, but explicit caller choices should win.",

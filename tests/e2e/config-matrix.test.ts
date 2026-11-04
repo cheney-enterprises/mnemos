@@ -1,9 +1,9 @@
 /**
- * Ori Mnemos — Config Matrix Tests
+ * Mnemos — Config Matrix Tests
  *
  * Systematic testing of auto-promote behavior across all config combinations.
  * The promote.auto flag is the most consequential config setting — it determines
- * whether ori_add bypasses the inbox pipeline or not.
+ * whether mnemos_add bypasses the inbox pipeline or not.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
@@ -18,7 +18,7 @@ async function setConfig(
   vaultDir: string,
   overrides: { auto?: boolean; require_llm?: boolean }
 ) {
-  const configPath = path.join(vaultDir, "ori.config.yaml");
+  const configPath = path.join(vaultDir, "mnemos.config.yaml");
   let content = await fs.readFile(configPath, "utf8");
 
   if (overrides.auto !== undefined) {
@@ -38,7 +38,7 @@ async function setConfig(
 }
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-e2e-config-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-e2e-config-"));
   await runInit({ targetDir: tmpDir });
 });
 

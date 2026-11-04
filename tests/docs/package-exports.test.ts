@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // 0.7.0 shipped with no `main`, no `exports` and no `types`, so
-// `import { ... } from "ori-memory"` threw ERR_MODULE_NOT_FOUND for every
+// `import { ... } from "mnemos"` threw ERR_MODULE_NOT_FOUND for every
 // consumer. All 25 core modules were in the tarball with .d.ts files and
 // none of them were addressable. 324 stars, nobody could build on it.
 //
@@ -20,7 +20,7 @@ describe("package entry points", () => {
     // src/index.ts has a shebang and calls program.parse() at module load.
     // If "." ever points there, importing this package runs the CLI against
     // the host process's argv.
-    expect(entry).not.toBe(pkg.bin.ori);
+    expect(entry).not.toBe(pkg.bin.mnemos);
   });
 
   it("ships types with the import condition", () => {
@@ -31,12 +31,12 @@ describe("package entry points", () => {
   it("keeps the CLI bin separate from the library entry", () => {
     // npm normalizes "./dist/index.js" to this on publish; keep the source in
     // the published form so `npm publish` has nothing to auto-correct.
-    expect(pkg.bin.ori).toBe("dist/index.js");
+    expect(pkg.bin.mnemos).toBe("dist/index.js");
   });
 
   it("exports the documented public surface", async () => {
     const lib = await import("../../src/lib.js");
-    // searchComposite is the same call the MCP ori_recall tool makes, so the
+    // searchComposite is the same call the MCP mnemos_recall tool makes, so the
     // library path and the agent path cannot drift apart.
     for (const name of ["searchComposite", "openSyncedIndex", "runReadOnlySql", "loadConfig", "VERSION"]) {
       expect(lib, `missing export: ${name}`).toHaveProperty(name);
@@ -54,19 +54,19 @@ describe("package entry points", () => {
     expect(Object.keys(lib).length).toBeLessThanOrEqual(24);
   });
 
-  // @orimnemos/cli (aries-cli, the agentic harness that depends on
-  // ori-memory ^0.5.5) calls require.resolve("ori-memory/dist/index.js") in
+  // @mnemos/cli (aries-cli, the agentic harness that depends on
+  // mnemos ^0.5.5) calls require.resolve("mnemos/dist/index.js") in
   // src/memory/vault.ts to locate the binary it spawns. Before 0.7.1 there
   // was no exports field at all, so legacy resolution allowed any subpath and
   // that call worked by accident.
   //
   // Adding exports made it throw ERR_PACKAGE_PATH_NOT_EXPORTED, which does
   // not surface as an error: vault.ts catches it and silently falls back to a
-  // global `ori-memory` shim that may not be installed. A real consumer
+  // global `mnemos` shim that may not be installed. A real consumer
   // degrading quietly is a failure mode this package already has too much of.
   //
   // Delete this only after that consumer moves to the "./cli" subpath.
-  it("keeps the deep CLI path that @orimnemos/cli resolves", () => {
+  it("keeps the deep CLI path that @mnemos/cli resolves", () => {
     expect(pkg.exports["./dist/index.js"]).toBe("./dist/index.js");
   });
 

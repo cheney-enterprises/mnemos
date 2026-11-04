@@ -6,7 +6,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import type { NoteIndex } from "./importance.js";
 import type { LinkGraph } from "./graph.js";
-import type { OriConfig } from "./config.js";
+import type { MnemosConfig } from "./config.js";
 import {
   parseFrontmatter,
   readFrontmatterFile,
@@ -74,7 +74,7 @@ export async function computeAllVitality(
   titles: string[],
   linkGraph: LinkGraph,
   bridges: Set<string>,
-  config: OriConfig,
+  config: MnemosConfig,
   boostScores?: Map<string, number>,
   db?: IndexDB,
 ): Promise<Map<string, number>> {

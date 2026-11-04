@@ -1,5 +1,5 @@
 /**
- * `ori health` must say out loud when learning is not happening.
+ * `mnemos health` must say out loud when learning is not happening.
  *
  * `getLearningHealth` has reported `neverUpdated` since fix-list item 5, but
  * a number inside a JSON blob is not a warning. The production table this was
@@ -22,7 +22,7 @@ import { runInit } from "../../src/cli/init.js";
 let vault: string;
 
 beforeEach(async () => {
-  vault = await fs.mkdtemp(path.join(os.tmpdir(), "ori-health-"));
+  vault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-health-"));
   await runInit({ targetDir: vault });
 });
 
@@ -31,7 +31,7 @@ afterEach(async () => {
 });
 
 function seedSessions(sessions: number, credited: number, cliQueries = 0): void {
-  const db = initDB(path.join(vault, ".ori", "embeddings.db"));
+  const db = initDB(path.join(vault, ".mnemos", "embeddings.db"));
   try {
     initQValueTables(db);
     for (let s = 0; s < sessions; s++) {
@@ -54,7 +54,7 @@ async function learningWarning(): Promise<string | undefined> {
   return result.warnings.find((w) => w.includes("never received a Q-update"));
 }
 
-describe("ori health: no false 'never credited' alarm (#37)", () => {
+describe("mnemos health: no false 'never credited' alarm (#37)", () => {
   // The session/note ratio check was removed: exposure without credit is now
   // normal (CLI queries, neutral and dead-end outcomes). It must not come back.
   it("stays quiet on agent sessions that read without crediting", async () => {

@@ -17,7 +17,7 @@ let fakeHome: string;
 let realHomedir: typeof os.homedir;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(await scratchBase(), "ori-test-vault-"));
+  tmpDir = await fs.mkdtemp(path.join(await scratchBase(), "mnemos-test-vault-"));
   fakeHome = path.join(tmpDir, "fakehome");
   await fs.mkdir(fakeHome, { recursive: true });
   realHomedir = os.homedir;
@@ -30,25 +30,25 @@ afterEach(async () => {
 });
 
 describe("isVaultRoot", () => {
-  it("returns true when .ori marker exists", async () => {
-    await fs.writeFile(path.join(tmpDir, ".ori"), "", "utf8");
+  it("returns true when .mnemos marker exists", async () => {
+    await fs.writeFile(path.join(tmpDir, ".mnemos"), "", "utf8");
     expect(await isVaultRoot(tmpDir)).toBe(true);
   });
 
-  it("returns false when no .ori marker", async () => {
+  it("returns false when no .mnemos marker", async () => {
     expect(await isVaultRoot(tmpDir)).toBe(false);
   });
 });
 
 describe("findVaultRoot", () => {
   it("finds vault root in current directory", async () => {
-    await fs.writeFile(path.join(tmpDir, ".ori"), "", "utf8");
+    await fs.writeFile(path.join(tmpDir, ".mnemos"), "", "utf8");
     const root = await findVaultRoot(tmpDir);
     expect(root).toBe(path.resolve(tmpDir));
   });
 
-  it("walks up directories to find .ori", async () => {
-    await fs.writeFile(path.join(tmpDir, ".ori"), "", "utf8");
+  it("walks up directories to find .mnemos", async () => {
+    await fs.writeFile(path.join(tmpDir, ".mnemos"), "", "utf8");
     const subDir = path.join(tmpDir, "sub", "deep");
     await fs.mkdir(subDir, { recursive: true });
     const root = await findVaultRoot(subDir);
@@ -57,7 +57,7 @@ describe("findVaultRoot", () => {
 
   it("falls back to the global vault when one exists", async () => {
     const globalVault = getGlobalVaultPath();
-    await fs.mkdir(path.join(globalVault, ".ori"), { recursive: true });
+    await fs.mkdir(path.join(globalVault, ".mnemos"), { recursive: true });
 
     const result = await findVaultRootWithSource(tmpDir);
     expect(result.path).toBe(path.resolve(globalVault));
@@ -66,7 +66,7 @@ describe("findVaultRoot", () => {
   });
 
   it("throws when neither project nor global vault exists", async () => {
-    await expect(findVaultRoot(tmpDir)).rejects.toThrow("No .ori marker found");
+    await expect(findVaultRoot(tmpDir)).rejects.toThrow("No .mnemos marker found");
   });
 });
 
@@ -74,8 +74,8 @@ describe("getVaultPaths", () => {
   it("returns correct path structure", () => {
     const paths = getVaultPaths("/my/vault");
     expect(paths.root).toBe("/my/vault");
-    expect(paths.marker).toBe(path.join("/my/vault", ".ori"));
-    expect(paths.config).toBe(path.join("/my/vault", "ori.config.yaml"));
+    expect(paths.marker).toBe(path.join("/my/vault", ".mnemos"));
+    expect(paths.config).toBe(path.join("/my/vault", "mnemos.config.yaml"));
     expect(paths.notes).toBe(path.join("/my/vault", "notes"));
     expect(paths.inbox).toBe(path.join("/my/vault", "inbox"));
     expect(paths.templates).toBe(path.join("/my/vault", "templates"));

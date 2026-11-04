@@ -1,39 +1,39 @@
-# Ori Mnemos
+# Mnemos
 
 **Open-source persistent memory infrastructure for AI agents.**
 
-Ori implements human cognition as mathematical models on a knowledge graph. Activation decay from ACT-R. Spreading activation along wiki-link edges. Hebbian co-occurrence from retrieval patterns. Reinforcement learning on retrieval itself. Recursive graph traversal with sub-question decomposition. The system learns what matters, forgets what doesn't, and optimizes its own retrieval pipeline.
+Mnemos implements human cognition as mathematical models on a knowledge graph. Activation decay from ACT-R. Spreading activation along wiki-link edges. Hebbian co-occurrence from retrieval patterns. Reinforcement learning on retrieval itself. Recursive graph traversal with sub-question decomposition. The system learns what matters, forgets what doesn't, and optimizes its own retrieval pipeline.
 
 Persistent memory across sessions, clients, and machines. Zero-infrastructure retrieval that [matches and in several cases strongly outperforms incumbents on benchmarks](#benchmarks) — and you own every byte of your data. Markdown on disk. Wiki-links as graph edges. Git as version control. No database lock-in, no cloud dependency, no vendor capture.
 
-**v0.7.0** · [npm](https://www.npmjs.com/package/ori-memory) · [Paper](https://orimnemos.com/rmh) · Apache-2.0
+**v0.7.0** · [npm](https://www.npmjs.com/package/mnemos) · [Paper](https://mnemos.com/rmh) · Apache-2.0
 
 ---
 
 ## Use
 
-Ori is three surfaces over one index. The markdown is the truth; the index is
+Mnemos is three surfaces over one index. The markdown is the truth; the index is
 derived. The learned half — Q-values, LinUCB arms, retrieval history — is not,
 so export it before deleting anything (see [When to rebuild](#when-to-rebuild)).
 
 **CLI**
 
 ```bash
-npx ori init          # scaffold a vault
-npx ori index build   # derive the index
-npx ori explore "…"   # navigated retrieval
-npx ori sql "…"       # read-only SQL over the index
+npx mnemos init          # scaffold a vault
+npx mnemos index build   # derive the index
+npx mnemos explore "…"   # navigated retrieval
+npx mnemos sql "…"       # read-only SQL over the index
 ```
 
-**MCP server** — `ori serve`, registered in a client config. This is how an
+**MCP server** — `mnemos serve`, registered in a client config. This is how an
 agent uses it.
 
 **Library** — `recall` is the same wired entry the CLI and the MCP
-`ori_recall` tool both go through, so the programmatic path and the agent
+`mnemos_recall` tool both go through, so the programmatic path and the agent
 path cannot drift.
 
 ```ts
-import { recall } from "ori-memory";
+import { recall } from "mnemos";
 
 const res = await recall("./vault", "what did we decide about caching?", { limit: 5 });
 for (const hit of res.data.results) console.log(hit.title, hit.score);
@@ -47,7 +47,7 @@ The export surface is deliberately small and is a semver contract; the rest of
 `exports`, so a bare import threw and the library path did not exist — but the
 CLI and MCP paths always worked, and existing users were unaffected.
 
-`ori-memory/cli` resolves to the CLI entry, for callers that need to locate
+`mnemos/cli` resolves to the CLI entry, for callers that need to locate
 the binary and spawn it rather than link against it. `require.resolve` on it
 is the intended use; importing it runs the CLI.
 
@@ -62,7 +62,7 @@ deterministic substring check in `GeneratedCase.run()`: it calls
 `must_contain` / `must_not_contain`. Generation is `random.Random(42)` over
 templates. The optional LLM hook is `llm=None` by default and was not used.
 
-| family | Ori | what it requires |
+| family | Mnemos | what it requires |
 |---|:---:|---|
 | supersession | **200 / 200** | replace a fact, old value must not surface |
 | decay | **200 / 200** | `release(query)` — soft-evict on demand |
@@ -81,7 +81,7 @@ patches.
 350 of 1,000 — a system that returns *nothing* passes vacuously. A null
 adapter that accepts writes and never returns anything scores **350/1000 =
 35%, including 100% on the whole decay family**. On the 650 cases that
-actually discriminate, Ori is **628/650 = 96.6%** and its purge drops from
+actually discriminate, Mnemos is **628/650 = 96.6%** and its purge drops from
 91% to **64%**, which is its real weak spot. The published LangMem 99.5 /
 Lethe 99.3 / Mem0 88.8 are full-suite and carry the same floor.
 See [`docs/falsification/forgeteval-validity.md`](./docs/falsification/forgeteval-validity.md).
@@ -90,15 +90,15 @@ See [`docs/falsification/forgeteval-validity.md`](./docs/falsification/forgeteva
 |---|:---:|:---:|
 | LangMem | 99.5 | — |
 | Lethe v1 | 99.3 | 63.4 |
-| **Ori Mnemos** | **97.8** | **65.7** |
+| **Mnemos** | **97.8** | **65.7** |
 | Mem0 | 88.8 | 68.3 |
 | MemPalace | 0 | — |
 
-**Ori scored 0/1000 on this benchmark earlier the same day.** Not a low
+**Mnemos scored 0/1000 on this benchmark earlier the same day.** Not a low
 score — a structural zero. ForgetEval's adapter protocol has three optional
-operations, `supersede`, `release` and `purge`, and Ori had none of them:
+operations, `supersede`, `release` and `purge`, and Mnemos had none of them:
 zero source hits across `src/`. Every case was N/A. The ACT-R decay and
-Ebbinghaus curves Ori already had are ranking-time priors, and no benchmark
+Ebbinghaus curves Mnemos already had are ranking-time priors, and no benchmark
 measures those; ForgetEval's "decay" family means an explicit `release(query)`
 call. `src/core/forget.ts` is 305 lines and closed the whole gap in a day,
 which is the most informative number on this page.
@@ -109,10 +109,10 @@ ForgetEval's code lives inside `deeplethe/lethe` — the benchmark and its
 top-scoring system are the same org, in a repo with 14 stars. The template
 column has four entries, one of which (MemPalace) scores 0 by construction
 because it exposes no deletion primitive at all. Two of the rest saturate.
-On the adversarial layer Ori is 5th of 14 configurations and lands inside
+On the adversarial layer Mnemos is 5th of 14 configurations and lands inside
 the 63–68% band the paper's own McNemar test calls noise (χ²=0.125,
 p=0.724); the paper's words are "the bench reads the trade-off, not a
-winner." The one comparison that is statistically real is Ori vs Lethe on
+winner." The one comparison that is statistically real is Mnemos vs Lethe on
 template, z=2.81, p=0.005 — Lethe is genuinely ahead.
 
 **Who is missing matters more than who placed.** Supermemory (30.6k stars,
@@ -124,8 +124,8 @@ almost verbatim. It has never been benchmarked. Neither have Hindsight
 (24.0k), Cognee (30.8k, excluded for API incompatibility), MemOS (11.5k) or
 Honcho (7.3k).
 
-So the honest claim is not that Ori forgets better than the field. It is
-that **Ori forgets offline, with no API key**, and that the field has no
+So the honest claim is not that Mnemos forgets better than the field. It is
+that **Mnemos forgets offline, with no API key**, and that the field has no
 idea how well it forgets:
 
 > Fifteen agent-memory systems were checked. **Zero publish a forgetting
@@ -146,9 +146,9 @@ Reproduce:
 
 ```bash
 git clone https://github.com/deeplethe/lethe && cd lethe
-cp <ori>/bench/forgeteval_ori_adapter.py bench/forgeteval/ori_adapter.py
-export ORI_BRIDGE=<ori>/bench/forgeteval-bridge.mjs
-python -m bench.forgeteval.run --adapter ori --suite template --scale 200 --seed 42
+cp <mnemos>/bench/forgeteval_mnemos_adapter.py bench/forgeteval/mnemos_adapter.py
+export MNEMOS_BRIDGE=<mnemos>/bench/forgeteval-bridge.mjs
+python -m bench.forgeteval.run --adapter mnemos --suite template --scale 200 --seed 42
 ```
 
 Four minutes, 1,000 cases, $0.00. The adapter talks NDJSON to a resident Node
@@ -161,7 +161,7 @@ call would spend hours on interpreter startup.
 Head-to-head against [Mem0](https://github.com/mem0ai/mem0). Both systems indexed the
 same documents and answered the same questions in the same run.
 
-| Metric | Ori Mnemos | Mem0 1.0.6 | Δ |
+| Metric | Mnemos | Mem0 1.0.6 | Δ |
 |--------|:----------:|:----------:|:-:|
 | Recall@5 | **0.87** | 0.29 | **3.0×** |
 | MRR | **0.91** | 0.42 | **2.2×** |
@@ -182,16 +182,16 @@ answer EM/F1 under its own `normalize_answer`, plus supporting-fact F1 over
 title-level retrieval metric defined in `bench/hotpotqa-eval.ts`, and
 "answer proxy" is not a HotpotQA metric at all — it is token recall of the
 gold answer against retrieved text. The comparison is valid in one direction
-only: Ori and Mem0 went through the *same* harness on the *same* questions,
+only: Mnemos and Mem0 went through the *same* harness on the *same* questions,
 so the ratio between the two columns means something. The absolute numbers
 do not transfer anywhere.
 
-At `n = 50` the Wilson 95% intervals are Ori `[0.75, 0.94]` and Mem0
+At `n = 50` the Wilson 95% intervals are Mnemos `[0.75, 0.94]` and Mem0
 `[0.18, 0.43]` on Recall@5. They do not overlap, so the gap is real, but the
 two-decimal precision in the table is not: read 0.87 as "high 0.80s".
 
 Latency is not reported here. The evaluation harness does not record it, so any
-number would be recalled rather than measured. What is measured is that Ori answers
+number would be recalled rather than measured. What is measured is that Mnemos answers
 from markdown plus a local SQLite index with **no API key and no network**.
 
 ### LoCoMo — Long-Term Conversational Memory
@@ -261,24 +261,24 @@ three zero-API-call:
 |---|---|:---:|:---:|:---:|
 | MemPalace (raw) | all-MiniLM-L6-v2 | 80.6% | 96.6% | 98.2% |
 | Lethe v1 | all-MiniLM-L6-v2 | 85.4% | **97.4%** | **99.0%** |
-| **Ori Mnemos** | Xenova/all-MiniLM-L6-v2 | **86.6%** | 96.6% | 98.1% |
+| **Mnemos** | Xenova/all-MiniLM-L6-v2 | **86.6%** | 96.6% | 98.1% |
 
-Ori leads at @1 and is at parity by @10. **That is a smaller claim than it
+Mnemos leads at @1 and is at parity by @10. **That is a smaller claim than it
 looks.** An independent analysis of MemPalace
 ([arXiv:2604.21284](https://arxiv.org/abs/2604.21284)) concluded its 96.6% R@5
 "is the performance of ChromaDB's default embedding model (all-MiniLM-L6-v2)
 applied to verbatim text chunks" and is reproducible with a minimal ChromaDB
 setup. At k=5 this metric is saturated and mostly measures the embedder, which
-is the same one in all three rows. The honest reading is that Ori's retrieval
+is the same one in all three rows. The honest reading is that Mnemos's retrieval
 is not the bottleneck and this axis no longer separates systems.
 
-Ori's `recall_any@5` of 0.9660 and MemPalace's published 96.6% agree to three
+Mnemos's `recall_any@5` of 0.9660 and MemPalace's published 96.6% agree to three
 significant figures. That is a coincidence, not a copied number; the full
 per-question output is committed.
 
 Weak categories, consistent with LoCoMo: multi-session 0.653 and
 temporal-reasoning 0.772 `recall_all@5`, against 1.000 for both single-session
-types. Multi-hop and temporal are where Ori loses on both benchmarks, which is
+types. Multi-hop and temporal are where Mnemos loses on both benchmarks, which is
 two independent measurements agreeing rather than noise.
 
 Reproduce:
@@ -298,8 +298,8 @@ so these are the authors' metric definitions.
 ## Quick Start
 
 ```bash
-npm install -g ori-memory
-ori init my-agent
+npm install -g mnemos
+mnemos init my-agent
 cd my-agent
 ```
 
@@ -307,16 +307,16 @@ Connect to your agent:
 
 ```bash
 # Full adapters — auto-orient at session start, capture at session end
-ori bridge claude-code --vault ~/brain                 # hooks + MCP + CLAUDE.md
-ori bridge hermes --vault ~/brain                      # native plugin + MCP + HERMES.md
-ori bridge opencode --vault ~/brain                    # plugin + MCP + AGENTS.md
+mnemos bridge claude-code --vault ~/brain                 # hooks + MCP + CLAUDE.md
+mnemos bridge hermes --vault ~/brain                      # native plugin + MCP + HERMES.md
+mnemos bridge opencode --vault ~/brain                    # plugin + MCP + AGENTS.md
 
 # MCP-only adapters — tools available, no lifecycle automation
-ori bridge cursor --vault ~/brain                      # .cursor/mcp.json
-ori bridge codex --vault ~/brain                       # ~/.codex/config.toml
+mnemos bridge cursor --vault ~/brain                      # .cursor/mcp.json
+mnemos bridge codex --vault ~/brain                       # ~/.codex/config.toml
 
 # Any MCP client
-ori bridge generic --vault ~/brain                     # prints config for manual setup
+mnemos bridge generic --vault ~/brain                     # prints config for manual setup
 ```
 
 Claude Code, Hermes Agent, and OpenCode get full lifecycle integration — the agent orients at session start, captures insights at session end, and validates notes on write. Cursor, Codex, and other MCP clients get access to all 16 tools but manage their own session lifecycle.
@@ -326,10 +326,10 @@ Manual MCP config (works with any client that speaks MCP):
 ```json
 {
   "mcpServers": {
-    "ori": {
-      "command": "ori",
+    "mnemos": {
+      "command": "mnemos",
       "args": ["serve", "--mcp", "--vault", "/path/to/brain"],
-      "env": { "ORI_VAULT": "/path/to/brain" }
+      "env": { "MNEMOS_VAULT": "/path/to/brain" }
     }
   }
 }
@@ -341,20 +341,20 @@ Start a session. The agent receives its identity automatically and begins onboar
 
 ## What's New
 
-**v0.6.0 — Navigated Recursion.** `ori explore` no longer returns a flat synthesis. The agent sees the decomposition tree — which branches produced results, which hit dead ends — and steers the traversal itself. New session commands: `explore-start`, `explore-expand`, `explore-conclude`. Budget is a nudge, not a wall: soft exhaustion with explicit extension. A cross-encoder reranking stage now sits on top of four-signal fusion. RMH Constraint 2 goes from partial to real.
+**v0.6.0 — Navigated Recursion.** `mnemos explore` no longer returns a flat synthesis. The agent sees the decomposition tree — which branches produced results, which hit dead ends — and steers the traversal itself. New session commands: `explore-start`, `explore-expand`, `explore-conclude`. Budget is a nudge, not a wall: soft exhaustion with explicit extension. A cross-encoder reranking stage now sits on top of four-signal fusion. RMH Constraint 2 goes from partial to real.
 
 ```
-$ ori explore-start "why did we choose SQLite over postgres"
+$ mnemos explore-start "why did we choose SQLite over postgres"
 
 exploration e7f2 — 3 branches
 ├─ [1] storage engine tradeoffs        4 notes, strong signal
 ├─ [2] deployment constraints          2 notes
 └─ [3] prior migration decisions       dead end — no notes
 
-next: ori explore-expand e7f2 1   |   ori explore-conclude e7f2 --answered
+next: mnemos explore-expand e7f2 1   |   mnemos explore-conclude e7f2 --answered
 ```
 
-**v0.5.6 — OpenCode bridge.** Full lifecycle integration: first-run onboarding, auto session capture, note validation, multi-vault support. `ori bridge opencode` — one command.
+**v0.5.6 — OpenCode bridge.** Full lifecycle integration: first-run onboarding, auto session capture, note validation, multi-vault support. `mnemos bridge opencode` — one command.
 
 **v0.5.5 — Ebbinghaus warmth.** Notes accessed once fade fast (half-life ~7 days). Notes accessed across many sessions embed deeply (up to ~28 days). Short-term and long-term memory, structurally distinct.
 
@@ -364,7 +364,7 @@ Full history in the [CHANGELOG](./CHANGELOG.md).
 
 ## Recursive Memory Harness
 
-Ori is the first implementation of the **Recursive Memory Harness** (RMH) framework — a set of constraints on how persistent memory should behave for AI agents.
+Mnemos is the first implementation of the **Recursive Memory Harness** (RMH) framework — a set of constraints on how persistent memory should behave for AI agents.
 
 The core insight comes from Recursive Language Models ([Zhang, Krassa & Khattab, 2026](https://arxiv.org/abs/2512.24601)). RLM treats context not as input to be stuffed into a window, but as an environment to be navigated. The model doesn't get a bigger desk — it gets legs and walks into the library. RMH applies the same principle to persistent memory.
 
@@ -372,13 +372,13 @@ Three constraints define the framework:
 
 1. **Retrieval must follow the graph.** Memory is not a flat vector store. Notes are nodes, wiki-links are edges. Retrieval walks the structure — Personalized PageRank at α=0.45, spreading activation along edges, community-aware traversal. The topology of the graph shapes what gets found.
 
-2. **Unresolved queries must recurse.** When a single retrieval pass is insufficient, the system decomposes the question into sub-questions, retrieves against each, and synthesizes. Convergence detection stops recursion when new passes stop surfacing new information. This is what `ori explore` does.
+2. **Unresolved queries must recurse.** When a single retrieval pass is insufficient, the system decomposes the question into sub-questions, retrieves against each, and synthesizes. Convergence detection stops recursion when new passes stop surfacing new information. This is what `mnemos explore` does.
 
 3. **Every retrieval must reshape the graph.** Retrieval is not read-only. Co-occurrence edges grow between notes retrieved together (Hebbian learning). Q-values update based on whether retrieved notes were actually useful. The graph learns from how it is used — every query makes the next query better.
 
 Most memory systems treat retrieval as search. RMH treats retrieval as navigation, recursion, and learning — on a graph that evolves with every session.
 
-Read the full paper: [Introducing Recursive Memory Harness](https://orimnemos.com/rmh)
+Read the full paper: [Introducing Recursive Memory Harness](https://mnemos.com/rmh)
 
 ---
 
@@ -390,7 +390,7 @@ Read the full paper: [Introducing Recursive Memory Harness](https://orimnemos.co
 
 - **Three memory spaces.** Identity (`self/`) decays at 0.1x — barely fades. Knowledge (`notes/`) decays at 1.0x — lives and dies by relevance. Operations (`ops/`) decays at 3.0x — burns hot and clears itself. The separation is architectural, not cosmetic.
 
-- **Cognitive forgetting.** Notes decay using ACT-R base-level learning equations, not arbitrary TTLs. Used notes stay alive. Their neighbors stay warm through spreading activation along wiki-link edges. Structurally critical nodes are protected by Tarjan's algorithm. `ori prune` analyzes the full activation topology before archiving anything.
+- **Cognitive forgetting.** Notes decay using ACT-R base-level learning equations, not arbitrary TTLs. Used notes stay alive. Their neighbors stay warm through spreading activation along wiki-link edges. Structurally critical nodes are protected by Tarjan's algorithm. `mnemos prune` analyzes the full activation topology before archiving anything.
 
 - **Four-signal fusion.** Semantic embeddings, BM25 keyword matching, personalized PageRank, and associative warmth fused through score-weighted Reciprocal Rank Fusion. Intent classification (episodic, procedural, semantic, decision) shifts signal weights automatically.
 
@@ -398,7 +398,7 @@ Read the full paper: [Introducing Recursive Memory Harness](https://orimnemos.co
 
 - **Learning retrieval (v0.4.0).** Three intelligence layers improve retrieval quality from session to session, synthesized from 63 research sources. See [Retrieval Intelligence](#retrieval-intelligence-v040) below.
 
-- **Capture-promote pipeline.** `ori add` captures to inbox. `ori promote` classifies (idea, decision, learning, insight, blocker, opportunity), detects links, suggests areas. 50+ heuristic patterns. Optional LLM enhancement.
+- **Capture-promote pipeline.** `mnemos add` captures to inbox. `mnemos promote` classifies (idea, decision, learning, insight, blocker, opportunity), detects links, suggests areas. 50+ heuristic patterns. Optional LLM enhancement.
 
 - **Zero cloud dependencies.** Local embeddings via all-MiniLM-L6-v2 running in-process. SQLite for vectors and intelligence state. Everything on your filesystem. Zero API keys required for core functionality.
 
@@ -466,16 +466,16 @@ Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 
 ## Token Economics
 
-Without retrieval, every question requires dumping the entire vault into context. With Ori, the cost stays flat.
+Without retrieval, every question requires dumping the entire vault into context. With Mnemos, the cost stays flat.
 
-| Vault Size | Without Ori | With Ori | Savings |
+| Vault Size | Without Mnemos | With Mnemos | Savings |
 |:----------:|:-----------:|:--------:|:-------:|
 | 50 notes | 10,100 tokens | 850 tokens | **91%** |
 | 200 notes | 40,400 tokens | 850 tokens | **98%** |
 | 1,000 notes | 202,000 tokens | 850 tokens | **99.6%** |
 | 5,000 notes | 1,010,000 tokens | 850 tokens | **99.9%** |
 
-A typical session costs **~$0.10** with Ori. Without it: **~$6.00+**.
+A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 
 ---
 
@@ -490,10 +490,10 @@ A typical session costs **~$0.10** with Ori. Without it: **~$6.00+**.
                         (stdio / JSON-RPC)
                               │
                     ┌───────────────────┐
-                    │    Ori MCP Server  │
+                    │    Mnemos MCP Server  │
                     │                   │
                     │  instructions     │   identity auto-injected
-                    │  resources  (5)   │   ori:// endpoints
+                    │  resources  (5)   │   mnemos:// endpoints
                     │  tools    (16)    │   full memory operations
                     └─────────┬─────────┘
                               │
@@ -527,21 +527,21 @@ A typical session costs **~$0.10** with Ori. Without it: **~$6.00+**.
 
 | Tool | What it does |
 |------|-------------|
-| `ori_wake` | Session boot: bounded briefing, plus onboarding on a fresh vault |
-| `ori_update` | Write to identity, goals, methodology, daily, or reminders |
-| `ori_update_decision` | Record the user's answer to an update notice |
-| `ori_whats_new` | Release notes for the installed version, or any version |
+| `mnemos_wake` | Session boot: bounded briefing, plus onboarding on a fresh vault |
+| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders |
+| `mnemos_update_decision` | Record the user's answer to an update notice |
+| `mnemos_whats_new` | Release notes for the installed version, or any version |
 | `memory_sql` | Read-only SQL over the index — anything the ranking tools cannot express |
-| `ori_health` | Full diagnostics |
-| `ori_add` | Capture to inbox |
-| `ori_promote` | Promote with classification, linking, and area assignment |
-| `ori_validate` | Schema validation |
-| `ori_query_ranked` | Full retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning |
-| `ori_query_similar` | Semantic search (vector only, faster) |
-| `ori_warmth` | Inspect the associative warmth field |
-| `ori_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection |
-| `ori_prune` | Activation topology analysis and archive candidates |
-| `ori_index_build` | Build/update embedding index and bootstrap co-occurrence edges |
+| `mnemos_health` | Full diagnostics |
+| `mnemos_add` | Capture to inbox |
+| `mnemos_promote` | Promote with classification, linking, and area assignment |
+| `mnemos_validate` | Schema validation |
+| `mnemos_query_ranked` | Full retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning |
+| `mnemos_query_similar` | Semantic search (vector only, faster) |
+| `mnemos_warmth` | Inspect the associative warmth field |
+| `mnemos_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection |
+| `mnemos_prune` | Activation topology analysis and archive candidates |
+| `mnemos_index_build` | Build/update embedding index and bootstrap co-occurrence edges |
 
 Five tools were removed in favour of `memory_sql`, which answers their
 questions in one statement and is 20–46× faster because it reads the index
@@ -549,18 +549,18 @@ instead of re-walking the vault from disk:
 
 | was | now |
 |---|---|
-| `ori_status` | `SELECT COUNT(*) FROM v_note` |
-| `ori_query orphans` | `SELECT title FROM v_note WHERE inbound = 0` |
-| `ori_query dangling` | `SELECT * FROM v_dangling` |
-| `ori_query backlinks` | `SELECT src_title FROM v_link WHERE dst = '…'` |
-| `ori_query cross-project` | `SELECT n.title FROM v_note n JOIN note_project p ON p.note_id = n.id GROUP BY n.id HAVING COUNT(DISTINCT p.project) > 1` |
-| `ori_query_important` | `SELECT title, pagerank FROM v_note ORDER BY pagerank DESC` |
-| `ori_query_fading` | `ori_prune`, which its own description already deferred to |
+| `mnemos_status` | `SELECT COUNT(*) FROM v_note` |
+| `mnemos_query orphans` | `SELECT title FROM v_note WHERE inbound = 0` |
+| `mnemos_query dangling` | `SELECT * FROM v_dangling` |
+| `mnemos_query backlinks` | `SELECT src_title FROM v_link WHERE dst = '…'` |
+| `mnemos_query cross-project` | `SELECT n.title FROM v_note n JOIN note_project p ON p.note_id = n.id GROUP BY n.id HAVING COUNT(DISTINCT p.project) > 1` |
+| `mnemos_query_important` | `SELECT title, pagerank FROM v_note ORDER BY pagerank DESC` |
+| `mnemos_query_fading` | `mnemos_prune`, which its own description already deferred to |
 
 The three navigated-exploration tools (`explore_start` / `_expand` /
 `_conclude`) were removed from MCP after six months with zero recorded
-sessions. They remain available as `ori explore-start`, `ori explore-expand`
-and `ori explore-conclude`.
+sessions. They remain available as `mnemos explore-start`, `mnemos explore-expand`
+and `mnemos explore-conclude`.
 
 ---
 
@@ -568,43 +568,43 @@ and `ori explore-conclude`.
 
 ```bash
 # Vault management
-ori init [dir]                    # Scaffold a new vault
-ori status                        # Vault overview
-ori health                        # Full diagnostics
-ori whats-new [version]           # Release notes
+mnemos init [dir]                    # Scaffold a new vault
+mnemos status                        # Vault overview
+mnemos health                        # Full diagnostics
+mnemos whats-new [version]           # Release notes
 
 # Note lifecycle
-ori add <title> [--type <type>]   # Capture to inbox
-ori promote [note] [--all]        # Promote to knowledge graph
-ori validate <path>               # Schema validation
-ori archive [--dry-run]           # Archive stale notes
-ori prune [--apply] [--verbose]   # Topology analysis + archive candidates
+mnemos add <title> [--type <type>]   # Capture to inbox
+mnemos promote [note] [--all]        # Promote to knowledge graph
+mnemos validate <path>               # Schema validation
+mnemos archive [--dry-run]           # Archive stale notes
+mnemos prune [--apply] [--verbose]   # Topology analysis + archive candidates
 
 # Retrieval
-ori explore <query>               # Recursive graph traversal (RMH)
-ori query ranked <query>          # Full intelligent retrieval
-ori query similar <query>         # Semantic search
-ori query important               # PageRank ranking
-ori query fading                  # Vitality detection
-ori query orphans                 # Notes with no incoming links
-ori query dangling                # Broken wiki-links
-ori query backlinks <note>        # What links to this note
-ori query cross-project           # Multi-project notes
+mnemos explore <query>               # Recursive graph traversal (RMH)
+mnemos query ranked <query>          # Full intelligent retrieval
+mnemos query similar <query>         # Semantic search
+mnemos query important               # PageRank ranking
+mnemos query fading                  # Vitality detection
+mnemos query orphans                 # Notes with no incoming links
+mnemos query dangling                # Broken wiki-links
+mnemos query backlinks <note>        # What links to this note
+mnemos query cross-project           # Multi-project notes
 
 # Infrastructure
-ori index build [--force]         # Rebuild everything derived from the vault
-ori index status                  # Index statistics
-ori graph metrics                 # PageRank, centrality
-ori graph communities             # Louvain clustering
-ori serve --mcp [--vault <path>]                                # Run MCP server
-ori bridge claude-code [--scope <s>] [--activation <a>] [--vault <p>]  # Claude Code (hooks + MCP + instructions)
-ori bridge hermes [--scope <s>] [--activation <a>] [--vault <p>]       # Hermes Agent (plugin + MCP + instructions)
-ori bridge opencode [--scope <s>] [--activation <a>] [--vault <p>]     # OpenCode (plugin + MCP + AGENTS.md)
-ori bridge cursor [--scope <s>] [--vault <p>]                          # Cursor (MCP config)
-ori bridge codex [--scope <s>] [--vault <p>]                           # Codex (TOML config)
-ori bridge generic [--scope <s>] [--vault <p>] [--json]                # Any MCP client (prints config)
-ori bridge status [--json]                                             # Inspect all bridge installs
-ori bridge <target> --uninstall                                        # Remove Ori config for a target
+mnemos index build [--force]         # Rebuild everything derived from the vault
+mnemos index status                  # Index statistics
+mnemos graph metrics                 # PageRank, centrality
+mnemos graph communities             # Louvain clustering
+mnemos serve --mcp [--vault <path>]                                # Run MCP server
+mnemos bridge claude-code [--scope <s>] [--activation <a>] [--vault <p>]  # Claude Code (hooks + MCP + instructions)
+mnemos bridge hermes [--scope <s>] [--activation <a>] [--vault <p>]       # Hermes Agent (plugin + MCP + instructions)
+mnemos bridge opencode [--scope <s>] [--activation <a>] [--vault <p>]     # OpenCode (plugin + MCP + AGENTS.md)
+mnemos bridge cursor [--scope <s>] [--vault <p>]                          # Cursor (MCP config)
+mnemos bridge codex [--scope <s>] [--vault <p>]                           # Codex (TOML config)
+mnemos bridge generic [--scope <s>] [--vault <p>] [--json]                # Any MCP client (prints config)
+mnemos bridge status [--json]                                             # Inspect all bridge installs
+mnemos bridge <target> --uninstall                                        # Remove Mnemos config for a target
 ```
 
 Path-taking commands treat relative file paths as vault-relative. Absolute
@@ -612,15 +612,15 @@ paths continue to work unchanged.
 
 ### When to rebuild
 
-`.ori/` holds two different things, and only one of them is disposable.
+`.mnemos/` holds two different things, and only one of them is disposable.
 
 **Derived** — rebuilt from the markdown on demand:
 
-| store | maintained by | needs `ori index build` when |
+| store | maintained by | needs `mnemos index build` when |
 |---|---|---|
 | derived index (`note`, `edge`, `note_term`, graph-metrics cache) | every query, automatically — one `stat` per file, reparse only what changed | never for an edit; `--force` if a query warns it "covers N of M notes" |
-| embeddings (semantic vectors) | `ori add` on write; queries only if the table is missing or empty | a note was written by something other than `ori add` (an editor, a sync client, a script) — it is findable by keyword and links immediately, but not by meaning until it is embedded |
-| co-occurrence bootstrap | `ori index build` only | link structure changed a lot and you want day-0 edges to reflect it |
+| embeddings (semantic vectors) | `mnemos add` on write; queries only if the table is missing or empty | a note was written by something other than `mnemos add` (an editor, a sync client, a script) — it is findable by keyword and links immediately, but not by meaning until it is embedded |
+| co-occurrence bootstrap | `mnemos index build` only | link structure changed a lot and you want day-0 edges to reflect it |
 
 **Accumulated** — nowhere else, and a rebuild destroys it:
 
@@ -628,7 +628,7 @@ paths continue to work unchanged.
 `stage_log`, `boosts`, `note_access`, `memory_events`, and the `retrieval`
 rows of `co_occurrence`.
 
-Measured on a 1,548-note vault: `rm -rf .ori/ && ori index build` empties
+Measured on a 1,548-note vault: `rm -rf .mnemos/ && mnemos index build` empties
 **eight** of those tables — six months of retrieval history across 564
 sessions, 1,427 learned Q-values, and the eight live LinUCB arms that decide
 which ranking stages run. Two of them, `q_history_genuine` and
@@ -638,10 +638,10 @@ reconstructed by anything.
 So export before you delete:
 
 ```bash
-ori index export-learned          # -> ops/ori-learned.ndjson
-rm -rf .ori/
-ori index build
-ori index import-learned
+mnemos index export-learned          # -> ops/mnemos-learned.ndjson
+rm -rf .mnemos/
+mnemos index build
+mnemos index import-learned
 ```
 
 That round-trip is verified lossless on a real vault by
@@ -651,12 +651,12 @@ that means nothing. The export is NDJSON, deterministically ordered, ~23 MB
 for 56,850 rows against a 243 MB binary — small enough and diffable enough to
 commit, which the binary is not.
 
-The practical rule: **edit and query freely; run `ori index build` after
-bulk-adding notes from outside Ori, and `ori index build --force` if a query
+The practical rule: **edit and query freely; run `mnemos index build` after
+bulk-adding notes from outside Mnemos, and `mnemos index build --force` if a query
 reports it cannot cover the vault.** `--force` is a full reparse that keeps
 accumulated state; only deleting the file loses it.
 
-Earlier versions of this README said everything under `.ori/` was derived and
+Earlier versions of this README said everything under `.mnemos/` was derived and
 disposable. That was wrong, and following it cost six months of learning.
 
 ---
@@ -665,8 +665,8 @@ disposable. That was wrong, and following it cost six months of learning.
 
 ```
 vault/
-├── .ori                       # Vault marker
-├── ori.config.yaml            # Configuration
+├── .mnemos                       # Vault marker
+├── mnemos.config.yaml            # Configuration
 ├── notes/                     # Knowledge graph (flat, no subfolders)
 │   └── index.md               # Hub entry point
 ├── inbox/                     # Capture buffer
@@ -688,23 +688,23 @@ Every file is plain markdown. Open it in any text editor, Obsidian, or your file
 
 ## Deployment
 
-**Local.** Install globally, `ori init`, connect your MCP client. Done.
+**Local.** Install globally, `mnemos init`, connect your MCP client. Done.
 
-**VPS / headless.** Install on the server. `ori serve --mcp --vault /path/to/vault`. Memory persists on the filesystem. Back up with `git push`.
+**VPS / headless.** Install on the server. `mnemos serve --mcp --vault /path/to/vault`. Memory persists on the filesystem. Back up with `git push`.
 
-**Remote terminals.** Hermes Agent supports Docker, SSH, Modal, and Daytona backends. If your agent runs in a remote terminal, `ori` must be installed and on PATH inside that environment, and the vault must be on persistent storage (not ephemeral). For serverless backends like Modal where environments hibernate, mount the vault on a persistent volume.
+**Remote terminals.** Hermes Agent supports Docker, SSH, Modal, and Daytona backends. If your agent runs in a remote terminal, `mnemos` must be installed and on PATH inside that environment, and the vault must be on persistent storage (not ephemeral). For serverless backends like Modal where environments hibernate, mount the vault on a persistent volume.
 
-**Multi-vault.** Separate Ori instances for separate agents. Each vault is self-contained: its own identity, knowledge graph, and operational state.
+**Multi-vault.** Separate Mnemos instances for separate agents. Each vault is self-contained: its own identity, knowledge graph, and operational state.
 
 **Scriptable.** CLI returns structured JSON. Use in cron jobs, webhook handlers, or orchestration loops.
 
 ## Install Model
 
-Ori separates three install concepts:
+Mnemos separates three install concepts:
 
 - `scope`: `global` follows one vault across the machine, `project` stays inside one repo/workspace
-- `activation`: `auto` runs `ori_wake` at session start where the adapter supports it, `manual` leaves tools available but does not auto-orient
-- `vault`: explicit `--vault` wins; otherwise Ori resolves by install scope
+- `activation`: `auto` runs `mnemos_wake` at session start where the adapter supports it, `manual` leaves tools available but does not auto-orient
+- `vault`: explicit `--vault` wins; otherwise Mnemos resolves by install scope
 
 Precedence rules:
 
@@ -714,17 +714,17 @@ Precedence rules:
 
 Bridge lifecycle:
 
-- rerun the same `ori bridge ...` command to update vault path or activation in place
-- use `--uninstall` to remove Ori-owned config from supported adapters
-- generic installs emit manual uninstall instructions because Ori does not own that client config surface
+- rerun the same `mnemos bridge ...` command to update vault path or activation in place
+- use `--uninstall` to remove Mnemos-owned config from supported adapters
+- generic installs emit manual uninstall instructions because Mnemos does not own that client config surface
 
-Claude Code, Hermes Agent, and OpenCode are fully automated adapters with lifecycle hooks. Claude Code uses hook scripts; Hermes uses a native Python plugin installed at `~/.hermes/plugins/ori/`; OpenCode uses a JavaScript plugin at `.opencode/plugins/lifecycle.js`. All three auto-orient at session start (via first-run detection) and capture insights at session idle. Cursor and Codex have native MCP config install support. Codex writes to `~/.codex/config.toml` and uses a single global config surface; "project" scope there means project-like runtime vault discovery, not a separate project config file. Other MCP-capable clients can use `ori bridge generic` now and wire the emitted config into their own client surface.
+Claude Code, Hermes Agent, and OpenCode are fully automated adapters with lifecycle hooks. Claude Code uses hook scripts; Hermes uses a native Python plugin installed at `~/.hermes/plugins/mnemos/`; OpenCode uses a JavaScript plugin at `.opencode/plugins/lifecycle.js`. All three auto-orient at session start (via first-run detection) and capture insights at session idle. Cursor and Codex have native MCP config install support. Codex writes to `~/.codex/config.toml` and uses a single global config surface; "project" scope there means project-like runtime vault discovery, not a separate project config file. Other MCP-capable clients can use `mnemos bridge generic` now and wire the emitted config into their own client surface.
 
 ---
 
 ## Configuration
 
-`ori.config.yaml` controls all tunable parameters. Generated with sensible defaults on `ori init`.
+`mnemos.config.yaml` controls all tunable parameters. Generated with sensible defaults on `mnemos init`.
 
 | Section | Controls |
 |---------|----------|
@@ -744,7 +744,7 @@ LLM integration is optional. Every operation works deterministically with heuris
 
 Most memory systems store your agent's knowledge in infrastructure you do not control. A proprietary database. A cloud service. A vendor's format.
 
-Ori stores memory as files you own. The vault is portable. Move it to a new machine, push it to a git remote, open it in a text editor. Switch MCP clients by changing one config line. The memory survives any platform change because it was never locked to a platform.
+Mnemos stores memory as files you own. The vault is portable. Move it to a new machine, push it to a git remote, open it in a text editor. Switch MCP clients by changing one config line. The memory survives any platform change because it was never locked to a platform.
 
 This is not ideological. It is architectural. Portable memory is composable memory.
 
@@ -753,12 +753,12 @@ This is not ideological. It is architectural. Portable memory is composable memo
 ## Development
 
 ```bash
-git clone https://github.com/aayoawoyemi/Ori-Mnemos.git
-cd Ori-Mnemos
+git clone https://github.com/aayoawoyemi/Mnemos.git
+cd Mnemos
 npm install
 npm run build
 npm link
-ori --version
+mnemos --version
 ```
 
 ```bash
@@ -769,7 +769,7 @@ npm run dev           # Watch mode
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a PR.
 
-Thanks to [@maichler](https://github.com/maichler) and the rest of the Ori community for their PRs and additions.
+Thanks to [@maichler](https://github.com/maichler) and the rest of the Mnemos community for their PRs and additions.
 
 ---
 
@@ -779,4 +779,4 @@ Apache-2.0
 
 ---
 
-Memory is sovereignty. Ori gives your agent a mind.
+Memory is sovereignty. Mnemos gives your agent a mind.

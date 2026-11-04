@@ -113,7 +113,7 @@ describe("release and purge", () => {
 });
 
 describe("blast radius", () => {
-  // On the real 1,550-note vault, release("Ori positioning strategy") matches
+  // On the real 1,550-note vault, release("Mnemos positioning strategy") matches
   // 159 notes. ForgetEval rates the same matcher 97.8% because its cases hold
   // eight facts. Destructive calls are capped so the gap between those two
   // numbers cannot become data loss.

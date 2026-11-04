@@ -49,7 +49,7 @@ export type IndexStatusResult = {
  *      edit. `--force` drops it so every note is reparsed, which is the repair
  *      for an index that reports it cannot cover the vault.
  *   3. Co-occurrence bootstrap (`co_occurrence`) - bibliographic coupling from
- *      wiki-links. The MCP `ori_index_build` ran it and the CLI never did, so
+ *      wiki-links. The MCP `mnemos_index_build` ran it and the CLI never did, so
  *      the same command built different graphs depending on the door. Now
  *      both call this.
  *
@@ -184,7 +184,7 @@ export async function runIndexStatus(
 /**
  * Write the accumulated half of the index to a text file.
  *
- * This is the command that makes `rm -rf .ori/` safe. Without it the binary
+ * This is the command that makes `rm -rf .mnemos/` safe. Without it the binary
  * index is the only copy of six months of retrieval history and learned
  * Q-values, which is why that directory ended up committed to git as a
  * 243 MB blob across 76 commits — the wrong fix for a real problem.
@@ -194,7 +194,7 @@ export async function runIndexExportLearned(
   outPath?: string,
 ): Promise<{ success: boolean; data: Record<string, unknown>; warnings: string[] }> {
   const vaultRoot = await findVaultRoot(cwd);
-  if (!vaultRoot) throw new Error("Not inside an Ori vault");
+  if (!vaultRoot) throw new Error("Not inside an Mnemos vault");
   // loadConfig takes the config FILE, not the vault directory. Passing the
   // directory throws EISDIR with no indication of which argument was wrong.
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
@@ -210,7 +210,7 @@ export async function runIndexExportLearned(
     db.close();
   }
 
-  const out = path.resolve(vaultRoot, outPath ?? "ops/ori-learned.ndjson");
+  const out = path.resolve(vaultRoot, outPath ?? "ops/mnemos-learned.ndjson");
   await fs.mkdir(path.dirname(out), { recursive: true });
   await fs.writeFile(out, ndjson, "utf8");
 
@@ -227,13 +227,13 @@ export async function runIndexImportLearned(
   inPath?: string,
 ): Promise<{ success: boolean; data: Record<string, unknown>; warnings: string[] }> {
   const vaultRoot = await findVaultRoot(cwd);
-  if (!vaultRoot) throw new Error("Not inside an Ori vault");
+  if (!vaultRoot) throw new Error("Not inside an Mnemos vault");
   // loadConfig takes the config FILE, not the vault directory. Passing the
   // directory throws EISDIR with no indication of which argument was wrong.
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
   const dbPath = path.resolve(vaultRoot, config.engine.db_path);
 
-  const src = path.resolve(vaultRoot, inPath ?? "ops/ori-learned.ndjson");
+  const src = path.resolve(vaultRoot, inPath ?? "ops/mnemos-learned.ndjson");
   const ndjson = await fs.readFile(src, "utf8");
 
   const db = initDB(dbPath);
@@ -260,7 +260,7 @@ export async function runIndexImportLearned(
   if (stats.skippedUnknownTable > 0) {
     warnings.push(
       `${stats.skippedUnknownTable} rows targeted tables this index does not have — ` +
-        "run `ori index build` first so the schema exists",
+        "run `mnemos index build` first so the schema exists",
     );
   }
   return { success: true, data: { path: src, ...stats }, warnings };

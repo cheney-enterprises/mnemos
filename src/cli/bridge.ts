@@ -23,40 +23,40 @@ import {
   type BridgeRequest,
 } from "../core/bridge.js";
 
-const BRIDGE_SENTINEL = "<!-- ori-bridge:claude-code -->";
-const ORI_MCP_SENTINEL = "ori";
-const ORI_HOOK_SCRIPT_NAMES = ["orient.mjs", "validate.mjs", "capture.mjs"] as const;
+const BRIDGE_SENTINEL = "<!-- mnemos-bridge:claude-code -->";
+const MNEMOS_MCP_SENTINEL = "mnemos";
+const MNEMOS_HOOK_SCRIPT_NAMES = ["orient.mjs", "validate.mjs", "capture.mjs"] as const;
 
 function claudeSnippet(activation: BridgeActivation): string {
   const orientLine =
     activation === "auto"
-      ? "- Ori injects identity via MCP instructions automatically"
-      : "- Manual activation is enabled; call `ori_orient` when you want session context loaded";
+      ? "- Mnemos injects identity via MCP instructions automatically"
+      : "- Manual activation is enabled; call `mnemos_orient` when you want session context loaded";
   const persistLine =
     activation === "auto"
       ? "- Session capture runs automatically at stop"
       : "- Automatic session capture is disabled in manual mode to avoid junk notes";
 
-  return `# Ori Mnemos - Claude Code Bridge
+  return `# Mnemos - Claude Code Bridge
 
 ## Session Rhythm
 Every session: Orient -> Work -> Persist
 
 ### Orient (always first)
 - ${orientLine}
-- Call \`ori_orient\` for session briefing (daily + goals + reminders + vault status)
-- Use \`ori_orient brief=false\` for full context including identity and methodology
-- Read \`ori://identity\` or \`ori://goals\` resources for specific context
+- Call \`mnemos_orient\` for session briefing (daily + goals + reminders + vault status)
+- Use \`mnemos_orient brief=false\` for full context including identity and methodology
+- Read \`mnemos://identity\` or \`mnemos://goals\` resources for specific context
 
 ### Work
-- Use \`ori_query_ranked\` to find related notes before creating new ones
-- Use \`ori add\` to capture insights to inbox/
-- NEVER write to notes/ directly — use \`ori add\` then \`ori_promote\`
+- Use \`mnemos_query_ranked\` to find related notes before creating new ones
+- Use \`mnemos add\` to capture insights to inbox/
+- NEVER write to notes/ directly — use \`mnemos add\` then \`mnemos_promote\`
 
 ### Persist
-- Use \`ori_update\` file=daily to mark completed items
-- Use \`ori_update\` file=goals to update active threads
-- Run \`ori validate\` on notes you create
+- Use \`mnemos_update\` file=daily to mark completed items
+- Use \`mnemos_update\` file=goals to update active threads
+- Run \`mnemos validate\` on notes you create
 - ${persistLine}
 - Keep notes atomic and link to maps
 `;
@@ -135,7 +135,7 @@ function globalSettings(hooksDir: string, activation: BridgeActivation) {
   return { hooks };
 }
 
-function hookEntryHasOriMarker(entry: unknown): boolean {
+function hookEntryHasMnemosMarker(entry: unknown): boolean {
   if (!entry || typeof entry !== "object") return false;
   const hooks = (entry as Record<string, unknown>).hooks;
   if (!Array.isArray(hooks)) return false;
@@ -144,8 +144,8 @@ function hookEntryHasOriMarker(entry: unknown): boolean {
     const cmd = (h as Record<string, unknown>).command;
     return (
       typeof cmd === "string" &&
-      (cmd.replace(/\\/g, "/").includes("hooks/ori/") ||
-        ORI_HOOK_SCRIPT_NAMES.some((scriptName) =>
+      (cmd.replace(/\\/g, "/").includes("hooks/mnemos/") ||
+        MNEMOS_HOOK_SCRIPT_NAMES.some((scriptName) =>
           cmd.replace(/\\/g, "/").includes(`.claude/hooks/${scriptName}`),
         ))
     );
@@ -188,7 +188,7 @@ export function mergeSettings(existing: SettingsShape, incoming: SettingsShape):
   const incomingHooks = incoming.hooks ?? {};
   for (const [event, entries] of Object.entries(incomingHooks)) {
     const current = (merged.hooks![event] ?? []) as unknown[];
-    const alreadyInstalled = current.some(hookEntryHasOriMarker);
+    const alreadyInstalled = current.some(hookEntryHasMnemosMarker);
     if (!alreadyInstalled) {
       merged.hooks![event] = [...current, ...entries];
     }
@@ -196,7 +196,7 @@ export function mergeSettings(existing: SettingsShape, incoming: SettingsShape):
 
   if (incoming.hooks) {
     for (const event of Object.keys(merged.hooks ?? {})) {
-      if (!(event in incoming.hooks) && (merged.hooks?.[event] ?? []).some(hookEntryHasOriMarker)) {
+      if (!(event in incoming.hooks) && (merged.hooks?.[event] ?? []).some(hookEntryHasMnemosMarker)) {
         delete merged.hooks![event];
       }
     }
@@ -211,7 +211,7 @@ export function mergeMcpConfig(existing: McpShape, plan: BridgePlan): McpShape {
     mcpServers: { ...(existing.mcpServers ?? {}) },
   };
 
-  next.mcpServers![ORI_MCP_SENTINEL] = {
+  next.mcpServers![MNEMOS_MCP_SENTINEL] = {
     command: plan.server.command,
     args: plan.server.args,
     ...(Object.keys(plan.server.env).length > 0 ? { env: plan.server.env } : {}),
@@ -220,14 +220,14 @@ export function mergeMcpConfig(existing: McpShape, plan: BridgePlan): McpShape {
   return next;
 }
 
-export function removeOriFromSettings(existing: SettingsShape): SettingsShape {
+export function removeMnemosFromSettings(existing: SettingsShape): SettingsShape {
   const next: SettingsShape = {
     ...existing,
     hooks: { ...(existing.hooks ?? {}) },
   };
 
   for (const [event, entries] of Object.entries(next.hooks ?? {})) {
-    const filtered = entries.filter((entry) => !hookEntryHasOriMarker(entry));
+    const filtered = entries.filter((entry) => !hookEntryHasMnemosMarker(entry));
     if (filtered.length === 0) {
       delete next.hooks![event];
     } else {
@@ -242,14 +242,14 @@ export function removeOriFromSettings(existing: SettingsShape): SettingsShape {
   return next;
 }
 
-export function removeOriFromMcpConfig(existing: McpShape): McpShape {
+export function removeMnemosFromMcpConfig(existing: McpShape): McpShape {
   const next: McpShape = {
     ...existing,
     mcpServers: { ...(existing.mcpServers ?? {}) },
   };
 
   if (next.mcpServers) {
-    delete next.mcpServers[ORI_MCP_SENTINEL];
+    delete next.mcpServers[MNEMOS_MCP_SENTINEL];
     if (Object.keys(next.mcpServers).length === 0) {
       delete next.mcpServers;
     }
@@ -259,20 +259,20 @@ export function removeOriFromMcpConfig(existing: McpShape): McpShape {
 }
 
 function classifyMcpMutation(existing: McpShape, next: McpShape, uninstall = false): BridgeMutationKind {
-  const hadOri = Boolean(existing.mcpServers && ORI_MCP_SENTINEL in existing.mcpServers);
-  const hasOri = Boolean(next.mcpServers && ORI_MCP_SENTINEL in next.mcpServers);
-  if (uninstall) return hadOri ? "uninstalled" : "noop";
-  if (!hadOri && hasOri) return "installed";
-  if (hadOri && hasOri) return "updated";
+  const hadMnemos = Boolean(existing.mcpServers && MNEMOS_MCP_SENTINEL in existing.mcpServers);
+  const hasMnemos = Boolean(next.mcpServers && MNEMOS_MCP_SENTINEL in next.mcpServers);
+  if (uninstall) return hadMnemos ? "uninstalled" : "noop";
+  if (!hadMnemos && hasMnemos) return "installed";
+  if (hadMnemos && hasMnemos) return "updated";
   return "noop";
 }
 
 function classifySettingsMutation(existing: SettingsShape, next: SettingsShape, uninstall = false): BridgeMutationKind {
-  const hadOri = Object.values(existing.hooks ?? {}).some((entries) => entries.some(hookEntryHasOriMarker));
-  const hasOri = Object.values(next.hooks ?? {}).some((entries) => entries.some(hookEntryHasOriMarker));
-  if (uninstall) return hadOri ? "uninstalled" : "noop";
-  if (!hadOri && hasOri) return "installed";
-  if (hadOri && hasOri) return "updated";
+  const hadMnemos = Object.values(existing.hooks ?? {}).some((entries) => entries.some(hookEntryHasMnemosMarker));
+  const hasMnemos = Object.values(next.hooks ?? {}).some((entries) => entries.some(hookEntryHasMnemosMarker));
+  if (uninstall) return hadMnemos ? "uninstalled" : "noop";
+  if (!hadMnemos && hasMnemos) return "installed";
+  if (hadMnemos && hasMnemos) return "updated";
   return "noop";
 }
 
@@ -285,7 +285,7 @@ async function mergeIntoSettingsFile(settingsPath: string, incoming: SettingsSha
     // file missing or unparseable - start fresh
   }
 
-  const merged = uninstall ? removeOriFromSettings(existing) : mergeSettings(existing, incoming);
+  const merged = uninstall ? removeMnemosFromSettings(existing) : mergeSettings(existing, incoming);
   await fs.writeFile(settingsPath, JSON.stringify(merged, null, 2));
   return classifySettingsMutation(existing, merged, uninstall);
 }
@@ -299,7 +299,7 @@ async function mergeIntoMcpFile(mcpPath: string, plan: BridgePlan, uninstall = f
     // file missing or unparseable - start fresh
   }
 
-  const merged = uninstall ? removeOriFromMcpConfig(existing) : mergeMcpConfig(existing, plan);
+  const merged = uninstall ? removeMnemosFromMcpConfig(existing) : mergeMcpConfig(existing, plan);
   await fs.writeFile(mcpPath, JSON.stringify(merged, null, 2));
   return classifyMcpMutation(existing, merged, uninstall);
 }
@@ -369,12 +369,12 @@ async function readJsonFile<T>(filePath: string): Promise<T | null> {
 }
 
 function extractVaultFromMcpConfig(config: McpShape | null): string | null {
-  const entry = config?.mcpServers?.[ORI_MCP_SENTINEL];
+  const entry = config?.mcpServers?.[MNEMOS_MCP_SENTINEL];
   if (!entry || typeof entry !== "object") return null;
   const record = entry as Record<string, unknown>;
   const env = record.env;
   if (env && typeof env === "object") {
-    const value = (env as Record<string, unknown>).ORI_VAULT;
+    const value = (env as Record<string, unknown>).MNEMOS_VAULT;
     if (typeof value === "string" && value.length > 0) return value;
   }
   const args = record.args;
@@ -389,15 +389,15 @@ function extractVaultFromMcpConfig(config: McpShape | null): string | null {
 
 function detectClaudeActivation(settings: SettingsShape | null): BridgeActivation | "unknown" | null {
   const hooks = settings?.hooks ?? {};
-  const hasOrient = (hooks.SessionStart ?? []).some(hookEntryHasOriMarker);
-  const hasValidate = (hooks.PostToolUse ?? []).some(hookEntryHasOriMarker);
-  if (hasOrient) return "auto";
+  const hasMnemosent = (hooks.SessionStart ?? []).some(hookEntryHasMnemosMarker);
+  const hasValidate = (hooks.PostToolUse ?? []).some(hookEntryHasMnemosMarker);
+  if (hasMnemosent) return "auto";
   if (hasValidate) return "manual";
   return null;
 }
 
 function buildCodexTable(plan: BridgePlan): string {
-  const lines = ["[mcp_servers.ori]", `command = ${JSON.stringify(plan.server.command)}`];
+  const lines = ["[mcp_servers.mnemos]", `command = ${JSON.stringify(plan.server.command)}`];
 
   if (plan.server.args.length > 0) {
     lines.push(`args = [${plan.server.args.map((arg) => JSON.stringify(arg)).join(", ")}]`);
@@ -405,7 +405,7 @@ function buildCodexTable(plan: BridgePlan): string {
 
   const envEntries = Object.entries(plan.server.env);
   if (envEntries.length > 0) {
-    lines.push("[mcp_servers.ori.env]");
+    lines.push("[mcp_servers.mnemos.env]");
     for (const [key, value] of envEntries) {
       lines.push(`${key} = ${JSON.stringify(value)}`);
     }
@@ -415,7 +415,7 @@ function buildCodexTable(plan: BridgePlan): string {
 }
 
 function codexTableRegex(): RegExp {
-  return /^\[mcp_servers\.ori\]\r?\n(?:.*\r?\n)*?(?=^\[|$(?![\r\n]))/m;
+  return /^\[mcp_servers\.mnemos\]\r?\n(?:.*\r?\n)*?(?=^\[|$(?![\r\n]))/m;
 }
 
 function mergeCodexConfig(existing: string, plan: BridgePlan): string {
@@ -430,17 +430,17 @@ function mergeCodexConfig(existing: string, plan: BridgePlan): string {
   return `${trimmed}\n\n${table}\n`;
 }
 
-function removeOriFromCodexConfig(existing: string): string {
+function removeMnemosFromCodexConfig(existing: string): string {
   const next = existing.replace(codexTableRegex(), "").replace(/\n{3,}/g, "\n\n").trimEnd();
   return next.length > 0 ? `${next}\n` : "";
 }
 
 function classifyCodexMutation(existing: string, next: string, uninstall = false): BridgeMutationKind {
-  const hadOri = codexTableRegex().test(existing);
-  const hasOri = codexTableRegex().test(next);
-  if (uninstall) return hadOri ? "uninstalled" : "noop";
-  if (!hadOri && hasOri) return "installed";
-  if (hadOri && hasOri && existing !== next) return "updated";
+  const hadMnemos = codexTableRegex().test(existing);
+  const hasMnemos = codexTableRegex().test(next);
+  if (uninstall) return hadMnemos ? "uninstalled" : "noop";
+  if (!hadMnemos && hasMnemos) return "installed";
+  if (hadMnemos && hasMnemos && existing !== next) return "updated";
   return "noop";
 }
 
@@ -452,7 +452,7 @@ async function mergeIntoCodexConfigFile(configPath: string, plan: BridgePlan, un
     // file missing - start fresh
   }
 
-  const next = uninstall ? removeOriFromCodexConfig(existing) : mergeCodexConfig(existing, plan);
+  const next = uninstall ? removeMnemosFromCodexConfig(existing) : mergeCodexConfig(existing, plan);
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, next, "utf8");
   return classifyCodexMutation(existing, next, uninstall);
@@ -460,7 +460,7 @@ async function mergeIntoCodexConfigFile(configPath: string, plan: BridgePlan, un
 
 function extractVaultFromCodexConfig(content: string | null): string | null {
   if (!content) return null;
-  const match = content.match(/\[mcp_servers\.ori\][\s\S]*?args\s*=\s*\[(.*?)\]/m);
+  const match = content.match(/\[mcp_servers\.mnemos\][\s\S]*?args\s*=\s*\[(.*?)\]/m);
   if (!match) return null;
   const vaultMatch = match[1].match(/"--vault"\s*,\s*"([^"]+)"/);
   if (!vaultMatch) return null;
@@ -479,16 +479,16 @@ async function inspectClaudeInstall(startDir: string, scope: "project" | "global
     fs.readFile(paths.instructionsPath, "utf8").catch(() => null),
   ]);
 
-  const hasSettings = Object.values(settings?.hooks ?? {}).some((entries) => entries.some(hookEntryHasOriMarker));
-  const hasMcp = Boolean(mcp?.mcpServers?.[ORI_MCP_SENTINEL]);
+  const hasSettings = Object.values(settings?.hooks ?? {}).some((entries) => entries.some(hookEntryHasMnemosMarker));
+  const hasMcp = Boolean(mcp?.mcpServers?.[MNEMOS_MCP_SENTINEL]);
   const hasInstructions = typeof instructions === "string" && instructions.includes(BRIDGE_SENTINEL);
   const installed = hasSettings || hasMcp || hasInstructions;
   const details: string[] = [];
 
   if (hasMcp) details.push(`MCP config present at ${paths.mcpPath}.`);
-  if (hasSettings) details.push(`Ori hook entries present at ${paths.settingsPath}.`);
-  if (hasInstructions) details.push(`Ori bridge instructions present at ${paths.instructionsPath}.`);
-  if (!installed) details.push("No Ori-managed Claude bridge config detected.");
+  if (hasSettings) details.push(`Mnemos hook entries present at ${paths.settingsPath}.`);
+  if (hasInstructions) details.push(`Mnemos bridge instructions present at ${paths.instructionsPath}.`);
+  if (!installed) details.push("No Mnemos-managed Claude bridge config detected.");
 
   return {
     installed,
@@ -508,10 +508,10 @@ async function inspectClaudeInstall(startDir: string, scope: "project" | "global
 async function inspectCursorInstall(startDir: string, scope: "project" | "global"): Promise<BridgeInstallStatus> {
   const paths = scope === "global" ? getCursorGlobalPaths() : getCursorProjectPaths(startDir);
   const mcp = await readJsonFile<McpShape>(paths.mcpPath);
-  const hasMcp = Boolean(mcp?.mcpServers?.[ORI_MCP_SENTINEL]);
+  const hasMcp = Boolean(mcp?.mcpServers?.[MNEMOS_MCP_SENTINEL]);
   const details = hasMcp
     ? [`MCP config present at ${paths.mcpPath}.`]
-    : ["No Ori-managed Cursor MCP config detected."];
+    : ["No Mnemos-managed Cursor MCP config detected."];
 
   return {
     installed: hasMcp,
@@ -531,7 +531,7 @@ async function inspectCodexInstall(): Promise<BridgeInstallStatus> {
   const installed = content ? codexTableRegex().test(content) : false;
   const details = installed
     ? [`MCP config present at ${paths.configPath}.`]
-    : ["No Ori-managed Codex MCP config detected."];
+    : ["No Mnemos-managed Codex MCP config detected."];
 
   return {
     installed,
@@ -584,7 +584,7 @@ export async function runBridgeStatus(startDir: string) {
         "Project installs override global installs when both exist for the same client.",
         "Cursor activation is reported as unknown because the adapter currently stores MCP wiring only, not startup behavior.",
         "Codex stores MCP servers in ~/.codex/config.toml only.",
-        "Hermes stores MCP servers in ~/.hermes/config.yaml. Auto activation installs a native plugin at ~/.hermes/plugins/ori/.",
+        "Hermes stores MCP servers in ~/.hermes/config.yaml. Auto activation installs a native plugin at ~/.hermes/plugins/mnemos/.",
         "OpenCode uses .opencode/plugins/lifecycle.js for lifecycle hooks (orient, validate, capture).",
       ],
       warnings: [],
@@ -618,7 +618,7 @@ export async function runBridgeClaudeCode(startDir: string, request: Omit<Bridge
 
   const mutation = summarizeMutations([settingsMutation, mcpMutation, instructionsMutation]);
 
-  // Install Windows Terminal profile with Ori icon (non-fatal, Windows only)
+  // Install Windows Terminal profile with Mnemos icon (non-fatal, Windows only)
   const wtResult = request.uninstall
     ? await uninstallWindowsTerminalProfile()
     : await installWindowsTerminalProfile();
@@ -653,7 +653,7 @@ export async function runBridgeGeneric(startDir: string, request: Omit<BridgeReq
   const data = buildGenericInstallOutput(plan);
   if (request.uninstall) {
     data.instructions = [
-      "Generic uninstall is manual: remove the `ori` MCP server entry from your client config.",
+      "Generic uninstall is manual: remove the `mnemos` MCP server entry from your client config.",
       ...data.instructions,
     ];
   }
@@ -685,11 +685,11 @@ export async function runBridgeCursor(startDir: string, request: Omit<BridgeRequ
   const instructions = [...plan.instructions];
   instructions.push(
     request.uninstall
-      ? `Removed Ori MCP config from ${paths.mcpPath}.`
+      ? `Removed Mnemos MCP config from ${paths.mcpPath}.`
       : `Cursor MCP config written to ${paths.mcpPath}.`,
   );
   if (!request.uninstall && plan.activation === "auto") {
-    instructions.push("If Cursor exposes a startup prompt or rules surface in your workflow, call `ori_orient` at session start there.");
+    instructions.push("If Cursor exposes a startup prompt or rules surface in your workflow, call `mnemos_orient` at session start there.");
   }
 
   return {
@@ -717,7 +717,7 @@ export async function runBridgeCodex(startDir: string, request: Omit<BridgeReque
   const instructions = [...plan.instructions];
   instructions.push(
     request.uninstall
-      ? `Removed Ori MCP config from ${paths.configPath}.`
+      ? `Removed Mnemos MCP config from ${paths.configPath}.`
       : `Codex MCP config written to ${paths.configPath}.`,
   );
 
@@ -740,7 +740,7 @@ export async function runBridgeCodex(startDir: string, request: Omit<BridgeReque
 
 // ── Hermes adapter ──────────────────────────────────────────────────────────
 
-const HERMES_BRIDGE_SENTINEL = "<!-- ori-bridge:hermes -->";
+const HERMES_BRIDGE_SENTINEL = "<!-- mnemos-bridge:hermes -->";
 const HERMES_PLUGIN_MARKER = "plugin.yaml";
 
 type HermesConfig = {
@@ -751,33 +751,33 @@ type HermesConfig = {
 function hermesSnippet(activation: BridgeActivation): string {
   const orientLine =
     activation === "auto"
-      ? "- Ori plugin auto-orients at session start"
-      : "- Manual activation is enabled; call `ori_orient` when you want session context loaded";
+      ? "- Mnemos plugin auto-orients at session start"
+      : "- Manual activation is enabled; call `mnemos_orient` when you want session context loaded";
   const persistLine =
     activation === "auto"
       ? "- Session capture runs automatically at session end via plugin"
       : "- Automatic session capture is disabled in manual mode";
 
-  return `# Ori Mnemos - Hermes Agent Bridge
+  return `# Mnemos - Hermes Agent Bridge
 
 ## Session Rhythm
 Every session: Orient -> Work -> Persist
 
 ### Orient (always first)
 - ${orientLine}
-- The Ori MCP server provides tools: \`ori_orient\`, \`ori_query_ranked\`, \`ori_add\`, \`ori_validate\`, and more
-- Call \`ori_orient\` for session briefing (daily + goals + reminders + vault status)
+- The Mnemos MCP server provides tools: \`mnemos_orient\`, \`mnemos_query_ranked\`, \`mnemos_add\`, \`mnemos_validate\`, and more
+- Call \`mnemos_orient\` for session briefing (daily + goals + reminders + vault status)
 
 ### Work
-- Use \`ori_query_ranked\` to find related notes before creating new ones
-- Use \`ori_add\` to capture insights to inbox/
-- Pass \`description\` and \`project\` to \`ori_add\`
-- NEVER write to notes/ directly — use \`ori_add\` then \`ori_promote\`
+- Use \`mnemos_query_ranked\` to find related notes before creating new ones
+- Use \`mnemos_add\` to capture insights to inbox/
+- Pass \`description\` and \`project\` to \`mnemos_add\`
+- NEVER write to notes/ directly — use \`mnemos_add\` then \`mnemos_promote\`
 
 ### Persist
-- Use \`ori_update\` file=daily to mark completed items
-- Use \`ori_update\` file=goals to update active threads
-- Run \`ori_validate\` on notes you create
+- Use \`mnemos_update\` file=daily to mark completed items
+- Use \`mnemos_update\` file=goals to update active threads
+- Run \`mnemos_validate\` on notes you create
 - ${persistLine}
 - Keep notes atomic and link to maps
 `;
@@ -798,15 +798,15 @@ export function mergeHermesConfig(existing: HermesConfig, plan: BridgePlan): Her
   if (Object.keys(plan.server.env).length > 0) {
     entry.env = plan.server.env;
   }
-  next.mcp_servers[ORI_MCP_SENTINEL] = entry;
+  next.mcp_servers[MNEMOS_MCP_SENTINEL] = entry;
   return next;
 }
 
-export function removeOriFromHermesConfig(existing: HermesConfig): HermesConfig {
+export function removeMnemosFromHermesConfig(existing: HermesConfig): HermesConfig {
   const next: HermesConfig = { ...existing };
   if (next.mcp_servers && typeof next.mcp_servers === "object") {
     next.mcp_servers = { ...next.mcp_servers };
-    delete next.mcp_servers[ORI_MCP_SENTINEL];
+    delete next.mcp_servers[MNEMOS_MCP_SENTINEL];
     if (Object.keys(next.mcp_servers).length === 0) {
       delete next.mcp_servers;
     }
@@ -815,11 +815,11 @@ export function removeOriFromHermesConfig(existing: HermesConfig): HermesConfig 
 }
 
 function classifyHermesConfigMutation(existing: HermesConfig, next: HermesConfig, uninstall = false): BridgeMutationKind {
-  const hadOri = Boolean(existing.mcp_servers && ORI_MCP_SENTINEL in existing.mcp_servers);
-  const hasOri = Boolean(next.mcp_servers && ORI_MCP_SENTINEL in next.mcp_servers);
-  if (uninstall) return hadOri ? "uninstalled" : "noop";
-  if (!hadOri && hasOri) return "installed";
-  if (hadOri && hasOri) return "updated";
+  const hadMnemos = Boolean(existing.mcp_servers && MNEMOS_MCP_SENTINEL in existing.mcp_servers);
+  const hasMnemos = Boolean(next.mcp_servers && MNEMOS_MCP_SENTINEL in next.mcp_servers);
+  if (uninstall) return hadMnemos ? "uninstalled" : "noop";
+  if (!hadMnemos && hasMnemos) return "installed";
+  if (hadMnemos && hasMnemos) return "updated";
   return "noop";
 }
 
@@ -835,19 +835,19 @@ async function mergeIntoHermesConfigFile(configPath: string, plan: BridgePlan, u
     // file missing or unparseable
   }
 
-  const merged = uninstall ? removeOriFromHermesConfig(existing) : mergeHermesConfig(existing, plan);
+  const merged = uninstall ? removeMnemosFromHermesConfig(existing) : mergeHermesConfig(existing, plan);
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, yaml.stringify(merged, { lineWidth: 120 }), "utf8");
   return classifyHermesConfigMutation(existing, merged, uninstall);
 }
 
 function extractVaultFromHermesConfig(config: HermesConfig | null): string | null {
-  const entry = config?.mcp_servers?.[ORI_MCP_SENTINEL];
+  const entry = config?.mcp_servers?.[MNEMOS_MCP_SENTINEL];
   if (!entry || typeof entry !== "object") return null;
   const record = entry as Record<string, unknown>;
   const env = record.env;
   if (env && typeof env === "object") {
-    const value = (env as Record<string, unknown>).ORI_VAULT;
+    const value = (env as Record<string, unknown>).MNEMOS_VAULT;
     if (typeof value === "string" && value.length > 0) return value;
   }
   const args = record.args;
@@ -934,7 +934,7 @@ async function inspectHermesInstall(): Promise<BridgeInstallStatus> {
     // missing
   }
 
-  const hasMcp = Boolean(config?.mcp_servers?.[ORI_MCP_SENTINEL]);
+  const hasMcp = Boolean(config?.mcp_servers?.[MNEMOS_MCP_SENTINEL]);
   let hasPlugin = false;
   try {
     const stat = await fs.stat(path.join(paths.pluginDir, HERMES_PLUGIN_MARKER));
@@ -946,8 +946,8 @@ async function inspectHermesInstall(): Promise<BridgeInstallStatus> {
   const installed = hasMcp || hasPlugin;
   const details: string[] = [];
   if (hasMcp) details.push(`MCP config present at ${paths.configPath}.`);
-  if (hasPlugin) details.push(`Ori plugin installed at ${paths.pluginDir}.`);
-  if (!installed) details.push("No Ori-managed Hermes bridge config detected.");
+  if (hasPlugin) details.push(`Mnemos plugin installed at ${paths.pluginDir}.`);
+  if (!installed) details.push("No Mnemos-managed Hermes bridge config detected.");
 
   return {
     installed,
@@ -997,11 +997,11 @@ export async function runBridgeHermes(startDir: string, request: Omit<BridgeRequ
 
   instructions.push(
     request.uninstall
-      ? `Removed Ori config from ${globalPaths.configPath}.`
+      ? `Removed Mnemos config from ${globalPaths.configPath}.`
       : `Hermes MCP config written to ${globalPaths.configPath}.`,
   );
   if (!request.uninstall && plan.activation === "auto") {
-    instructions.push(`Ori lifecycle plugin installed at ${globalPaths.pluginDir}.`);
+    instructions.push(`Mnemos lifecycle plugin installed at ${globalPaths.pluginDir}.`);
   }
   if (!request.uninstall && plan.scope === "project") {
     instructions.push(`Bridge instructions appended to ${projectPaths.instructionsPath}.`);
@@ -1028,13 +1028,13 @@ export async function runBridgeHermes(startDir: string, request: Omit<BridgeRequ
 
 // ── OpenCode adapter ──────────────────────────────────────────────────────────
 
-const OPENCODE_BRIDGE_SENTINEL = "<!-- ori-bridge:opencode -->";
+const OPENCODE_BRIDGE_SENTINEL = "<!-- mnemos-bridge:opencode -->";
 
 function openCodeSnippet(activation: BridgeActivation): string {
   const orientLine =
     activation === "auto"
       ? "Identity auto-injected via MCP instructions at session start"
-      : "Manual activation is enabled; call `ori_orient` when you want session context loaded";
+      : "Manual activation is enabled; call `mnemos_orient` when you want session context loaded";
   const persistLine =
     activation === "auto"
       ? "Session capture runs automatically at session idle via plugin"
@@ -1042,29 +1042,29 @@ function openCodeSnippet(activation: BridgeActivation): string {
   const validateLine =
     activation === "auto"
       ? "Note validation runs automatically when writing to vault notes via plugin"
-      : "Run `ori validate` manually on notes you create";
+      : "Run `mnemos validate` manually on notes you create";
 
-  return `# Ori Mnemos - OpenCode Bridge
+  return `# Mnemos - OpenCode Bridge
 
 ## Session Rhythm
 Every session: Orient -> Work -> Persist
 
 ### Orient (always first)
 - ${orientLine}
-- Call \`ori_orient\` for session briefing (daily + goals + reminders + vault status)
-- Use \`ori_orient brief=false\` for full context including identity and methodology
-- Read \`ori://identity\` or \`ori://goals\` resources for specific context
+- Call \`mnemos_orient\` for session briefing (daily + goals + reminders + vault status)
+- Use \`mnemos_orient brief=false\` for full context including identity and methodology
+- Read \`mnemos://identity\` or \`mnemos://goals\` resources for specific context
 
 ### Work
-- Use \`ori_query_ranked\` to find related notes before creating new ones
-- Use \`ori_add\` to capture insights to inbox/
-- Pass \`description\` and \`project\` to \`ori_add\`
-- NEVER write to notes/ directly — use \`ori_add\` then \`ori_promote\`
+- Use \`mnemos_query_ranked\` to find related notes before creating new ones
+- Use \`mnemos_add\` to capture insights to inbox/
+- Pass \`description\` and \`project\` to \`mnemos_add\`
+- NEVER write to notes/ directly — use \`mnemos_add\` then \`mnemos_promote\`
 
 ### Persist
-- Use \`ori_update\` file=daily to mark completed items
-- Use \`ori_update\` file=goals to update active threads
-- Run \`ori_validate\` on notes you create
+- Use \`mnemos_update\` file=daily to mark completed items
+- Use \`mnemos_update\` file=goals to update active threads
+- Run \`mnemos_validate\` on notes you create
 - ${validateLine}
 - ${persistLine}
 - Keep notes atomic and link to maps
@@ -1084,7 +1084,7 @@ export function mergeOpenCodeConfig(existing: OpenCodeConfig, plan: BridgePlan):
     next.mcp = { ...next.mcp };
   }
 
-  next.mcp[ORI_MCP_SENTINEL] = {
+  next.mcp[MNEMOS_MCP_SENTINEL] = {
     type: "local",
     command: [plan.server.command, ...plan.server.args],
     ...(Object.keys(plan.server.env).length > 0 ? { environment: plan.server.env } : {}),
@@ -1093,11 +1093,11 @@ export function mergeOpenCodeConfig(existing: OpenCodeConfig, plan: BridgePlan):
   return next;
 }
 
-export function removeOriFromOpenCodeConfig(existing: OpenCodeConfig): OpenCodeConfig {
+export function removeMnemosFromOpenCodeConfig(existing: OpenCodeConfig): OpenCodeConfig {
   const next: OpenCodeConfig = { ...existing };
   if (next.mcp && typeof next.mcp === "object") {
     next.mcp = { ...next.mcp };
-    delete next.mcp[ORI_MCP_SENTINEL];
+    delete next.mcp[MNEMOS_MCP_SENTINEL];
     if (Object.keys(next.mcp).length === 0) {
       delete next.mcp;
     }
@@ -1106,11 +1106,11 @@ export function removeOriFromOpenCodeConfig(existing: OpenCodeConfig): OpenCodeC
 }
 
 function classifyOpenCodeConfigMutation(existing: OpenCodeConfig, next: OpenCodeConfig, uninstall = false): BridgeMutationKind {
-  const hadOri = Boolean(existing.mcp && ORI_MCP_SENTINEL in existing.mcp);
-  const hasOri = Boolean(next.mcp && ORI_MCP_SENTINEL in next.mcp);
-  if (uninstall) return hadOri ? "uninstalled" : "noop";
-  if (!hadOri && hasOri) return "installed";
-  if (hadOri && hasOri) return "updated";
+  const hadMnemos = Boolean(existing.mcp && MNEMOS_MCP_SENTINEL in existing.mcp);
+  const hasMnemos = Boolean(next.mcp && MNEMOS_MCP_SENTINEL in next.mcp);
+  if (uninstall) return hadMnemos ? "uninstalled" : "noop";
+  if (!hadMnemos && hasMnemos) return "installed";
+  if (hadMnemos && hasMnemos) return "updated";
   return "noop";
 }
 
@@ -1126,19 +1126,19 @@ async function mergeIntoOpenCodeConfigFile(configPath: string, plan: BridgePlan,
     // file missing or unparseable
   }
 
-  const merged = uninstall ? removeOriFromOpenCodeConfig(existing) : mergeOpenCodeConfig(existing, plan);
+  const merged = uninstall ? removeMnemosFromOpenCodeConfig(existing) : mergeOpenCodeConfig(existing, plan);
   await fs.mkdir(path.dirname(configPath), { recursive: true });
   await fs.writeFile(configPath, JSON.stringify(merged, null, 2));
   return classifyOpenCodeConfigMutation(existing, merged, uninstall);
 }
 
 function extractVaultFromOpenCodeConfig(config: OpenCodeConfig | null): string | null {
-  const entry = config?.mcp?.[ORI_MCP_SENTINEL];
+  const entry = config?.mcp?.[MNEMOS_MCP_SENTINEL];
   if (!entry || typeof entry !== "object") return null;
   const record = entry as Record<string, unknown>;
   const env = record.environment;
   if (env && typeof env === "object") {
-    const value = (env as Record<string, unknown>).ORI_VAULT;
+    const value = (env as Record<string, unknown>).MNEMOS_VAULT;
     if (typeof value === "string" && value.length > 0) return value;
   }
   const command = record.command;
@@ -1215,7 +1215,7 @@ async function inspectOpenCodeInstall(startDir: string, scope: "project" | "glob
     fs.readFile(paths.instructionsPath, "utf8").catch(() => null),
   ]);
 
-  const hasMcp = Boolean(config?.mcp?.[ORI_MCP_SENTINEL]);
+  const hasMcp = Boolean(config?.mcp?.[MNEMOS_MCP_SENTINEL]);
   let hasPlugin = false;
   try {
     const stat = await fs.stat(path.join(paths.pluginDir, "lifecycle.js"));
@@ -1228,9 +1228,9 @@ async function inspectOpenCodeInstall(startDir: string, scope: "project" | "glob
   const details: string[] = [];
 
   if (hasMcp) details.push(`MCP config present at ${paths.configPath}.`);
-  if (hasPlugin) details.push(`Ori lifecycle plugin installed at ${paths.pluginDir}.`);
-  if (hasInstructions) details.push(`Ori bridge instructions present at ${paths.instructionsPath}.`);
-  if (!installed) details.push("No Ori-managed OpenCode bridge config detected.");
+  if (hasPlugin) details.push(`Mnemos lifecycle plugin installed at ${paths.pluginDir}.`);
+  if (hasInstructions) details.push(`Mnemos bridge instructions present at ${paths.instructionsPath}.`);
+  if (!installed) details.push("No Mnemos-managed OpenCode bridge config detected.");
 
   return {
     installed,
@@ -1276,11 +1276,11 @@ export async function runBridgeOpenCode(startDir: string, request: Omit<BridgeRe
 
   instructions.push(
     request.uninstall
-      ? `Removed Ori config from ${paths.configPath}.`
+      ? `Removed Mnemos config from ${paths.configPath}.`
       : `OpenCode MCP config written to ${paths.configPath}.`,
   );
   if (!request.uninstall && plan.activation === "auto") {
-    instructions.push(`Ori lifecycle plugin installed at ${paths.pluginDir}.`);
+    instructions.push(`Mnemos lifecycle plugin installed at ${paths.pluginDir}.`);
   }
   if (!request.uninstall) {
     instructions.push(`Bridge instructions appended to ${paths.instructionsPath}.`);

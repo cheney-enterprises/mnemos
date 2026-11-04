@@ -1,6 +1,6 @@
 # Wake/nap design v2 — corrections from Aayo's review + lab findings (2026-08-01)
 
-## 1. Budget law vs Ori's thesis — RESOLVED (Aayo's question answered honestly)
+## 1. Budget law vs Mnemos's thesis — RESOLVED (Aayo's question answered honestly)
 Wake is a BOOT briefing, not retrieval. Effectiveness loss is bounded because wake was never the recall path:
 the graph + 4-signal retrieval remains the way anything old is found. What wake loses vs raw-dump orient:
 long-tail identity prose and full methodology — recoverable ON DEMAND via retrieval. What it gains: flat cost
@@ -11,7 +11,7 @@ fovea/periphery in the navigable-memory note.)
 ## 2. Vault is user-shaped — DESIGN CHANGE (from Aayo: 'vault is editable, users add their own stuff')
 Kill the hardcoded daily.md/reminders.md assumption (my own vault proved it wrong: 12-line daily, activity
 in today.md/sessions/). Wake v2 reads a MANIFEST, not fixed paths:
-  wake.sources in ori.config.yaml: ordered list of { path|glob, role: identity|goals|due|activity|custom,
+  wake.sources in mnemos.config.yaml: ordered list of { path|glob, role: identity|goals|due|activity|custom,
   cap, mode: head|tail|fovea|due-scan }. Defaults ship matching the scaffold; users remap freely.
 Open-source-shaped: the budget ladder is the invariant, the sources are configuration.
 

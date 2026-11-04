@@ -1,8 +1,8 @@
 /**
  * Export and restore the part of the index that markdown does not contain.
  *
- * The README used to say everything under `.ori/` is derived and disposable.
- * That is false. Measured on a real 1,548-note vault, `rm -rf .ori/ && ori
+ * The README used to say everything under `.mnemos/` is derived and disposable.
+ * That is false. Measured on a real 1,548-note vault, `rm -rf .mnemos/ && mnemos
  * index build` destroys:
  *
  *   retrieval_log       15,892 rows spanning six months and 564 sessions
@@ -88,7 +88,7 @@ export const LEARNED_TABLES: LearnedTable[] = [
   },
   {
     // The #37 learning-reset answer and ask count. Without these a rebuild
-    // (export -> rm .ori -> build -> import) forgot a permanent "no" and reset
+    // (export -> rm .mnemos -> build -> import) forgot a permanent "no" and reset
     // the 3-ask cap. Only these keys: the rest of meta is index bookkeeping.
     name: "meta",
     columns: ["key", "value"],
@@ -183,7 +183,7 @@ export function exportLearned(db: Database.Database): { ndjson: string; stats: L
   const exported: Record<string, number> = {};
   let total = 0;
 
-  lines.push(JSON.stringify({ _format: "ori-learned", version: LEARNED_FORMAT_VERSION, exported_at: new Date().toISOString() }));
+  lines.push(JSON.stringify({ _format: "mnemos-learned", version: LEARNED_FORMAT_VERSION, exported_at: new Date().toISOString() }));
 
   for (const t of LEARNED_TABLES) {
     if (!tableExists(db, t.name)) continue;
@@ -214,7 +214,7 @@ export interface LearnedImportStats {
  * INSERT OR REPLACE against each table's natural key, so importing the same
  * file twice is a no-op rather than a duplication.
  *
- * The caller is expected to have run `ori index build` first, so the derived
+ * The caller is expected to have run `mnemos index build` first, so the derived
  * tables exist. Tables absent from this index are counted and skipped, never
  * created — creating them here would fork the schema away from its owning
  * module.
@@ -241,7 +241,7 @@ export function importLearned(db: Database.Database, ndjson: string): LearnedImp
       if (!tableExists(db, name)) {
         // Only the orphan tables carry DDL. Everything else is owned by the
         // module that defines it, and a missing table there means the caller
-        // skipped `ori index build`.
+        // skipped `mnemos index build`.
         if (!t.ddl) {
           skippedUnknownTable++;
           continue;

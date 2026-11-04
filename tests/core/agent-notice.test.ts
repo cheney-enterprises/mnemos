@@ -12,12 +12,12 @@ import {
 let tempDir: string;
 
 beforeEach(async () => {
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-notice-"));
-  process.env.ORI_UPDATE_CACHE_DIR = tempDir;
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-notice-"));
+  process.env.MNEMOS_UPDATE_CACHE_DIR = tempDir;
 });
 
 afterEach(async () => {
-  delete process.env.ORI_UPDATE_CACHE_DIR;
+  delete process.env.MNEMOS_UPDATE_CACHE_DIR;
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
@@ -38,8 +38,8 @@ describe("buildAgentNotice (ask-shaped, decision-aware)", () => {
     expect(notice!).toContain("0.7.0");
     expect(notice!).toContain("0.6.1");
     expect(notice!).toContain("?");
-    expect(notice!).toContain("ori_update_decision");
-    expect(notice!).toContain("npm update -g ori-memory");
+    expect(notice!).toContain("mnemos_update_decision");
+    expect(notice!).toContain("npm update -g mnemos");
     expect(notice!.toLowerCase()).toContain("resurface");
   });
 

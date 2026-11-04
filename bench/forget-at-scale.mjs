@@ -7,15 +7,15 @@
 //
 // READ-ONLY. Calls matchForForget and reports what WOULD be forgotten.
 // Nothing is written, nothing is deleted.
-import { matchForForget } from "ori-memory";
-import { loadConfig } from "ori-memory";
+import { matchForForget } from "mnemos";
+import { loadConfig } from "mnemos";
 import { join } from "node:path";
 import { readdirSync } from "node:fs";
 
 const vault = process.argv[2] ?? "C:/Users/aayoa/brain";
 const notes = join(vault, "notes");
 const n = readdirSync(notes).filter((f) => f.endsWith(".md")).length;
-const config = (await loadConfig(join(vault, "ori.config.yaml"))).engine;
+const config = (await loadConfig(join(vault, "mnemos.config.yaml"))).engine;
 
 console.log(`vault: ${n} notes\n`);
 
@@ -25,7 +25,7 @@ const queries = [
   "CourtShare engagement mechanics",
   "LoCoMo benchmark defects",
   "supersession forward declaration",
-  "Ori positioning strategy",
+  "Mnemos positioning strategy",
   "lambda parameter sweep",
   "Brian Pauga outreach",
   "retrieval saturation embedder",

@@ -140,10 +140,10 @@ describe("suggestLinks", () => {
 
   it("suggests project-overlap connections", () => {
     const fm = new Map<string, Record<string, unknown>>();
-    fm.set("other-note", { project: ["ori"] });
+    fm.set("other-note", { project: ["mnemos"] });
     const index = makeIndex({ titles: ["other-note"], frontmatter: fm });
     const suggestions = suggestLinks(
-      { project: ["ori"] },
+      { project: ["mnemos"] },
       "Some body text.",
       index
     );
@@ -181,13 +181,13 @@ describe("suggestLinks", () => {
 
   it("sorts by confidence descending", () => {
     const fm = new Map<string, Record<string, unknown>>();
-    fm.set("proj-note", { project: ["ori"] });
+    fm.set("proj-note", { project: ["mnemos"] });
     const index = makeIndex({
       titles: ["exact-match", "proj-note"],
       frontmatter: fm,
     });
     const suggestions = suggestLinks(
-      { project: ["ori"] },
+      { project: ["mnemos"] },
       "See exact-match for details.",
       index
     );

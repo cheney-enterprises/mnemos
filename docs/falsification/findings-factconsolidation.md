@@ -21,7 +21,7 @@ the key, not the money.
 ## 1. The benchmark is adversarial to embeddings by construction
 
 This is the finding that matters, and it is a property of the dataset, not of
-Ori.
+Mnemos.
 
 FactConsolidation builds conflicts by injecting **counterfactuals**. The
 context is a numbered fact list; a later line overwrites an earlier one, and
@@ -86,7 +86,7 @@ mh_262k     18332   39%    11.0     0.0    51.0    38.6     +12.4     7.83
   retrieved. Recall is not the problem.
 - **head@1 ≈ 47–52%.** Only about half the time is it ranked first.
 - **stale@1 = 50% against a 33.2% chance floor.** z = 3.57, p ≈ 0.0002.
-  Ori's top result is a superseded fact *more often than random*.
+  Mnemos's top result is a superseded fact *more often than random*.
 - head@1 + stale@1 ≈ 97%: rank 1 is nearly always one of the two versions.
   It is a coin flip, biased toward the dead one.
 - **multi-hop retrieval-only is near-useless** (15–26%) and that is expected,
@@ -128,12 +128,12 @@ linear extrapolation from small sizes:   375s
                                          1.7x SUPERLINEAR
 ```
 
-This is the quantitative version of the earlier `.ori/` finding. The README
+This is the quantitative version of the earlier `.mnemos/` finding. The README
 once described it as a disposable cache. At 18k notes, deleting it costs an
 11-minute rebuild — on top of the 56,850 learned rows already shown to be
 unrecoverable from the notes alone.
 
-## 3. Can Ori detect the conflicts itself?
+## 3. Can Mnemos detect the conflicts itself?
 
 `matchForForget` sees only the incoming fact — no oracle. Oracle stems are
 used solely to score what it found. One ingestion pass, thresholds applied
@@ -167,7 +167,7 @@ default it claimed a conflict for 382 of 455 facts.
 
 That independently corroborates today's blast-radius work from an outside
 corpus: the matcher over-matches by roughly 2.7×, which is the same shape as
-`release("Ori positioning strategy")` addressing 159 notes in the real vault.
+`release("Mnemos positioning strategy")` addressing 159 notes in the real vault.
 The dry-run default and `maxForget` guard are not paranoia.
 
 ## 4. The 17th instance — and I wrote this one
@@ -202,7 +202,7 @@ be probed against a two-note fixture before it is believed.
 2. **stale@k needs its chance floor published.** At k=10 with a third of the
    corpus superseded the metric is ~98% for everybody, including a random
    retriever.
-3. **Ori's conflict detection: recall 90.7%, best F1 77.5% at 0.65**, with a
+3. **Mnemos's conflict detection: recall 90.7%, best F1 77.5% at 0.65**, with a
    named and fixable precision failure (no subject agreement).
 
 ## 6. Not done

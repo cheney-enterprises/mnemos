@@ -238,6 +238,22 @@ export async function embedText(
   return new Float32Array(result.data);
 }
 
+// Release the cached onnxruntime session. The runtime's worker pool aborts
+// (libc++abi mutex error) if the process exits with process.exit() while the
+// session lives; natural exit after dispose is clean. CLI emission calls
+// this before printing so the process can drain without a forced exit.
+export async function disposeEmbedder(): Promise<void> {
+  try {
+    if (cachedPipeline && typeof cachedPipeline.dispose === "function") {
+      await cachedPipeline.dispose();
+    }
+  } catch {
+    // Best effort — a failed dispose must not break the command's output.
+  }
+  cachedPipeline = null;
+  cachedModelName = null;
+}
+
 // ---------------------------------------------------------------------------
 // Knowledge enrichment
 // ---------------------------------------------------------------------------

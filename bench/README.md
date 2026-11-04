@@ -7,10 +7,10 @@
 
 ## Evaluation Scripts
 
-### HotpotQA (Ori flat vs Ori explore vs Mem0)
+### HotpotQA (Mnemos flat vs Mnemos explore vs Mem0)
 
 ```bash
-# Ori (flat + explore, head-to-head)
+# Mnemos (flat + explore, head-to-head)
 npx tsx bench/hotpotqa-eval.ts --n 50 --json
 
 # Mem0 comparison (requires pip install mem0ai)
@@ -36,8 +36,8 @@ npx tsx bench/locomo-eval.ts --categories 1,2,3
 
 | System | R@5 | F1 | LLM-F1 | Speed | API for ingestion |
 |---|---|---|---|---|---|
-| Ori flat | 87.0% | 50.6% | 40.3% | 142s | None (local) |
-| Ori explore | 90.0% | 52.3% | 41.0% | 142s | None (local) |
+| Mnemos flat | 87.0% | 50.6% | 40.3% | 142s | None (local) |
+| Mnemos explore | 90.0% | 52.3% | 41.0% | 142s | None (local) |
 | Mem0 | 29.0% | 25.7% | 18.8% | 1347s | ~500 LLM calls |
 
 ### LoCoMo (1,536 questions)
@@ -71,7 +71,7 @@ JSON output from each benchmark run stored in `results/` with timestamps.
 ## eval-rrf.mjs — grep-grounded retrieval eval (2026-09-06)
 
     node bench/eval-rrf.mjs <vaultRoot> <gold.json>          # default rrf_k
-    ORI_RRF_K=10 node bench/eval-rrf.mjs <vaultRoot> <gold.json>
+    MNEMOS_RRF_K=10 node bench/eval-rrf.mjs <vaultRoot> <gold.json>
 
 `gold.json` maps query -> [note titles that literally contain the needle] (build it
 with grep, not by hand). Reports hit@1 / hit@5 / MRR over `runQueryRanked`.

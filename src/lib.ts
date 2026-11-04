@@ -13,7 +13,7 @@
 export { VERSION } from "./core/version.js";
 
 // Retrieval, high level. This is the wired entry point the CLI and the MCP
-// ori_recall tool both go through: point it at a vault directory and it does
+// mnemos_recall tool both go through: point it at a vault directory and it does
 // config load, index sync, embedding, fusion and ranking.
 //
 // Exported under its own name because the alternative — handing callers
@@ -37,7 +37,7 @@ export { openSyncedIndex, syncIndex, loadNoteIndex, loadLinkGraph } from "./core
 // documents the six stable views.
 export { runReadOnlySql, validateReadOnlySql, describeSchema } from "./core/sqlquery.js";
 
-// Query-addressed forgetting. Ori scored 0/1000 on ForgetEval without
+// Query-addressed forgetting. Mnemos scored 0/1000 on ForgetEval without
 // these: every case N/A because the three operations did not exist.
 export { supersede, release, purge, matchForForget, FORGOTTEN_STATUSES, ForgetBlastRadiusError } from "./core/forget.js";
 export type { ForgetOptions, ForgetMatch, ForgetResult } from "./core/forget.js";

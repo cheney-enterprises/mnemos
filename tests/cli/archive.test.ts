@@ -11,7 +11,7 @@ import { initDB } from "../../src/core/engine.js";
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-archive-test-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-archive-test-"));
   await runInit({ targetDir: tmpDir });
 });
 
@@ -37,7 +37,7 @@ async function writeNote(
 }
 
 async function seedSQLiteRows(title: string, withBoost = false) {
-  const config = await loadConfig(path.join(tmpDir, "ori.config.yaml"));
+  const config = await loadConfig(path.join(tmpDir, "mnemos.config.yaml"));
   const db = initDB(path.resolve(tmpDir, config.engine.db_path));
   db.prepare(
     `INSERT INTO embeddings
@@ -64,7 +64,7 @@ async function seedSQLiteRows(title: string, withBoost = false) {
 }
 
 async function getSQLiteCounts(title: string) {
-  const config = await loadConfig(path.join(tmpDir, "ori.config.yaml"));
+  const config = await loadConfig(path.join(tmpDir, "mnemos.config.yaml"));
   const db = initDB(path.resolve(tmpDir, config.engine.db_path));
   const embeddings = (
     db.prepare("SELECT COUNT(*) as cnt FROM embeddings WHERE title = ?").get(title) as { cnt: number }
@@ -76,7 +76,7 @@ async function getSQLiteCounts(title: string) {
   return { embeddings, boosts };
 }
 
-describe("ori archive", () => {
+describe("mnemos archive", () => {
   it("archives the note and removes its SQLite rows", async () => {
     await writeNote("archive sqlite target", {
       description: "Old isolated note",

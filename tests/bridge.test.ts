@@ -19,10 +19,10 @@ import {
   mergeSettings,
   removeClaudeInstructions,
   removeHermesInstructions,
-  removeOriFromHermesConfig,
-  removeOriFromMcpConfig,
-  removeOriFromSettings,
-  removeOriFromOpenCodeConfig,
+  removeMnemosFromHermesConfig,
+  removeMnemosFromMcpConfig,
+  removeMnemosFromSettings,
+  removeMnemosFromOpenCodeConfig,
   mergeOpenCodeConfig,
   runBridgeClaudeCode,
   runBridgeCodex,
@@ -37,13 +37,13 @@ const originalHome = process.env.HOME;
 const originalUserProfile = process.env.USERPROFILE;
 
 async function makeTempDir() {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "ori-bridge-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "mnemos-bridge-"));
   tempDirs.push(dir);
   return dir;
 }
 
 async function makeVault(root: string) {
-  await mkdir(path.join(root, ".ori"), { recursive: true });
+  await mkdir(path.join(root, ".mnemos"), { recursive: true });
 }
 
 async function withTempHome<T>(fn: (home: string) => Promise<T>): Promise<T> {
@@ -78,7 +78,7 @@ describe("resolveBridgePlan", () => {
     expect(plan.resolvedVault).toBe(path.resolve(explicitVault));
     expect(plan.resolvedVaultSource).toBe("explicit");
     expect(plan.server.args).toEqual(["serve", "--mcp", "--vault", path.resolve(explicitVault)]);
-    expect(plan.server.env).toEqual({ ORI_VAULT: path.resolve(explicitVault) });
+    expect(plan.server.env).toEqual({ MNEMOS_VAULT: path.resolve(explicitVault) });
   });
 
   it("resolves the nearest project vault without falling back global", async () => {
@@ -129,9 +129,9 @@ describe("resolveBridgePlan", () => {
       scope: "global",
     });
 
-    expect(plan.resolvedVault).toBe(path.join(os.homedir(), ".ori-memory"));
+    expect(plan.resolvedVault).toBe(path.join(os.homedir(), ".mnemos-memory"));
     expect(plan.resolvedVaultSource).toBe("global-default");
-    expect(plan.server.args).toEqual(["serve", "--mcp", "--vault", path.join(os.homedir(), ".ori-memory")]);
+    expect(plan.server.args).toEqual(["serve", "--mcp", "--vault", path.join(os.homedir(), ".mnemos-memory")]);
   });
 
   it("warns when generic install asks for auto activation", async () => {
@@ -146,7 +146,7 @@ describe("resolveBridgePlan", () => {
 
     expect(plan.warnings.some((warning) => warning.includes("auto-orient"))).toBe(true);
     const output = buildGenericInstallOutput(plan);
-    expect(output.command).toBe("ori");
+    expect(output.command).toBe("mnemos");
     expect(output.scope).toBe("global");
     expect(output.activation).toBe("auto");
   });
@@ -171,8 +171,8 @@ describe("config merge helpers", () => {
       plan,
     );
 
-    expect(Object.keys(merged.mcpServers ?? {}).sort()).toEqual(["ori", "other"]);
-    expect((merged.mcpServers?.ori as { args: string[] }).args).toEqual([
+    expect(Object.keys(merged.mcpServers ?? {}).sort()).toEqual(["mnemos", "other"]);
+    expect((merged.mcpServers?.mnemos as { args: string[] }).args).toEqual([
       "serve",
       "--mcp",
       "--vault",
@@ -185,18 +185,18 @@ describe("config merge helpers", () => {
       hooks: {
         SessionStart: [
           {
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/ori/orient.mjs"', timeout: 10 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/orient.mjs"', timeout: 10 }],
           },
         ],
         Stop: [
           {
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/ori/capture.mjs"', timeout: 10 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/capture.mjs"', timeout: 10 }],
           },
         ],
         PostToolUse: [
           {
             matcher: "Write",
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/ori/validate.mjs"', timeout: 5 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/validate.mjs"', timeout: 5 }],
           },
         ],
       },
@@ -214,18 +214,18 @@ describe("config merge helpers", () => {
     expect(merged.hooks?.PostToolUse).toHaveLength(1);
   });
 
-  it("removes only Ori-owned settings hooks on uninstall", () => {
+  it("removes only Mnemos-owned settings hooks on uninstall", () => {
     const existing = {
       hooks: {
         SessionStart: [
           {
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/ori/orient.mjs"', timeout: 10 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/orient.mjs"', timeout: 10 }],
           },
         ],
         PostToolUse: [
           {
             matcher: "Write",
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/ori/validate.mjs"', timeout: 5 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/validate.mjs"', timeout: 5 }],
           },
           {
             matcher: "Edit",
@@ -235,15 +235,15 @@ describe("config merge helpers", () => {
       },
     };
 
-    const next = removeOriFromSettings(existing);
+    const next = removeMnemosFromSettings(existing);
     expect(next.hooks?.SessionStart).toBeUndefined();
     expect(next.hooks?.PostToolUse).toHaveLength(1);
   });
 
-  it("removes only the Ori MCP server on uninstall", () => {
-    const next = removeOriFromMcpConfig({
+  it("removes only the Mnemos MCP server on uninstall", () => {
+    const next = removeMnemosFromMcpConfig({
       mcpServers: {
-        ori: { command: "ori", args: ["serve", "--mcp"] },
+        mnemos: { command: "mnemos", args: ["serve", "--mcp"] },
         other: { command: "other", args: ["serve"] },
       },
     });
@@ -259,8 +259,8 @@ describe("config merge helpers", () => {
       "",
       "keep me",
       "",
-      "<!-- ori-bridge:claude-code -->",
-      "# Ori Mnemos - Claude Code Bridge",
+      "<!-- mnemos-bridge:claude-code -->",
+      "# Mnemos - Claude Code Bridge",
       "bridge body",
     ].join("\n");
     expect(removeClaudeInstructions(content)).toBe("# Existing\n\nkeep me");
@@ -312,11 +312,11 @@ describe("cursor adapter", () => {
     expect(mcpPath).toBe(path.join(cwd, ".cursor", "mcp.json"));
 
     const written = JSON.parse(await readFile(mcpPath, "utf8")) as {
-      mcpServers: { ori: { command: string; args: string[]; env: Record<string, string> } };
+      mcpServers: { mnemos: { command: string; args: string[]; env: Record<string, string> } };
     };
-    expect(written.mcpServers.ori.command).toBe("ori");
-    expect(written.mcpServers.ori.args).toEqual(["serve", "--mcp", "--vault", brain]);
-    expect(written.mcpServers.ori.env).toEqual({ ORI_VAULT: brain });
+    expect(written.mcpServers.mnemos.command).toBe("mnemos");
+    expect(written.mcpServers.mnemos.args).toEqual(["serve", "--mcp", "--vault", brain]);
+    expect(written.mcpServers.mnemos.env).toEqual({ MNEMOS_VAULT: brain });
   });
 
   it("updates then uninstalls Cursor MCP config cleanly", async () => {
@@ -346,7 +346,7 @@ describe("cursor adapter", () => {
 
     const mcpPath = (removed.data as { mcpPath: string }).mcpPath;
     const written = JSON.parse(await readFile(mcpPath, "utf8")) as { mcpServers?: Record<string, unknown> };
-    expect(written.mcpServers?.ori).toBeUndefined();
+    expect(written.mcpServers?.mnemos).toBeUndefined();
   });
 });
 
@@ -373,8 +373,8 @@ describe("codex adapter", () => {
       expect(configPath).toBe(path.join(home, ".codex", "config.toml"));
 
       const written = await readFile(configPath, "utf8");
-      expect(written).toContain("[mcp_servers.ori]");
-      expect(written).toContain('command = "ori"');
+      expect(written).toContain("[mcp_servers.mnemos]");
+      expect(written).toContain('command = "mnemos"');
       expect(written).toContain(JSON.stringify(brain));
     });
   });
@@ -407,7 +407,7 @@ describe("codex adapter", () => {
 
       const configPath = (removed.data as { configPath: string }).configPath;
       const written = await readFile(configPath, "utf8");
-      expect(written).not.toContain("[mcp_servers.ori]");
+      expect(written).not.toContain("[mcp_servers.mnemos]");
     });
   });
 });
@@ -532,7 +532,7 @@ describe("hermes adapter", () => {
     await withTempHome(async (home) => {
       const paths = getHermesGlobalPaths();
       expect(paths.configPath).toBe(path.join(home, ".hermes", "config.yaml"));
-      expect(paths.pluginDir).toBe(path.join(home, ".hermes", "plugins", "ori"));
+      expect(paths.pluginDir).toBe(path.join(home, ".hermes", "plugins", "mnemos"));
     });
   });
 
@@ -547,7 +547,7 @@ describe("hermes adapter", () => {
     expect(plan.activation).toBe("auto");
   });
 
-  it("merges Ori into Hermes YAML config without clobbering other servers", async () => {
+  it("merges Mnemos into Hermes YAML config without clobbering other servers", async () => {
     const cwd = await makeTempDir();
     const plan = await resolveBridgePlan({
       target: "hermes",
@@ -565,8 +565,8 @@ describe("hermes adapter", () => {
       plan,
     );
 
-    expect(Object.keys(merged.mcp_servers ?? {}).sort()).toEqual(["ori", "time"]);
-    expect((merged.mcp_servers?.ori as { args: string[] }).args).toEqual([
+    expect(Object.keys(merged.mcp_servers ?? {}).sort()).toEqual(["mnemos", "time"]);
+    expect((merged.mcp_servers?.mnemos as { args: string[] }).args).toEqual([
       "serve",
       "--mcp",
       "--vault",
@@ -574,10 +574,10 @@ describe("hermes adapter", () => {
     ]);
   });
 
-  it("removes only the Ori entry from Hermes config", () => {
-    const next = removeOriFromHermesConfig({
+  it("removes only the Mnemos entry from Hermes config", () => {
+    const next = removeMnemosFromHermesConfig({
       mcp_servers: {
-        ori: { command: "ori", args: ["serve", "--mcp"] },
+        mnemos: { command: "mnemos", args: ["serve", "--mcp"] },
         time: { command: "uvx", args: ["mcp-server-time"] },
       },
     });
@@ -592,8 +592,8 @@ describe("hermes adapter", () => {
       "",
       "keep me",
       "",
-      "<!-- ori-bridge:hermes -->",
-      "# Ori Mnemos - Hermes Agent Bridge",
+      "<!-- mnemos-bridge:hermes -->",
+      "# Mnemos - Hermes Agent Bridge",
       "bridge body",
     ].join("\n");
     expect(removeHermesInstructions(content)).toBe("# Existing project context\n\nkeep me");
@@ -614,19 +614,19 @@ describe("hermes adapter", () => {
       const data = result.data as { mutation: string; configPath: string; pluginDir: string };
       expect(data.mutation).toBe("installed");
       expect(data.configPath).toBe(path.join(home, ".hermes", "config.yaml"));
-      expect(data.pluginDir).toBe(path.join(home, ".hermes", "plugins", "ori"));
+      expect(data.pluginDir).toBe(path.join(home, ".hermes", "plugins", "mnemos"));
 
       // Verify YAML config
       const yaml = await import("yaml");
       const raw = await readFile(data.configPath, "utf8");
-      const config = yaml.parse(raw) as { mcp_servers?: { ori?: { command: string; args: string[]; env?: Record<string, string> } } };
-      expect(config.mcp_servers?.ori?.command).toBe("ori");
-      expect(config.mcp_servers?.ori?.args).toEqual(["serve", "--mcp", "--vault", brain]);
-      expect(config.mcp_servers?.ori?.env).toEqual({ ORI_VAULT: brain });
+      const config = yaml.parse(raw) as { mcp_servers?: { mnemos?: { command: string; args: string[]; env?: Record<string, string> } } };
+      expect(config.mcp_servers?.mnemos?.command).toBe("mnemos");
+      expect(config.mcp_servers?.mnemos?.args).toEqual(["serve", "--mcp", "--vault", brain]);
+      expect(config.mcp_servers?.mnemos?.env).toEqual({ MNEMOS_VAULT: brain });
 
       // Verify plugin was installed
       const pluginYaml = await readFile(path.join(data.pluginDir, "plugin.yaml"), "utf8");
-      expect(pluginYaml).toContain("name: ori");
+      expect(pluginYaml).toContain("name: mnemos");
       const initPy = await readFile(path.join(data.pluginDir, "__init__.py"), "utf8");
       expect(initPy).toContain("def register(ctx)");
     });
@@ -648,8 +648,8 @@ describe("hermes adapter", () => {
       expect(data.instructionsPath).toBe(path.join(cwd, "HERMES.md"));
 
       const content = await readFile(data.instructionsPath, "utf8");
-      expect(content).toContain("<!-- ori-bridge:hermes -->");
-      expect(content).toContain("Ori Mnemos - Hermes Agent Bridge");
+      expect(content).toContain("<!-- mnemos-bridge:hermes -->");
+      expect(content).toContain("Mnemos - Hermes Agent Bridge");
       expect(content).toContain("Manual activation");
     });
   });
@@ -685,7 +685,7 @@ describe("hermes adapter", () => {
       const configPath = (removed.data as { configPath: string }).configPath;
       const raw = await readFile(configPath, "utf8");
       const config = yaml.parse(raw) as { mcp_servers?: Record<string, unknown> };
-      expect(config.mcp_servers?.ori).toBeUndefined();
+      expect(config.mcp_servers?.mnemos).toBeUndefined();
     });
   });
 
@@ -717,7 +717,7 @@ describe("hermes adapter", () => {
       expect(hermes.resolvedVault).toBe(brain);
       expect(hermes.activation).toBe("auto");
       expect(hermes.configPaths).toEqual([path.join(home, ".hermes", "config.yaml")]);
-      expect(hermes.pluginDir).toBe(path.join(home, ".hermes", "plugins", "ori"));
+      expect(hermes.pluginDir).toBe(path.join(home, ".hermes", "plugins", "mnemos"));
     });
   });
 });
@@ -751,9 +751,9 @@ describe("opencode adapter", () => {
       plan,
     );
 
-    expect(Object.keys(merged.mcp ?? {}).sort()).toEqual(["ori", "other"]);
-    expect((merged.mcp?.ori as { command: string[] }).command).toEqual([
-      "ori",
+    expect(Object.keys(merged.mcp ?? {}).sort()).toEqual(["mnemos", "other"]);
+    expect((merged.mcp?.mnemos as { command: string[] }).command).toEqual([
+      "mnemos",
       "serve",
       "--mcp",
       "--vault",
@@ -761,10 +761,10 @@ describe("opencode adapter", () => {
     ]);
   });
 
-  it("removes only the Ori MCP server from OpenCode config", () => {
-    const next = removeOriFromOpenCodeConfig({
+  it("removes only the Mnemos MCP server from OpenCode config", () => {
+    const next = removeMnemosFromOpenCodeConfig({
       mcp: {
-        ori: { type: "local", command: ["ori", "serve", "--mcp"] },
+        mnemos: { type: "local", command: ["mnemos", "serve", "--mcp"] },
         other: { type: "local", command: ["npx", "-y", "other-mcp"] },
       },
     });
@@ -792,15 +792,15 @@ describe("opencode adapter", () => {
 
     // Verify MCP config
     const config = JSON.parse(await readFile(data.configPath, "utf8")) as {
-      mcp: { ori: { type: string; command: string[]; environment: Record<string, string> } };
+      mcp: { mnemos: { type: string; command: string[]; environment: Record<string, string> } };
     };
-    expect(config.mcp.ori.type).toBe("local");
-    expect(config.mcp.ori.command).toEqual(["ori", "serve", "--mcp", "--vault", brain]);
-    expect(config.mcp.ori.environment).toEqual({ ORI_VAULT: brain });
+    expect(config.mcp.mnemos.type).toBe("local");
+    expect(config.mcp.mnemos.command).toEqual(["mnemos", "serve", "--mcp", "--vault", brain]);
+    expect(config.mcp.mnemos.environment).toEqual({ MNEMOS_VAULT: brain });
 
     // Verify plugin was installed
     const pluginContent = await readFile(path.join(data.pluginDir, "lifecycle.js"), "utf8");
-    expect(pluginContent).toContain("OriLifecyclePlugin");
+    expect(pluginContent).toContain("MnemosLifecyclePlugin");
     expect(pluginContent).toContain("session.created");
     expect(pluginContent).toContain("session.compacted");
     expect(pluginContent).toContain("session.deleted");
@@ -815,8 +815,8 @@ describe("opencode adapter", () => {
 
     // Verify instructions
     const instructions = await readFile(data.instructionsPath, "utf8");
-    expect(instructions).toContain("<!-- ori-bridge:opencode -->");
-    expect(instructions).toContain("Ori Mnemos - OpenCode Bridge");
+    expect(instructions).toContain("<!-- mnemos-bridge:opencode -->");
+    expect(instructions).toContain("Mnemos - OpenCode Bridge");
   });
 
   it("writes project-scope instructions to AGENTS.md", async () => {
@@ -834,8 +834,8 @@ describe("opencode adapter", () => {
     expect(data.instructionsPath).toBe(path.join(cwd, "AGENTS.md"));
 
     const content = await readFile(data.instructionsPath, "utf8");
-    expect(content).toContain("<!-- ori-bridge:opencode -->");
-    expect(content).toContain("Ori Mnemos - OpenCode Bridge");
+    expect(content).toContain("<!-- mnemos-bridge:opencode -->");
+    expect(content).toContain("Mnemos - OpenCode Bridge");
     expect(content).toContain("Manual activation");
   });
 
@@ -867,7 +867,7 @@ describe("opencode adapter", () => {
     // Verify config cleaned up
     const configPath = (removed.data as { configPath: string }).configPath;
     const config = JSON.parse(await readFile(configPath, "utf8")) as { mcp?: Record<string, unknown> };
-    expect(config.mcp?.ori).toBeUndefined();
+    expect(config.mcp?.mnemos).toBeUndefined();
 
     // Verify plugin removed
     const pluginDir = (removed.data as { pluginDir: string }).pluginDir;

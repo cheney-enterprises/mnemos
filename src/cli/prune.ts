@@ -1,5 +1,5 @@
 /**
- * ori prune — Analyze activation topology and identify archive candidates.
+ * mnemos prune — Analyze activation topology and identify archive candidates.
  * Dry-run by default. --apply required to mutate files.
  */
 import path from "node:path";

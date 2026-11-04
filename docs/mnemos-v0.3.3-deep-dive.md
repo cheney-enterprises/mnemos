@@ -1,4 +1,4 @@
-# Ori Mnemos v0.3.3 — Complete Technical Deep Dive
+# Mnemos v0.3.3 — Complete Technical Deep Dive
 
 **Date:** 2026-03-03
 **Version:** 0.3.3 (The Emergence Bootstrap)
@@ -6,9 +6,9 @@
 
 ---
 
-## What Ori Mnemos Actually Is
+## What Mnemos Actually Is
 
-**One sentence:** Ori is a local-first, markdown-native memory layer that gives AI agents persistent identity, knowledge, and retrieval — shipped as an npm package that speaks MCP.
+**One sentence:** Mnemos is a local-first, markdown-native memory layer that gives AI agents persistent identity, knowledge, and retrieval — shipped as an npm package that speaks MCP.
 
 ### The Stack
 
@@ -21,14 +21,14 @@ Layer 1: Markdown files on disk                  <- git-friendly, human-readable
 
 ### Installation to Running Agent — The Full Path
 
-1. `npm install -g ori-memory` — installs the `ori` CLI globally
-2. `ori init my-agent` — scaffolds a vault: notes/, self/, ops/, templates/, .ori marker, config
+1. `npm install -g mnemos` — installs the `mnemos` CLI globally
+2. `mnemos init my-agent` — scaffolds a vault: notes/, self/, ops/, templates/, .mnemos marker, config
 3. Add to any MCP client config:
    ```json
-   { "mcpServers": { "ori": { "command": "ori", "args": ["serve", "--mcp"] } } }
+   { "mcpServers": { "mnemos": { "command": "mnemos", "args": ["serve", "--mcp"] } } }
    ```
-4. Agent connects -> Ori reads `self/identity.md` -> if empty, triggers onboarding flow -> agent names itself, gets context, writes its own identity
-5. Every session after: `ori_orient` -> agent wakes up knowing who it is, what it's working on, what changed
+4. Agent connects -> Mnemos reads `self/identity.md` -> if empty, triggers onboarding flow -> agent names itself, gets context, writes its own identity
+5. Every session after: `mnemos_orient` -> agent wakes up knowing who it is, what it's working on, what changed
 
 ### The Three Spaces
 
@@ -40,7 +40,7 @@ Layer 1: Markdown files on disk                  <- git-friendly, human-readable
 
 ### Retrieval — How the Agent Finds What It Needs
 
-When an agent asks `ori_query_ranked "token incentive mechanisms"`:
+When an agent asks `mnemos_query_ranked "token incentive mechanisms"`:
 
 1. **Intent classification** — 30+ regex patterns detect if this is episodic/procedural/semantic/decision. Adjusts signal weights
 2. **Signal 1 (Semantic)** — Embeds the query with all-MiniLM-L6-v2 (local, no API), compares against stored vectors across 6 spaces (text, temporal, vitality, importance, type, community)
@@ -65,15 +65,15 @@ Every note has a vitality score (0-1) computed from ACT-R cognitive science:
 
 **Zone classification** (v0.3.3): active (>=0.6), stale (>=0.3), fading (>=0.1), archived (<0.1)
 
-`ori prune` shows the topology and identifies archive candidates — notes below the fading floor that aren't structurally critical and have fewer than 2 incoming links.
+`mnemos prune` shows the topology and identifies archive candidates — notes below the fading floor that aren't structurally critical and have fewer than 2 incoming links.
 
-### What Makes Ori Different From the Landscape
+### What Makes Mnemos Different From the Landscape
 
 9 competitors analyzed during research:
 
 | System | Storage | Retrieval | Graph | Forgetting | Identity | Local |
 |--------|---------|-----------|-------|-----------|----------|-------|
-| **Ori** | Markdown | 3-signal fusion | Wiki-link graph | ACT-R + spreading activation | Built-in | Yes |
+| **Mnemos** | Markdown | 3-signal fusion | Wiki-link graph | ACT-R + spreading activation | Built-in | Yes |
 | SimpleMem | Key-value | Exact match | None | None | None | Yes |
 | Memori | JSON | Vector | None | None | None | Partial |
 | Mem0 | Cloud DB | Vector | None | None | None | No |
@@ -83,25 +83,25 @@ Every note has a vitality score (0-1) computed from ACT-R cognitive science:
 | LangChain Memory | Various | Vector | None | None | None | Depends |
 | SideQuest | Markdown | None | None | None | None | Yes |
 
-**No shipped system has graph-aware forgetting.** Ori is first. The spreading activation + zone classification + Tarjan's articulation point protection — that's the technical moat.
+**No shipped system has graph-aware forgetting.** Mnemos is first. The spreading activation + zone classification + Tarjan's articulation point protection — that's the technical moat.
 
-**No shipped system has agent identity as a first-class feature.** Letta has "persona" but it's cloud-locked. Ori's identity travels with the vault — move it, git push it, deploy it anywhere.
+**No shipped system has agent identity as a first-class feature.** Letta has "persona" but it's cloud-locked. Mnemos's identity travels with the vault — move it, git push it, deploy it anywhere.
 
 ### What Can Be Built On Top
 
-**VPS Agents**: Install Ori on a VPS, point `--vault` to a persistent directory. Agent runs headless with full memory continuity. Back up with `git push`. Deploy multiple agents with separate vaults.
+**VPS Agents**: Install Mnemos on a VPS, point `--vault` to a persistent directory. Agent runs headless with full memory continuity. Back up with `git push`. Deploy multiple agents with separate vaults.
 
 **Multi-Agent Teams**: Each agent gets its own vault. Cross-agent knowledge sharing via git — push notes from one vault, pull into another. The wiki-link graph handles cross-references.
 
-**Agent-as-a-Service**: Ori's MCP server is the API. Any MCP client connects. Build a web app that spawns agent sessions against a shared vault — the agent remembers every conversation, every decision.
+**Agent-as-a-Service**: Mnemos's MCP server is the API. Any MCP client connects. Build a web app that spawns agent sessions against a shared vault — the agent remembers every conversation, every decision.
 
-**Research Pipelines**: `ori add` from any script. Webhook dumps data to inbox, agent processes on schedule. `ori query ranked` from cron jobs. The CLI is fully scriptable, returns structured JSON.
+**Research Pipelines**: `mnemos add` from any script. Webhook dumps data to inbox, agent processes on schedule. `mnemos query ranked` from cron jobs. The CLI is fully scriptable, returns structured JSON.
 
-**Knowledge-Augmented Applications**: Use Ori as the retrieval backend for any LLM application. The three-signal fusion is more robust than pure vector search. The vitality model prevents stale knowledge from polluting results.
+**Knowledge-Augmented Applications**: Use Mnemos as the retrieval backend for any LLM application. The three-signal fusion is more robust than pure vector search. The vitality model prevents stale knowledge from polluting results.
 
-**Discord/Slack Bots**: Agent connects to chat, uses Ori for persistent memory across conversations. Every insight captured, every decision tracked, every connection maintained.
+**Discord/Slack Bots**: Agent connects to chat, uses Mnemos for persistent memory across conversations. Every insight captured, every decision tracked, every connection maintained.
 
-**Personal Knowledge Systems**: Ori isn't just for code agents. It's a second brain that an AI agent maintains for you. Capture ideas conversationally, let the agent classify, connect, and maintain them.
+**Personal Knowledge Systems**: Mnemos isn't just for code agents. It's a second brain that an AI agent maintains for you. Capture ideas conversationally, let the agent classify, connect, and maintain them.
 
 ### The Dependency Stack
 
@@ -134,9 +134,9 @@ Zero cloud dependencies. Zero API keys required for core functionality. LLM enha
 
 **Zone Classification** — Notes classified into `active | stale | fading | archived` based on vitality score. Thresholds: active >= 0.6, stale >= 0.3, fading >= 0.1. Frontmatter `status: "archived"` always overrides vitality score.
 
-**ori prune** — New CLI command + MCP tool. Dry-run by default, `--apply` required to mutate. Shows zone distribution, articulation points, archive candidates, community hotspots. Candidate rule: below fading floor + not already archived + not articulation point + inDegree < 2.
+**mnemos prune** — New CLI command + MCP tool. Dry-run by default, `--apply` required to mutate. Shows zone distribution, articulation points, archive candidates, community hotspots. Candidate rule: below fading floor + not already archived + not articulation point + inDegree < 2.
 
-**Archived Exclusion** — `ori_query_ranked` and `ori_query_similar` filter out `status: "archived"` notes by default. Filtering happens before result trimming. MCP tools expose `include_archived` parameter to override.
+**Archived Exclusion** — `mnemos_query_ranked` and `mnemos_query_similar` filter out `status: "archived"` notes by default. Filtering happens before result trimming. MCP tools expose `include_archived` parameter to override.
 
 ### Files Created/Changed
 
@@ -149,7 +149,7 @@ Zero cloud dependencies. Zero API keys required for core functionality. LLM enha
 | `src/core/engine.ts` | Added boosts table to initDB |
 | `src/cli/search.ts` | Archive filter, activation wiring, uses noteindex.ts |
 | `src/cli/prune.ts` | **NEW** — prune command |
-| `src/cli/serve.ts` | ori_prune tool, include_archived params, version bump |
+| `src/cli/serve.ts` | mnemos_prune tool, include_archived params, version bump |
 | `src/index.ts` | prune CLI command, version bump |
 | `package.json` | Version 0.3.3 |
 | `tests/core/vitality.test.ts` | +12 zone classification tests |
@@ -200,40 +200,40 @@ Zero cloud dependencies. Zero API keys required for core functionality. LLM enha
 
 | Command | File | Purpose |
 |---------|------|---------|
-| `ori init` | init.ts | Scaffold vault from template |
-| `ori status` | status.ts | Vault overview |
-| `ori health` | health.ts | Full diagnostics |
-| `ori add` | add.ts | Capture to inbox |
-| `ori promote` | promote.ts | Inbox -> notes with classification |
-| `ori archive` | archive.ts | Archive stale notes |
-| `ori validate` | validate.ts | Schema check |
-| `ori prune` | prune.ts | Zone topology + archive candidates |
-| `ori query` | query.ts | Graph queries (orphans, dangling, backlinks, cross-project, important, fading) |
-| `ori query ranked` | search.ts | Three-signal retrieval |
-| `ori query similar` | search.ts | Semantic search only |
-| `ori index` | indexcmd.ts | Build/status embedding index |
-| `ori graph` | graphcmd.ts | Metrics/communities |
-| `ori serve --mcp` | serve.ts | MCP server (14 tools, 5 resources) |
-| `ori bridge` | bridge.ts | Claude Code integration hooks |
+| `mnemos init` | init.ts | Scaffold vault from template |
+| `mnemos status` | status.ts | Vault overview |
+| `mnemos health` | health.ts | Full diagnostics |
+| `mnemos add` | add.ts | Capture to inbox |
+| `mnemos promote` | promote.ts | Inbox -> notes with classification |
+| `mnemos archive` | archive.ts | Archive stale notes |
+| `mnemos validate` | validate.ts | Schema check |
+| `mnemos prune` | prune.ts | Zone topology + archive candidates |
+| `mnemos query` | query.ts | Graph queries (orphans, dangling, backlinks, cross-project, important, fading) |
+| `mnemos query ranked` | search.ts | Three-signal retrieval |
+| `mnemos query similar` | search.ts | Semantic search only |
+| `mnemos index` | indexcmd.ts | Build/status embedding index |
+| `mnemos graph` | graphcmd.ts | Metrics/communities |
+| `mnemos serve --mcp` | serve.ts | MCP server (14 tools, 5 resources) |
+| `mnemos bridge` | bridge.ts | Claude Code integration hooks |
 
 ### MCP Tools (14)
 
 | Tool | Purpose |
 |------|---------|
-| `ori_orient` | Session briefing — daily, goals, reminders, health |
-| `ori_update` | Write identity/goals/methodology/daily/reminders |
-| `ori_status` | Vault overview |
-| `ori_health` | Full diagnostics |
-| `ori_add` | Capture to inbox |
-| `ori_promote` | Promote with classification + linking |
-| `ori_validate` | Schema check |
-| `ori_query` | Graph queries |
-| `ori_query_ranked` | Three-signal retrieval + spreading activation |
-| `ori_query_similar` | Semantic search only |
-| `ori_query_important` | PageRank ranking |
-| `ori_query_fading` | Vitality-based detection |
-| `ori_prune` | Zone topology + archive candidates |
-| `ori_index_build` | Build/update embedding index |
+| `mnemos_orient` | Session briefing — daily, goals, reminders, health |
+| `mnemos_update` | Write identity/goals/methodology/daily/reminders |
+| `mnemos_status` | Vault overview |
+| `mnemos_health` | Full diagnostics |
+| `mnemos_add` | Capture to inbox |
+| `mnemos_promote` | Promote with classification + linking |
+| `mnemos_validate` | Schema check |
+| `mnemos_query` | Graph queries |
+| `mnemos_query_ranked` | Three-signal retrieval + spreading activation |
+| `mnemos_query_similar` | Semantic search only |
+| `mnemos_query_important` | PageRank ranking |
+| `mnemos_query_fading` | Vitality-based detection |
+| `mnemos_prune` | Zone topology + archive candidates |
+| `mnemos_index_build` | Build/update embedding index |
 
 ---
 
@@ -245,7 +245,7 @@ Zero cloud dependencies. Zero API keys required for core functionality. LLM enha
 
 ## Resume Lines
 
-- Built Ori Mnemos: open-source persistent memory infrastructure for AI agents (npm: ori-memory, Apache-2.0)
+- Built Mnemos: open-source persistent memory infrastructure for AI agents (npm: mnemos, Apache-2.0)
 - Designed three-signal retrieval engine fusing semantic embeddings, BM25 keyword search, and personalized PageRank — 99.6% token reduction at 1K notes
 - Implemented first graph-aware forgetting system in the AI memory space: ACT-R vitality model + spreading activation + Tarjan's articulation point protection
 - Shipped agent identity layer over Model Context Protocol (MCP) — agents persist personality, goals, and methodology across sessions and clients

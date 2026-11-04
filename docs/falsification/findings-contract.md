@@ -1,4 +1,4 @@
-# `ori sql` — output contract / limits / schema discovery: black-box findings
+# `mnemos sql` — output contract / limits / schema discovery: black-box findings
 
 Agent: `SqlContract`. Scope: spec sections **2 (output contract)**, **6 (limits)**,
 **7 (schema discovery)**, **10 (known design limits)**.
@@ -8,14 +8,14 @@ Implementation source was never opened. Only `docs/specs/memory-sql-spec.md` was
 
 | item | value |
 |---|---|
-| binary | `node C:/Users/aayoa/Desktop/ori/dist/index.js` |
-| scratch vault | `%TEMP%\ori-falsify-contract` (651 notes, 1944 resolving edges, 652 dangling, unicode filenames/bodies, 4 notes with >6 KB descriptions and ~21 KB bodies) |
-| second vault | `%TEMP%\ori-falsify-contract-noidx` (no index built) |
+| binary | `node C:/Users/aayoa/Desktop/mnemos/dist/index.js` |
+| scratch vault | `%TEMP%\mnemos-falsify-contract` (651 notes, 1944 resolving edges, 652 dangling, unicode filenames/bodies, 4 notes with >6 KB descriptions and ~21 KB bodies) |
+| second vault | `%TEMP%\mnemos-falsify-contract-noidx` (no index built) |
 | index build | `{"indexed":650,"skipped":1,"total":651,"derived":{"edges":1944,"dangling":652}}` |
 | probe scripts | `ops-falsify/probe-contract.mjs` (45 cases), `ops-falsify/probe-detail.mjs` (cells / schema / sizes / first-byte timing), `ops-falsify/mutate-db.mjs` + `ops-falsify/mutate-uni.mjs` (out-of-band fixtures) |
 
 Fixtures `zz_values`, `zz_uni`, `zz_auto`, `v_broken_count` were created by writing to the
-scratch `embeddings.db` **directly with better-sqlite3**, never through `ori sql`
+scratch `embeddings.db` **directly with better-sqlite3**, never through `mnemos sql`
 (`node ops-falsify/mutate-db.mjs <vault>` and `node ops-falsify/mutate-uni.mjs <vault>`).
 They exist to reach cases unreachable from a read-only surface: stored 64-bit integers,
 multibyte text over the cell cap, a view whose row count cannot be computed, and
@@ -33,7 +33,7 @@ multibyte text over the cell cap, a view whose row count cannot be computed, and
 Repro (no fixture needed):
 
 ```
-node C:/Users/aayoa/Desktop/ori/dist/index.js sql "SELECT 9223372036854775807 AS lit"
+node C:/Users/aayoa/Desktop/mnemos/dist/index.js sql "SELECT 9223372036854775807 AS lit"
 ```
 
 Actual:
@@ -150,7 +150,7 @@ statement: `-- note` newline `SELECT 1`."
 Repro (the argument is literally `-- note\nSELECT 1` with a real newline):
 
 ```
-node C:/Users/aayoa/Desktop/ori/dist/index.js sql "-- note
+node C:/Users/aayoa/Desktop/mnemos/dist/index.js sql "-- note
 SELECT 1"
 ```
 
@@ -183,7 +183,7 @@ the "CLI exits non-zero when `success` is `false`" contract in the degenerate wa
 Repro:
 
 ```
-node C:/Users/aayoa/Desktop/ori/dist/index.js sql ""
+node C:/Users/aayoa/Desktop/mnemos/dist/index.js sql ""
 ```
 
 Actual:
@@ -278,7 +278,7 @@ is reported as `null`. Expected: a string (as with BIGINT) or a warning.
 
 ## F-010 — MINOR — `--stdin` silently wins over a positional statement
 
-**Spec §1** documents `ori sql "<statement>" … [--stdin]` without saying which source wins.
+**Spec §1** documents `mnemos sql "<statement>" … [--stdin]` without saying which source wins.
 **Spec §2** requires degradations to be warned about; here one of the two statements the caller
 supplied is discarded in silence.
 
@@ -314,19 +314,19 @@ long step may still be running"]`, `success:false`, exit 1.
 
 §10 blesses the *mechanism*, so I am **not** filing the un-cancelled step as a defect. What is
 not covered is that the **CLI process does not exit** for another 33 seconds after printing its
-answer: `ori sql --timeout 100 …` occupies a shell for 34 s. Any caller that waits for process
+answer: `mnemos sql --timeout 100 …` occupies a shell for 34 s. Any caller that waits for process
 exit (every shell pipeline, `subprocess.run`, CI step) sees the timeout as ineffective. Filed as
 a design gap against §6's "after the caller is answered" — for the CLI, the caller is answered
 only when the process exits.
 
 ---
 
-## F-012 — MINOR (§9, outside my sections — recorded because I hit it) — a query against a vault with no index reports the raw SQLite error instead of "run `ori index build`"
+## F-012 — MINOR (§9, outside my sections — recorded because I hit it) — a query against a vault with no index reports the raw SQLite error instead of "run `mnemos index build`"
 
 **Spec §9:** "If the index file does not exist, the call returns `success: false` with a warning
-telling the caller to run `ori index build`."
+telling the caller to run `mnemos index build`."
 
-In `%TEMP%\ori-falsify-contract-noidx` (vault with `notes/` and `.ori/`, no index):
+In `%TEMP%\mnemos-falsify-contract-noidx` (vault with `notes/` and `.mnemos/`, no index):
 
 ```
 node .../dist/index.js sql "SELECT 1"
@@ -334,21 +334,21 @@ node .../dist/index.js sql "SELECT 1"
     "warnings":["unable to open database file"]}
 
 node .../dist/index.js sql --schema
--> {"success":false,"data":{},"warnings":["no index at …\\.ori\\embeddings.db; run `ori index build` (unable to open database file)"]}
+-> {"success":false,"data":{},"warnings":["no index at …\\.mnemos\\embeddings.db; run `mnemos index build` (unable to open database file)"]}
 ```
 
-The `--schema` path gets it right; the query path does not mention `ori index build`.
+The `--schema` path gets it right; the query path does not mention `mnemos index build`.
 Positive: the call did **not** throw and did **not** create the file (`embeddings.db` absent
 afterwards), as §9 requires. Also note the "no index at …" phrasing is emitted for *any* open
 failure, not only a missing file — running the same command under Bun (where `better-sqlite3`
-cannot load) produces `no index at …\embeddings.db; run 'ori index build' ('better-sqlite3' is
+cannot load) produces `no index at …\embeddings.db; run 'mnemos index build' ('better-sqlite3' is
 not yet supported in Bun…)` even though the file exists.
 
 ---
 
 ## F-013 — MAJOR — every option placed *after* the statement is silently discarded, so `--limit` and `--timeout` become no-ops
 
-**Spec §1:** "**CLI**: `ori sql "<statement>" [--limit n] [--timeout ms] [--schema] [--stdin]`" —
+**Spec §1:** "**CLI**: `mnemos sql "<statement>" [--limit n] [--timeout ms] [--schema] [--stdin]`" —
 the documented synopsis puts the flags **after** the statement.
 **Spec §6:** "**Rows**: CLI default 1000 … Exceeding the cap sets `truncated: true` and adds a
 warning." / "**Time**: 2000 ms default."
@@ -379,7 +379,7 @@ Exit 0, empty stderr, no "unknown option", no warning. Verified for every option
 | `sql "SELECT 9 AS arg" --stdin` | ignored — runs the positional statement (`columns:["arg"]`) and never reads stdin |
 
 Expected: the synopsis form in §1 works, or the invocation is rejected. Actual: a caller who
-writes `ori sql "…" --limit 10` silently receives up to the 1000-row cap, and one who writes
+writes `mnemos sql "…" --limit 10` silently receives up to the 1000-row cap, and one who writes
 `--timeout 500` silently gets 2000 ms. Both are the exact degradations §6 exists to bound, with
 `warnings:[]` asserting nothing went wrong.
 

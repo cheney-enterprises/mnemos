@@ -112,19 +112,19 @@ describe('config defaults (bug D)', () => {
 });
 
 describe('update cache path collision (bug E)', () => {
-  beforeEach(() => { delete process.env.ORI_UPDATE_CACHE_DIR; });
-  afterEach(() => { delete process.env.ORI_UPDATE_CACHE_DIR; });
+  beforeEach(() => { delete process.env.MNEMOS_UPDATE_CACHE_DIR; });
+  afterEach(() => { delete process.env.MNEMOS_UPDATE_CACHE_DIR; });
 
-  it('does not contain .ori segment in default path', () => {
+  it('does not contain .mnemos segment in default path', () => {
     const path = getUpdateCachePath();
-    expect(path).not.toContain('.ori');
+    expect(path).not.toContain('.mnemos');
   });
 
-  it('honors env and does not contain .ori', () => {
-    process.env.ORI_UPDATE_CACHE_DIR = '/tmp/x';
+  it('honors env and does not contain .mnemos', () => {
+    process.env.MNEMOS_UPDATE_CACHE_DIR = '/tmp/x';
     const p = getUpdateCachePath();
-    expect(p).toBe(nodePath.join('/tmp/x', 'ori', 'update-cache.json'));
-    expect(p).not.toContain('.ori');
+    expect(p).toBe(nodePath.join('/tmp/x', 'mnemos', 'update-cache.json'));
+    expect(p).not.toContain('.mnemos');
   });
 });
 

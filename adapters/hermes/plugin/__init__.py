@@ -1,7 +1,7 @@
-"""Ori Mnemos plugin for Hermes Agent.
+"""Mnemos plugin for Hermes Agent.
 
 Registers lifecycle hooks for automatic session orient and capture.
-Requires the `ori` CLI to be installed and available on PATH.
+Requires the `mnemos` CLI to be installed and available on PATH.
 """
 
 from .hooks import on_session_start, on_session_end

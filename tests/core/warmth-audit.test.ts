@@ -12,23 +12,23 @@ import {
 const tempDirs: string[] = [];
 
 async function makeTempDir() {
-  const dir = await mkdtemp(path.join(os.tmpdir(), "ori-warmth-audit-"));
+  const dir = await mkdtemp(path.join(os.tmpdir(), "mnemos-warmth-audit-"));
   tempDirs.push(dir);
   return dir;
 }
 
 afterEach(async () => {
-  delete process.env.ORI_WARMTH_AUDIT;
-  delete process.env.ORI_WARMTH_AUDIT_PATH;
+  delete process.env.MNEMOS_WARMTH_AUDIT;
+  delete process.env.MNEMOS_WARMTH_AUDIT_PATH;
   await Promise.all(tempDirs.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
 describe("warmth audit", () => {
   it("is opt-in via env var", () => {
     expect(isWarmthAuditEnabled()).toBe(false);
-    process.env.ORI_WARMTH_AUDIT = "1";
+    process.env.MNEMOS_WARMTH_AUDIT = "1";
     expect(isWarmthAuditEnabled()).toBe(true);
-    process.env.ORI_WARMTH_AUDIT = "false";
+    process.env.MNEMOS_WARMTH_AUDIT = "false";
     expect(isWarmthAuditEnabled()).toBe(false);
   });
 

@@ -1,17 +1,17 @@
-"""ForgetEval adapter for Ori Mnemos.
+"""ForgetEval adapter for Mnemos.
 
 Implements bench/forgeteval/adapter.py's `Adapter` Protocol by talking NDJSON
 to a resident Node process (bench/forgeteval-bridge.mjs). The harness issues
 roughly ten adapter calls per case across a thousand cases, so a
 subprocess-per-call CLI would spend hours on Node startup alone.
 
-What this deliberately does NOT do: fake the optional operations. Ori has no
+What this deliberately does NOT do: fake the optional operations. Mnemos has no
 supersede, no release and no purge -- verified by grep, zero source hits --
 so those raise NotImplementedError and ForgetEval scores them N/A. That N/A
 is the measurement, and the reason this benchmark was chosen.
 
 Usage:
-    cp bench/forgeteval_ori_adapter.py <lethe>/bench/forgeteval/ori_adapter.py
+    cp bench/forgeteval_mnemos_adapter.py <lethe>/bench/forgeteval/mnemos_adapter.py
     # then register it in run.py's --adapter choices
 """
 from __future__ import annotations
@@ -22,14 +22,14 @@ import subprocess
 import sys
 
 
-class OriAdapter:
-    name = "ori"
+class MnemosAdapter:
+    name = "mnemos"
 
     def __init__(self, bridge: str | None = None, node: str = "node") -> None:
-        self.bridge = bridge or os.environ.get("ORI_BRIDGE")
+        self.bridge = bridge or os.environ.get("MNEMOS_BRIDGE")
         if not self.bridge or not os.path.exists(self.bridge):
             raise RuntimeError(
-                "set ORI_BRIDGE to the path of bench/forgeteval-bridge.mjs"
+                "set MNEMOS_BRIDGE to the path of bench/forgeteval-bridge.mjs"
             )
         self.proc = subprocess.Popen(
             [node, self.bridge],
@@ -44,12 +44,12 @@ class OriAdapter:
 
     def _call(self, **payload):
         if self.proc.poll() is not None:
-            raise RuntimeError(f"ori bridge exited with {self.proc.returncode}")
+            raise RuntimeError(f"mnemos bridge exited with {self.proc.returncode}")
         self.proc.stdin.write(json.dumps(payload) + "\n")
         self.proc.stdin.flush()
         line = self.proc.stdout.readline()
         if not line:
-            raise RuntimeError("ori bridge closed the pipe")
+            raise RuntimeError("mnemos bridge closed the pipe")
         return json.loads(line)
 
     # ── required ──────────────────────────────────────────────────────

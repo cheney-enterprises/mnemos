@@ -2,7 +2,7 @@
 
 This is a local-only evaluation workflow for the current warmth implementation.
 
-It is not part of the public product contract. It exists so we can use Ori on a real vault, inspect how the `20%` warmth signal changes retrieval, and tune the system before we decide what should ship more broadly.
+It is not part of the public product contract. It exists so we can use Mnemos on a real vault, inspect how the `20%` warmth signal changes retrieval, and tune the system before we decide what should ship more broadly.
 
 ## What We Built
 
@@ -15,7 +15,7 @@ Current behavior:
   - `graph`
   - `warmth`
 - warmth is configured to contribute `20%` of the fused retrieval weighting
-- `ori_warmth` exists as an inspectable MCP tool
+- `mnemos_warmth` exists as an inspectable MCP tool
 - ranked retrieval now carries enough score information to compare:
   - final ranking with warmth
   - base ranking without warmth
@@ -39,7 +39,7 @@ The relevant implementation pieces are:
   - local JSONL audit log helpers
   - newest-first querying and simple filtering
 - `src/cli/serve.ts`
-  - exposes `ori_warmth`
+  - exposes `mnemos_warmth`
 
 ## Local-Only Audit Logging
 
@@ -48,19 +48,19 @@ The audit log is off by default.
 Turn it on for the current PowerShell session:
 
 ```powershell
-$env:ORI_WARMTH_AUDIT='1'
+$env:MNEMOS_WARMTH_AUDIT='1'
 ```
 
 Optional: write to a custom local file instead of the default path:
 
 ```powershell
-$env:ORI_WARMTH_AUDIT_PATH='.ori/my-warmth-log.jsonl'
+$env:MNEMOS_WARMTH_AUDIT_PATH='.mnemos/my-warmth-log.jsonl'
 ```
 
 Default log path:
 
 ```text
-.ori/warmth-audit.jsonl
+.mnemos/warmth-audit.jsonl
 ```
 
 This logging is local-only and opt-in. It should be used while testing and tuning, not assumed as always-on product behavior.
@@ -70,35 +70,35 @@ This logging is local-only and opt-in. It should be used while testing and tunin
 ### 1. Turn audit logging on
 
 ```powershell
-$env:ORI_WARMTH_AUDIT='1'
+$env:MNEMOS_WARMTH_AUDIT='1'
 ```
 
 ### 2. Run a few ranked queries
 
 ```powershell
-ori query ranked "token incentives and mechanism design"
-ori query ranked "ori install model and client adapters"
-ori query ranked "courtshare tokenomics and growth loops"
+mnemos query ranked "token incentives and mechanism design"
+mnemos query ranked "mnemos install model and client adapters"
+mnemos query ranked "courtshare tokenomics and growth loops"
 ```
 
 ### 3. Inspect the last few warmth diffs
 
 ```powershell
-ori query warmth-audit --limit 5
+mnemos query warmth-audit --limit 5
 ```
 
 ### 4. Filter the log to a query theme
 
 ```powershell
-ori query warmth-audit token --limit 10
-ori query warmth-audit ori --limit 10
+mnemos query warmth-audit token --limit 10
+mnemos query warmth-audit mnemos --limit 10
 ```
 
 ### 5. Turn logging back off for the current session
 
 ```powershell
-Remove-Item Env:ORI_WARMTH_AUDIT
-Remove-Item Env:ORI_WARMTH_AUDIT_PATH -ErrorAction SilentlyContinue
+Remove-Item Env:MNEMOS_WARMTH_AUDIT
+Remove-Item Env:MNEMOS_WARMTH_AUDIT_PATH -ErrorAction SilentlyContinue
 ```
 
 ## How To Ask For It Later
@@ -112,13 +112,13 @@ for our last couple queries, pull up the diffs due to warmth
 I can do that directly by reading the audit log through:
 
 ```powershell
-ori query warmth-audit --limit 5
+mnemos query warmth-audit --limit 5
 ```
 
 If you want a topic-specific slice, I can run:
 
 ```powershell
-ori query warmth-audit token --limit 5
+mnemos query warmth-audit token --limit 5
 ```
 
 So yes: the local audit path is usable for natural follow-up requests like:
@@ -211,9 +211,9 @@ Likely next build directions:
 
 For now:
 
-- use `ori query ranked ...` for real retrieval
-- keep `ORI_WARMTH_AUDIT=1` on when you want to study behavior
-- use `ori query warmth-audit --limit N` to review recent diffs
-- use `ori_warmth` when you want to inspect the warmth field directly without full retrieval
+- use `mnemos query ranked ...` for real retrieval
+- keep `MNEMOS_WARMTH_AUDIT=1` on when you want to study behavior
+- use `mnemos query warmth-audit --limit N` to review recent diffs
+- use `mnemos_warmth` when you want to inspect the warmth field directly without full retrieval
 
 That is the current sandbox for tuning warmth against real daily use.

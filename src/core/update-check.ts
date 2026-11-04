@@ -1,6 +1,6 @@
 /**
  * Lightweight update checker. Queries the npm registry for the latest
- * published version of ori-memory and caches the result for 24 hours.
+ * published version of mnemos and caches the result for 24 hours.
  */
 import { promises as fs } from "node:fs";
 import { VERSION } from "./version.js";
@@ -9,7 +9,7 @@ import path from "node:path";
 import https from "node:https";
 import os from "node:os";
 
-const PACKAGE_NAME = "ori-memory";
+const PACKAGE_NAME = "mnemos";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const REQUEST_TIMEOUT_MS = 3000; // don't block orient if npm is slow
 
@@ -29,27 +29,27 @@ interface CachedCheck {
 }
 
 /**
- * Cache location. Deliberately NOT under ~/.ori — the ".ori" name doubles as
+ * Cache location. Deliberately NOT under ~/.mnemos — the ".mnemos" name doubles as
  * the vault marker (isVaultRoot), so a cache dir at $HOME made the walk-up
  * treat the home directory as a vault (issue #34).
  */
 export function getUpdateCachePath(): string {
-  const override = process.env.ORI_UPDATE_CACHE_DIR;
-  if (override) return path.join(override, "ori", "update-cache.json");
+  const override = process.env.MNEMOS_UPDATE_CACHE_DIR;
+  if (override) return path.join(override, "mnemos", "update-cache.json");
 
   const xdg = process.env.XDG_CACHE_HOME;
-  if (xdg) return path.join(xdg, "ori", "update-cache.json");
+  if (xdg) return path.join(xdg, "mnemos", "update-cache.json");
 
   if (process.platform === "win32") {
     const base = process.env.LOCALAPPDATA ?? os.homedir();
-    return path.join(base, "ori", "Cache", "update-cache.json");
+    return path.join(base, "mnemos", "Cache", "update-cache.json");
   }
 
-  return path.join(os.homedir(), ".cache", "ori", "update-cache.json");
+  return path.join(os.homedir(), ".cache", "mnemos", "update-cache.json");
 }
 
 function getLegacyCachePath(): string {
-  return path.join(os.homedir(), ".ori", "update-cache.json");
+  return path.join(os.homedir(), ".mnemos", "update-cache.json");
 }
 
 export async function readCache(): Promise<CachedCheck | null> {
@@ -57,7 +57,7 @@ export async function readCache(): Promise<CachedCheck | null> {
   try {
     raw = await fs.readFile(getUpdateCachePath(), "utf8");
   } catch {
-    // New location empty — fall back to the legacy ~/.ori file (pre-0.6.1)
+    // New location empty — fall back to the legacy ~/.mnemos file (pre-0.6.1)
     try {
       raw = await fs.readFile(getLegacyCachePath(), "utf8");
     } catch {
@@ -166,7 +166,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
 
     if (result.updateAvailable) {
       result.message =
-        `Ori v${latest} available (you have v${CURRENT_VERSION}). Run: npm update -g ori-memory`;
+        `Mnemos v${latest} available (you have v${CURRENT_VERSION}). Run: npm update -g mnemos`;
     }
   } catch {
     // Update check is best-effort — never fail orient
@@ -183,7 +183,7 @@ export { CURRENT_VERSION };
  */
 /**
  * Ask-shaped: the agent must pose the question and record the user's answer via
- * the ori_update_decision tool. Notice repeats every session until a decision
+ * the mnemos_update_decision tool. Notice repeats every session until a decision
  * exists for this exact version; a new version re-opens the question.
  */
 export async function buildAgentNotice(info: UpdateInfo): Promise<string | null> {
@@ -191,11 +191,11 @@ export async function buildAgentNotice(info: UpdateInfo): Promise<string | null>
   const prior = await readUpdateDecision();
   if (prior && prior.version === info.latest) return null; // user already answered for this version
   return (
-    `Ori ${info.latest} is available (installed: ${info.current}). ` +
-    `What changed: https://github.com/aayoawoyemi/Ori-Mnemos/releases/tag/v${info.latest} ` +
-    `Ask the user at a natural pause: "By the way, Ori pushed an update to v${info.latest} — want me to update it, or keep using v${info.current}?" ` +
-    `If they say yes: run \`npm update -g ori-memory\` and then call ori_update_decision with decision="accepted". ` +
-    `If they say no: call ori_update_decision with decision="declined". ` +
+    `Mnemos ${info.latest} is available (installed: ${info.current}). ` +
+    `What changed: https://github.com/aayoawoyemi/Mnemos/releases/tag/v${info.latest} ` +
+    `Ask the user at a natural pause: "By the way, Mnemos pushed an update to v${info.latest} — want me to update it, or keep using v${info.current}?" ` +
+    `If they say yes: run \`npm update -g mnemos\` and then call mnemos_update_decision with decision="accepted". ` +
+    `If they say no: call mnemos_update_decision with decision="declined". ` +
     `If they defer or don't answer, do NOT call the tool — the reminder will resurface next session.`
   );
 }

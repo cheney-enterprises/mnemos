@@ -127,8 +127,8 @@ let tmpDir: string;
 let db: InstanceType<typeof Database>;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-activation-test-"));
-  const dbPath = path.join(tmpDir, ".ori", "embeddings.db");
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-activation-test-"));
+  const dbPath = path.join(tmpDir, ".mnemos", "embeddings.db");
   db = initDB(dbPath);
 });
 

@@ -1,8 +1,8 @@
-# Ori Retrieval Intelligence — Implementation Spec
+# Mnemos Retrieval Intelligence — Implementation Spec
 
 Three layers built on the existing 4-signal RRF pipeline. Each layer has its own file(s), its own SQLite tables, and clear integration points into the existing code.
 
-**Research reference:** `brain/notes/ori-retrieval-intelligence-final-build-plan-synthesizes-63-sources-into-three-layered-systems-with-exact-formulas-and-justified-cuts.md`
+**Research reference:** `brain/notes/mnemos-retrieval-intelligence-final-build-plan-synthesizes-63-sources-into-three-layered-systems-with-exact-formulas-and-justified-cuts.md`
 
 ---
 
@@ -260,17 +260,17 @@ interface RetrievalEvent {
 }
 
 interface SessionOutcome {
-  forwardCitations: string[];   // note IDs cited in ori_add content
-  updatedNotes: string[];       // note IDs passed to ori_update
-  createdNotes: string[];       // note IDs created via ori_add
+  forwardCitations: string[];   // note IDs cited in mnemos_add content
+  updatedNotes: string[];       // note IDs passed to mnemos_update
+  createdNotes: string[];       // note IDs created via mnemos_add
   reRecalledNotes: string[];    // notes retrieved in multiple queries this session
 }
 
 export class SessionRewardAccumulator {
   private retrievals: RetrievalEvent[] = [];
-  private addedContent: string[] = [];       // raw content from ori_add calls
-  private updatedNoteIds: string[] = [];     // note IDs from ori_update calls
-  private createdNoteIds: string[] = [];     // note IDs from ori_add calls
+  private addedContent: string[] = [];       // raw content from mnemos_add calls
+  private updatedNoteIds: string[] = [];     // note IDs from mnemos_update calls
+  private createdNoteIds: string[] = [];     // note IDs from mnemos_add calls
   readonly sessionId: string;
 
   constructor(sessionId: string) {
@@ -335,7 +335,7 @@ export class SessionRewardAccumulator {
   }
 
   private buildOutcome(): SessionOutcome {
-    // Detect forward citations: [[note title]] in ori_add content
+    // Detect forward citations: [[note title]] in mnemos_add content
     const retrievedIds = new Set(this.retrievals.map((r) => r.noteId));
     const forwardCitations: string[] = [];
 
@@ -509,15 +509,15 @@ initQValueTables(db);
 const sessionId = crypto.randomUUID();
 const rewardAccumulator = new SessionRewardAccumulator(sessionId);
 
-// In ori_query_ranked handler — after getting results:
+// In mnemos_query_ranked handler — after getting results:
 for (const [rank, note] of results.entries()) {
   rewardAccumulator.logRetrieval(note.title, rank, query, intent);
 }
 
-// In ori_add handler:
+// In mnemos_add handler:
 rewardAccumulator.logAdd(noteId, content);
 
-// In ori_update handler:
+// In mnemos_update handler:
 rewardAccumulator.logUpdate(noteId);
 
 // On server close (process.on('exit') or transport close):
@@ -913,7 +913,7 @@ recomputeAllNPMI(db);
 runHomeostasis(db);
 ```
 
-### Bootstrap (one-time, on `ori index build`)
+### Bootstrap (one-time, on `mnemos index build`)
 
 In the index build command, after embedding:
 

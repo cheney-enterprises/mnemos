@@ -53,15 +53,15 @@ const MCP_CONFIGS: Record<string, { file: string; snippet: string }> = {
   "Claude Code": {
     file: ".claude/settings.json (in your project or ~/.claude/settings.json globally)",
     snippet: `Recommended (one command):
-ori bridge claude-code --scope global --activation auto --vault /path/to/brain
+mnemos bridge claude-code --scope global --activation auto --vault /path/to/brain
 
 Or add this to .claude/settings.json:
 {
   "mcpServers": {
-    "ori": {
-      "command": "ori",
+    "mnemos": {
+      "command": "mnemos",
       "args": ["serve", "--mcp", "--vault", "/path/to/brain"],
-      "env": { "ORI_VAULT": "/path/to/brain" }
+      "env": { "MNEMOS_VAULT": "/path/to/brain" }
     }
   }
 }`,
@@ -69,15 +69,15 @@ Or add this to .claude/settings.json:
   Cursor: {
     file: ".cursor/mcp.json (in your project root)",
     snippet: `Recommended (one command):
-ori bridge cursor --scope project --activation manual --vault /path/to/brain
+mnemos bridge cursor --scope project --activation manual --vault /path/to/brain
 
 Or add this to .cursor/mcp.json:
 {
   "mcpServers": {
-    "ori": {
-      "command": "ori",
+    "mnemos": {
+      "command": "mnemos",
       "args": ["serve", "--mcp", "--vault", "/path/to/brain"],
-      "env": { "ORI_VAULT": "/path/to/brain" }
+      "env": { "MNEMOS_VAULT": "/path/to/brain" }
     }
   }
 }`,
@@ -85,15 +85,15 @@ Or add this to .cursor/mcp.json:
   OpenCode: {
     file: "opencode.json (in your project root)",
     snippet: `Recommended (one command):
-ori bridge opencode --scope project --activation auto --vault /path/to/brain
+mnemos bridge opencode --scope project --activation auto --vault /path/to/brain
 
 Or add this to opencode.json:
 {
   "mcp": {
-    "ori": {
+    "mnemos": {
       "type": "local",
-      "command": ["ori", "serve", "--mcp", "--vault", "/path/to/brain"],
-      "environment": { "ORI_VAULT": "/path/to/brain" }
+      "command": ["mnemos", "serve", "--mcp", "--vault", "/path/to/brain"],
+      "environment": { "MNEMOS_VAULT": "/path/to/brain" }
     }
   }
 }`,
@@ -101,7 +101,7 @@ Or add this to opencode.json:
   Other: {
     file: "your MCP client's config file",
     snippet: `Print install plan:
-ori bridge generic --scope global --activation manual --vault /path/to/brain
+mnemos bridge generic --scope global --activation manual --vault /path/to/brain
 
 Transport: stdio (JSON-RPC 2.0)`,
   },
@@ -112,7 +112,7 @@ function sleep(ms: number): Promise<void> {
 }
 
 function generateTitle(): string {
-  return figlet.textSync("ORI MNEMOS", { font: "Standard" });
+  return figlet.textSync("MNEMOS", { font: "Standard" });
 }
 
 export async function runBootSequence(_initResult: InitResult, targetDir: string): Promise<void> {
@@ -165,23 +165,23 @@ export async function runBootSequence(_initResult: InitResult, targetDir: string
 
   if (mode === "skip") {
     const resolvedDir = path.resolve(targetDir);
-    p.outro(`Vault created at ${dim(resolvedDir)}. Run ${gold("ori bridge claude-code --scope global --activation auto --vault " + resolvedDir)} or ${gold("ori bridge generic --scope global --activation manual --vault " + resolvedDir)}.`);
+    p.outro(`Vault created at ${dim(resolvedDir)}. Run ${gold("mnemos bridge claude-code --scope global --activation auto --vault " + resolvedDir)} or ${gold("mnemos bridge generic --scope global --activation manual --vault " + resolvedDir)}.`);
     await writeState(targetDir, { onboarded: true, version: getVersion() });
     return;
   }
 
   // === Guided setup ===
 
-  // 1. Explain what Ori is
+  // 1. Explain what Mnemos is
   p.note(
     [
-      "Ori creates a vault — your AI's persistent brain.",
+      "Mnemos creates a vault — your AI's persistent brain.",
       "Notes, connections, identity, all in markdown.",
       "",
       "Your agent reads and writes to this vault via MCP.",
       "Everything stays local. You own your memory.",
     ].join("\n"),
-    "What is Ori?",
+    "What is Mnemos?",
   );
 
   // 2. Vault location
@@ -215,8 +215,8 @@ export async function runBootSequence(_initResult: InitResult, targetDir: string
     [
       `Your brain lives at: ${gold(resolvedVault)}`,
       "",
-      `Use ${gold(`ori bridge claude-code --scope global --activation auto --vault ${resolvedVault}`)}`,
-      `for Claude Code, or ${gold(`ori bridge generic --scope global --activation manual --vault ${resolvedVault}`)}`,
+      `Use ${gold(`mnemos bridge claude-code --scope global --activation auto --vault ${resolvedVault}`)}`,
+      `for Claude Code, or ${gold(`mnemos bridge generic --scope global --activation manual --vault ${resolvedVault}`)}`,
       "for any other MCP client. One brain, many projects.",
     ].join("\n"),
     "How it works",
@@ -260,7 +260,7 @@ export async function runBootSequence(_initResult: InitResult, targetDir: string
   );
 
   // 5. Done
-  p.outro(`Your memory starts now. Run ${gold(`ori bridge claude-code --scope global --activation auto --vault ${resolvedVault}`)} or ${gold(`ori bridge generic --scope global --activation manual --vault ${resolvedVault}`)}.`);
+  p.outro(`Your memory starts now. Run ${gold(`mnemos bridge claude-code --scope global --activation auto --vault ${resolvedVault}`)} or ${gold(`mnemos bridge generic --scope global --activation manual --vault ${resolvedVault}`)}.`);
 
   // Write state
   await writeState(resolvedVault, { onboarded: true, version: getVersion() });

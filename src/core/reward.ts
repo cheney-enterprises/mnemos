@@ -215,7 +215,7 @@ export class SessionRewardAccumulator {
    *
    * Exists so the zero-forward-citation failure is observable instead of
    * silent: if `forward_citation` is 0 across many sessions with non-empty
-   * `ori_add` traffic, key normalization has regressed again.
+   * `mnemos_add` traffic, key normalization has regressed again.
    */
   getSignalCounts(): Record<string, number> {
     const counts: Record<string, number> = {};

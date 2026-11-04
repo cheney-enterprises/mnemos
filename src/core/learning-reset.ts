@@ -10,7 +10,7 @@
  * them stored and counted.
  *
  * The reset is offered, not forced: the MCP server surfaces a notice to the
- * agent, the agent asks the user, and `ori_learning_reset` records the answer.
+ * agent, the agent asks the user, and `mnemos_learning_reset` records the answer.
  * The same ask-until-answered shape as the update notice (update-check.ts).
  *
  * What a reset does, and deliberately does not do:
@@ -154,18 +154,18 @@ export function buildLearningResetNotice(status: LearningResetStatus): string | 
   const last = n >= MAX_RESET_REMINDERS;
   return (
     `Learning reset question, reminder ${n} of ${MAX_RESET_REMINDERS}. ` +
-    `Why: Ori found ${status.legacyUpdates} learned ranking updates on ${status.legacyNotes} notes computed ` +
+    `Why: Mnemos found ${status.legacyUpdates} learned ranking updates on ${status.legacyNotes} notes computed ` +
     `under a scoring rule with a known defect (issue #37). Every note started at a score above almost any ` +
     `reward it could earn, so each time a note was used its score went down: notes the user actually relies ` +
     `on ended up ranked below notes that were never opened. The rule is fixed, and search now ignores these ` +
     `old scores, but they are still stored and still counted in health reports. ` +
-    `Ask the user at a natural pause, in your own words: "Ori had a bug where notes you use a lot got ranked ` +
+    `Ask the user at a natural pause, in your own words: "Mnemos had a bug where notes you use a lot got ranked ` +
     `lower than notes you've never opened, because each use counted against them. It's fixed, and search ` +
     `already ignores the old scores. Want me to clear them out so the stored data is clean? Your notes aren't ` +
     `touched and the database is backed up first. You can say yes, not now, or no and never ask again` +
     (last ? `. This is the last time I'll ask."` : ` (I'll ask at most ${MAX_RESET_REMINDERS} times)."`) +
-    ` If yes: call ori_learning_reset with decision="accepted". ` +
-    `If no or never: call ori_learning_reset with decision="declined"; that is permanent. ` +
+    ` If yes: call mnemos_learning_reset with decision="accepted". ` +
+    `If no or never: call mnemos_learning_reset with decision="declined"; that is permanent. ` +
     `If not now, or no answer: do NOT call the tool` +
     (last ? `; this was the final reminder, so it will not be asked again.` : `; it will be asked again next session.`)
   );

@@ -1,7 +1,7 @@
 /**
  * Typed decisions: questions in, calibrated distributions out.
  *
- * Ori makes a lot of closed-set decisions — which retrieval stage to run, what
+ * Mnemos makes a lot of closed-set decisions — which retrieval stage to run, what
  * type a note is, whether a term is an identifier — and every one of them is
  * currently a hand-ordered regex list or a bandit learning from a reward it
  * cannot see. Those are all the same object: a probability distribution over a
@@ -15,7 +15,7 @@
  * without touching a caller.
  *
  * The DEFAULT backend is local, offline and free, and must stay that way:
- * `ori query` works on a plane, and that promise is load-bearing.
+ * `mnemos query` works on a plane, and that promise is load-bearing.
  */
 
 /** A yes/no question. Both poles are described, because a local backend has to

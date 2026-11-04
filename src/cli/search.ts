@@ -413,7 +413,7 @@ export async function runQueryRanked(
     if (indexDb && !storeIndex) {
       warnings.push(
         "Keyword index unavailable from the derived index; re-reading the " +
-        "vault for this query (run `ori index build`)",
+        "vault for this query (run `mnemos index build`)",
       );
     }
     const bm25Index = storeIndex ?? await buildBM25IndexFromVault(vaultRoot, config.bm25);
@@ -609,7 +609,7 @@ export async function runQueryRanked(
   const qRerankDecision = shouldRun("q_reranking");
   // Gated on useIntelligence, not on a caller-supplied sessionId: the CLI
   // passes none, so this guard (unchanged since 2026-03) skipped Q reranking
-  // for every `ori query ranked` even after the CLI began minting
+  // for every `mnemos query ranked` even after the CLI began minting
   // activeSession above. phaseB only uses the session for logging, and
   // record=false here.
   if (
@@ -921,7 +921,7 @@ export async function runQueryWarmthAudit(
     },
     warnings: isWarmthAuditEnabled()
       ? []
-      : ["Warmth audit logging is currently off. Set ORI_WARMTH_AUDIT=1 before running ranked queries to collect diffs."],
+      : ["Warmth audit logging is currently off. Set MNEMOS_WARMTH_AUDIT=1 before running ranked queries to collect diffs."],
   };
 }
 

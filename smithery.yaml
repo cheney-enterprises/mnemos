@@ -5,10 +5,10 @@ startCommand:
     properties:
       vault:
         type: string
-        description: "Path to the vault directory (optional, defaults to ~/.ori)"
+        description: "Path to the vault directory (optional, defaults to ~/.mnemos)"
   commandFunction: |-
     (config) => ({
       command: "npx",
-      args: ["-y", "ori-memory", "serve", "--mcp", ...(config.vault ? ["--vault", config.vault] : [])]
+      args: ["-y", "mnemos", "serve", "--mcp", ...(config.vault ? ["--vault", config.vault] : [])]
     })
 exampleConfig: {}

@@ -1,8 +1,8 @@
-// Why does Ori rank the superseded fact first half the time?
+// Why does Mnemos rank the superseded fact first half the time?
 //
 // factconsolidation.mjs measured stale@1 = 50% against a 33.2% chance floor
 // (z = 3.57, p ~= 0.0002) on sh_6k. head@1 was 47%. Those sum to 97%, so rank
-// 1 is nearly always one of the two versions of the queried fact and Ori is
+// 1 is nearly always one of the two versions of the queried fact and Mnemos is
 // picking the dead one slightly more often than the live one.
 //
 // Two very different explanations:
@@ -11,14 +11,14 @@
 //      ranking prefers it. Would need a real fix.
 //   B. TIE-BREAK. The two lines are near-identical text, score identically,
 //      and the tie falls to whichever was inserted first, which is always the
-//      stale one because the update appears later in the file. Then Ori has
+//      stale one because the update appears later in the file. Then Mnemos has
 //      no recency preference at all and the fix is one comparator.
 //
 // This distinguishes them by reading the actual scores of both versions.
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recall as oriRecall } from "ori-memory";
+import { recall as mnemosRecall } from "mnemos";
 
 const DATA = process.env.MAB_JSONL ?? "C:/tmp/mabdata/conflict.jsonl";
 const slugify = (t, n = 56) =>
@@ -63,8 +63,8 @@ for (const versions of stems.values()) {
 
 const vault = mkdtempSync(join(tmpdir(), "mab-why-"));
 mkdirSync(join(vault, "notes"), { recursive: true });
-mkdirSync(join(vault, ".ori"), { recursive: true });
-writeFileSync(join(vault, "ori.config.yaml"), "engine:\n  db_path: .ori/embeddings.db\n");
+mkdirSync(join(vault, ".mnemos"), { recursive: true });
+writeFileSync(join(vault, "mnemos.config.yaml"), "engine:\n  db_path: .mnemos/embeddings.db\n");
 const byIdx = new Map();
 for (const { idx, text } of lines) {
   const slug = `f${String(idx).padStart(6, "0")}-${slugify(text)}`;
@@ -77,7 +77,7 @@ let exactTie = 0, deadHigher = 0, liveHigher = 0, bothSeen = 0, n = 0;
 let deltaSum = 0;
 const examples = [];
 for (let q = 0; q < 100; q++) {
-  const res = await oriRecall(vault, row.questions[q], { limit: 10 });
+  const res = await mnemosRecall(vault, row.questions[q], { limit: 10 });
   const got = res?.data?.results ?? res?.results ?? [];
   const scored = got.map((h) => {
     const rec = byIdx.get(h.title ?? h.slug ?? h.id);
@@ -120,7 +120,7 @@ console.log("");
 if (exactTie > bothSeen * 0.5) {
   console.log("VERDICT: TIE-BREAK. The two versions score identically and the");
   console.log("tie falls to insertion order, which always favours the older");
-  console.log("line. Ori expresses no recency preference whatsoever. Fix is a");
+  console.log("line. Mnemos expresses no recency preference whatsoever. Fix is a");
   console.log("comparator, not a model.");
 } else if (deadHigher > liveHigher) {
   console.log("VERDICT: SCORING. The stale line genuinely outscores the update.");

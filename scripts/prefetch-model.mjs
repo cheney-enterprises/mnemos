@@ -16,8 +16,8 @@
 import { pipeline, env } from "@huggingface/transformers";
 import { rm } from "node:fs/promises";
 
-const model = process.env.ORI_EMBEDDING_MODEL ?? "Xenova/all-MiniLM-L6-v2";
-const ATTEMPTS = Number(process.env.ORI_PREFETCH_ATTEMPTS ?? 3);
+const model = process.env.MNEMOS_EMBEDDING_MODEL ?? "Xenova/all-MiniLM-L6-v2";
+const ATTEMPTS = Number(process.env.MNEMOS_PREFETCH_ATTEMPTS ?? 3);
 
 // Ask the library where it caches rather than reconstructing the path — the
 // package does not export package.json, and the location is configurable.

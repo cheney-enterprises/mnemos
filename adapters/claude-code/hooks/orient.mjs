@@ -4,14 +4,14 @@ import { existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 function findVaultRoot(startDir) {
-  const explicit = process.env.ORI_VAULT;
-  if (explicit && existsSync(path.join(explicit, ".ori"))) {
+  const explicit = process.env.MNEMOS_VAULT;
+  if (explicit && existsSync(path.join(explicit, ".mnemos"))) {
     return explicit;
   }
 
   let current = path.resolve(startDir);
   while (true) {
-    if (existsSync(path.join(current, ".ori"))) return current;
+    if (existsSync(path.join(current, ".mnemos"))) return current;
     const parent = path.dirname(current);
     if (parent === current) return null;
     current = parent;
@@ -24,14 +24,14 @@ if (!vaultRoot) {
 }
 
 // Try enhanced health-based orient first
-const healthResult = spawnSync("ori", ["health"], {
+const healthResult = spawnSync("mnemos", ["health"], {
   encoding: "utf8",
   timeout: 8000,
 });
 
 if (healthResult.error || healthResult.status !== 0) {
   // Fallback to basic status
-  const result = spawnSync("ori", ["status"], { stdio: "inherit" });
+  const result = spawnSync("mnemos", ["status"], { stdio: "inherit" });
   process.exit(result.status ?? 0);
 }
 
@@ -102,7 +102,7 @@ try {
   console.log(lines.join("\n"));
 } catch {
   // JSON parse failed, fall back to status
-  const result = spawnSync("ori", ["status"], { stdio: "inherit" });
+  const result = spawnSync("mnemos", ["status"], { stdio: "inherit" });
   process.exit(result.status ?? 0);
 }
 

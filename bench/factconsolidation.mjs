@@ -34,7 +34,7 @@
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recall as oriRecall } from "ori-memory";
+import { recall as mnemosRecall } from "mnemos";
 
 const DATA = process.env.MAB_JSONL ?? "C:/tmp/mabdata/conflict.jsonl";
 const args = process.argv.slice(2);
@@ -113,10 +113,10 @@ function conflictMap(lines) {
 }
 
 function freshVault() {
-  const v = mkdtempSync(join(tmpdir(), "mab-ori-"));
+  const v = mkdtempSync(join(tmpdir(), "mab-mnemos-"));
   mkdirSync(join(v, "notes"), { recursive: true });
-  mkdirSync(join(v, ".ori"), { recursive: true });
-  writeFileSync(join(v, "ori.config.yaml"), "engine:\n  db_path: .ori/embeddings.db\n");
+  mkdirSync(join(v, ".mnemos"), { recursive: true });
+  writeFileSync(join(v, "mnemos.config.yaml"), "engine:\n  db_path: .mnemos/embeddings.db\n");
   return v;
 }
 
@@ -162,7 +162,7 @@ for (const row of rows) {
     const golds = row.answers[q].map((a) => String(a).toLowerCase());
     let got;
     try {
-      const res = await oriRecall(vault, question, { limit: K });
+      const res = await mnemosRecall(vault, question, { limit: K });
       got = (res?.data?.results ?? res?.results ?? []).slice(0, K);
     } catch {
       continue;

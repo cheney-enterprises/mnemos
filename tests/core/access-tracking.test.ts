@@ -1,5 +1,5 @@
 /**
- * Ori Mnemos - Access Tracking Tests (#17)
+ * Mnemos - Access Tracking Tests (#17)
  *
  * The guarantee from #17 is that RETRIEVAL RECORDS USAGE, so the ACT-R vitality
  * model has a real signal instead of every note decaying identically.
@@ -49,7 +49,7 @@ async function readFm(title: string): Promise<Record<string, unknown> | null> {
 }
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-access-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-access-"));
   await runInit({ targetDir: tmpDir });
 });
 
@@ -163,7 +163,7 @@ describe("runQueryRanked access tracking (#17)", () => {
     }
 
     // The usage signal exists, transactionally, for exactly the notes returned.
-    const db = new Database(path.join(tmpDir, ".ori", "embeddings.db"));
+    const db = new Database(path.join(tmpDir, ".mnemos", "embeddings.db"));
     const counters = loadAccess(db);
     for (const title of returnedTitles) {
       expect(counters.get(title)?.access_count, `${title} counter`).toBe(1);

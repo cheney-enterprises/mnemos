@@ -8,12 +8,12 @@ Auto-promote fixes, found by adding notes to a real 1,571-note vault.
 
 - **Auto-linking rewrote code and linked common words (#44).** Titles inside
   fenced or inline code are no longer turned into `[[links]]` (a diagram's
-  `.ori/index.db` became `.ori/[[index]].db`). The default area (`index`) and
+  `.mnemos/index.db` became `.mnemos/[[index]].db`). The default area (`index`) and
   hub notes (more than 128 incoming links) are no longer auto-linked from prose.
 - **Suggested connections were the first notes alphabetically (#45).** A hub
   is no longer used to find related notes, since every note links it.
   Candidates are ranked by how many of the note's links they share.
-- **`ori add` with a complete note (#46).** Content with its own `# Title`
+- **`mnemos add` with a complete note (#46).** Content with its own `# Title`
   no longer gets a second one from the template. Content with its own
   `Relevant Notes:` / `Areas:` footer is used as-is, with no template
   instructions or empty footer appended. `$&` in content is kept literally.
@@ -24,31 +24,31 @@ Auto-promote fixes, found by adding notes to a real 1,571-note vault.
 
 ### Breaking
 
-- **MCP tool surface: 21 → 14 tools.** Removed `ori_status`, `ori_query`,
-  `ori_query_important`, `ori_query_fading` (one `memory_sql` statement each;
-  see the README migration table), `ori_explore_start/_expand/_conclude`
-  (still available as `ori explore-start/-expand/-conclude` on the CLI), and
-  `ori_orient` (first-run onboarding moved into `ori_wake`). Tool descriptions
+- **MCP tool surface: 21 → 14 tools.** Removed `mnemos_status`, `mnemos_query`,
+  `mnemos_query_important`, `mnemos_query_fading` (one `memory_sql` statement each;
+  see the README migration table), `mnemos_explore_start/_expand/_conclude`
+  (still available as `mnemos explore-start/-expand/-conclude` on the CLI), and
+  `mnemos_orient` (first-run onboarding moved into `mnemos_wake`). Tool descriptions
   shrank ~2,500 → ~1,950 tokens per call.
 - **Forgetting is a dry run by default.** `release`, `purge` and `supersede`
-  only preview until called with `{ apply: true }`, matching `ori prune`.
+  only preview until called with `{ apply: true }`, matching `mnemos prune`.
 
 ### Added
 
-- **`memory_sql` / `ori sql`**: read-only SQL over the index through six
+- **`memory_sql` / `mnemos sql`**: read-only SQL over the index through six
   stable views (`v_note`, `v_link`, `v_dangling`, `v_retrieval`, `v_session`,
   `v_stage`). Writes are blocked by three independent layers.
 - **Forgetting**: `supersede`, `release`, `purge`, with a blast-radius cap.
   ForgetEval 0/1000 → 978/1000.
-- **Library entry**: `import { recall } from "ori-memory"` now works. Every
-  earlier version had no `main`/`exports`. `ori-memory/cli` resolves the binary.
-- **`ori index export-learned` / `import-learned`**: `.ori/` holds learned state
+- **Library entry**: `import { recall } from "mnemos"` now works. Every
+  earlier version had no `main`/`exports`. `mnemos/cli` resolves the binary.
+- **`mnemos index export-learned` / `import-learned`**: `.mnemos/` holds learned state
   (Q-values, co-occurrence, retrieval history) that the markdown cannot
   rebuild. Export it before deleting the index.
-- **`ori add -d/--description -p/--project`**, and the same fields on
-  `ori_add` (#39).
+- **`mnemos add -d/--description -p/--project`**, and the same fields on
+  `mnemos_add` (#39).
 - **What's new**: the first session on a new version shows the agent these
-  notes once; `ori whats-new` and `ori_whats_new` read them any time.
+  notes once; `mnemos whats-new` and `mnemos_whats_new` read them any time.
 - Typed decisions (`decide`) with a trained local head for note type.
 
 ### Fixed
@@ -56,21 +56,21 @@ Auto-promote fixes, found by adding notes to a real 1,571-note vault.
 - **Learning ranked used notes below unused ones (#37).** Unlearned Q starts
   at 0, only real use (citation, update, re-recall) earns credit, and Q
   reranking now actually runs in the CLI and reaches rankings. Optional,
-  ask-once reset for old-rule learning via `ori_learning_reset`.
+  ask-once reset for old-rule learning via `mnemos_learning_reset`.
 - **Inline code made fake wikilinks (#40).** Bash `` `[[ -t 0 ]]` `` in prose
   no longer counts as a link.
 - **Learner rows for notes that do not exist (#41).** Dangling links and
   parser false positives no longer get `note_q` rows; never-credited phantom
-  rows are pruned on index sync, so `ori health` counts real notes.
+  rows are pruned on index sync, so `mnemos health` counts real notes.
 - **New notes were born orphaned (#38).** The template no longer ships
-  placeholder `[[related note]]` / `[[relevant map]]` links, and `ori add`
+  placeholder `[[related note]]` / `[[relevant map]]` links, and `mnemos add`
   strips them from older vault templates.
 - **Silent LLM disable (#42).** A configured `api_key_env` that does not
   resolve now warns instead of quietly turning LLM features off.
 - **Promotion routed 74% of project notes to the fallback.** Project tags and
   map titles are now compared by slug, and the fallback warns.
 - `graph_metric` is actually written; exact-identifier recall reads note
-  bodies; 11 `ori sql` output-contract defects; the recovery command rebuilt
+  bodies; 11 `mnemos sql` output-contract defects; the recovery command rebuilt
   the wrong vault.
 - Query-type lambda shifts removed and lambda capped at the measured optimum.
 
@@ -84,9 +84,9 @@ build without a release to carry the fixes across.
 
 | entry point | before | after |
 |---|---|---|
-| `ori query ranked` | 3,344 ms | 350 ms |
-| `ori query warmth` | 2,487 ms | 231 ms |
-| `ori explore` | 3,785 ms | 474 ms |
+| `mnemos query ranked` | 3,344 ms | 350 ms |
+| `mnemos query warmth` | 2,487 ms | 231 ms |
+| `mnemos explore` | 3,785 ms | 474 ms |
 
 - **Derived index** (`src/core/indexstore.ts`). Notes, links, projects, term
   postings, access counts and graph metrics are persisted in SQLite and synced
@@ -109,13 +109,13 @@ build without a release to carry the fixes across.
 - **`injectExploration`** samples O(k) instead of shuffling all N titles.
 - **`loadVectors`** prunes columns whose space weight is zero; warmth loads
   two vector columns instead of five.
-- **`ori add`** reads the graph from the index instead of scanning the vault.
+- **`mnemos add`** reads the graph from the index instead of scanning the vault.
 
 ### Fixed
 
 - **The CLI never learned.** `useIntelligence` required an external database
   and a caller-supplied session id, which only the MCP server passed. So
-  `ori query ranked` never tracked a stage, wrote `stage_log`, persisted a
+  `mnemos query ranked` never tracked a stage, wrote `stage_log`, persisted a
   bandit policy, logged exposure, or credited a Q-value. Production:
   717 `note_q` rows, 707 never updated; `stage_log` empty. The same query
   answered differently by transport (#34 §3). Fix-list items 5, 9, 10 were
@@ -125,7 +125,7 @@ build without a release to carry the fixes across.
   is blind to a note changed in place. Sync is now unconditional.
 - **Warmth and explore bypassed the index entirely** — only the ranked path
   had been wired. One seam, `openSyncedIndex`, now serves all four entry
-  points plus `ori add`.
+  points plus `mnemos add`.
 - **One of six composite scoring spaces was a constant.** `communityScore`
   returned 0.5 for every note while `community_vec` held 96 distinct patterns.
   It now derives a query community affinity from the top text matches;
@@ -144,13 +144,13 @@ build without a release to carry the fixes across.
   and rolls back, so a note exists exactly once at every instant.
 - **A read no longer writes user files.** Access counts accumulate in the index
   and flush to frontmatter explicitly; a query leaves note files byte-identical.
-- **`ori index build` rebuilt embeddings only.** It now rebuilds all three
-  derived stores, and the MCP `ori_index_build` calls the same function instead
+- **`mnemos index build` rebuilt embeddings only.** It now rebuilds all three
+  derived stores, and the MCP `mnemos_index_build` calls the same function instead
   of bootstrapping co-occurrence privately inside a bare `catch`. `--force`
-  drops and reparses the derived index. The "run `ori index build`" hint on a
+  drops and reparses the derived index. The "run `mnemos index build`" hint on a
   coverage warning pointed at a command that would not have touched the store
   complaining.
-- **`ori health` now warns when learning is absent**: production shows 713 of
+- **`mnemos health` now warns when learning is absent**: production shows 713 of
   807 tracked notes never credited, all 713 shown to an agent.
 - `busy_timeout` and `foreign_keys` with `ON DELETE CASCADE` on the index
   connection; #1 is unrepresentable rather than remembered.
@@ -163,7 +163,7 @@ build without a release to carry the fixes across.
 - `computePropensity`, `buildPropensityMap`, `loadAccessLog` and
   `IPSConfig.epsilon`: no callers, and the first was O(events × results) per
   title — an invitation to a quadratic on the query path. The config parser
-  ignores unknown keys, so an existing `ori.config.yaml` that still sets
+  ignores unknown keys, so an existing `mnemos.config.yaml` that still sets
   `ips.epsilon` keeps loading. `AccessEvent.results[].propensity` is kept: it is
   the on-disk log format.
 
@@ -220,12 +220,12 @@ diagnosis, the measurements, and what it deliberately does not fix.
 
 Every code-level finding from the 0.5.5 field report, fixed:
 
-- **Update cache moved out of `~/.ori`** — the update checker's cache directory doubled as a vault marker, making the walk-up treat `$HOME` as a vault for any process launched outside a real vault (MCP servers, cron). Cache now lives at `~/.cache/ori/` (XDG-aware; `%LOCALAPPDATA%\ori\Cache` on Windows), with one-time migration and legacy-file cleanup
-- **`ORI_VAULT` environment override** — honored by every command via the shared vault resolver; authoritative like `--vault` (fails loudly if the path is not a vault, never silently ignored)
+- **Update cache moved out of `~/.mnemos`** — the update checker's cache directory doubled as a vault marker, making the walk-up treat `$HOME` as a vault for any process launched outside a real vault (MCP servers, cron). Cache now lives at `~/.cache/mnemos/` (XDG-aware; `%LOCALAPPDATA%\mnemos\Cache` on Windows), with one-time migration and legacy-file cleanup
+- **`MNEMOS_VAULT` environment override** — honored by every command via the shared vault resolver; authoritative like `--vault` (fails loudly if the path is not a vault, never silently ignored)
 - **Stage learner epsilon re-exploration** — stages disabled by transient failures now get 1-in-50 re-exploration chances instead of permanent abstention; skipped/abstained stages are surfaced in the response envelope as `stages_skipped`
 - **Stage time budget configurable** — `retrieval.stage_time_budget_ms` (default 500) and `retrieval.stage_soft_cutoff` (default 0.8); the budget check now runs *below* the exploration-phase gate so cold-start stages are never starved
 - **`--limit` honored on `query ranked` / `query similar`** — the CLI flag was parsed but never passed through
-- **CLI update notifications** — `checkForUpdate` now runs after CLI commands (stderr only, TTY-gated, suppressed by `ORI_NO_UPDATE_CHECK`/`CI`/`serve`)
+- **CLI update notifications** — `checkForUpdate` now runs after CLI commands (stderr only, TTY-gated, suppressed by `MNEMOS_NO_UPDATE_CHECK`/`CI`/`serve`)
 
 Thanks to @wilsonalmeida for the exceptional field report.
 
@@ -233,7 +233,7 @@ Thanks to @wilsonalmeida for the exceptional field report.
 
 ### Navigated Recursion: The Agent Steers the Graph
 
-`ori explore` no longer returns a flat synthesis. The agent sees the decomposition tree — which branches produced results, which hit dead ends — and steers the traversal itself.
+`mnemos explore` no longer returns a flat synthesis. The agent sees the decomposition tree — which branches produced results, which hit dead ends — and steers the traversal itself.
 
 - **Navigated exploration sessions** — `explore-start` / `explore-expand` / `explore-conclude` (CLI + MCP tools)
 - **Budget as nudge, not wall** — soft exhaustion with explicit extension instead of hard cutoff
@@ -251,11 +251,11 @@ RMH Constraint 2 — "unresolved queries must recurse" — goes from partial to 
 Complete bridge adapter for [OpenCode](https://opencode.ai) with first-run onboarding, session capture, and note validation.
 
 - **First-run onboarding** — plugin detects blank `identity.md` and injects onboarding prompt via `client.session.prompt()`
-- **Session capture** — `session.idle` hook fetches conversation messages via SDK `client.session.messages()` and saves via `ori add --content`
-- **Note validation** — `ori validate` runs silently when writing to vault notes
+- **Session capture** — `session.idle` hook fetches conversation messages via SDK `client.session.messages()` and saves via `mnemos add --content`
+- **Note validation** — `mnemos validate` runs silently when writing to vault notes
 - **Multi-vault support** — resolves vault path from `opencode.json` MCP config, works with any named MCP entry
-- **One-command install** — `ori bridge opencode --scope project --activation auto --vault /path/to/vault`
-- **Added `--content` flag to `ori add`** — allows programmatic note creation with real content (replaces template placeholder)
+- **One-command install** — `mnemos bridge opencode --scope project --activation auto --vault /path/to/vault`
+- **Added `--content` flag to `mnemos add`** — allows programmatic note creation with real content (replaces template placeholder)
 
 The OpenCode plugin uses `spawnSync` for silent command execution (matching Claude Code's hook behavior) and `client.session.prompt()` for reliable onboarding injection.
 
@@ -276,7 +276,7 @@ This is the difference between short-term and long-term memory. Frequently acces
 
 ### Active Memory: Warmth Landscape in Orient
 
-`ori_orient` now surfaces the memory activation landscape at session start. The agent sees what's warm before doing any work.
+`mnemos_orient` now surfaces the memory activation landscape at session start. The agent sees what's warm before doing any work.
 
 - **Top warm notes** — ranked by combined boost + Q-value score, with project tags
 - **Project-level warmth** — aggregated warmth by project (e.g., "ai-agents: 4.2, courtshare: 2.1")
@@ -302,18 +302,18 @@ NPMI recomputation and homeostasis normalization remain at session end (global o
 
 ### RMH Constraint 2: Recursive Explore
 
-Unresolved queries now recurse. When `ori_explore` doesn't fully answer a query on the first pass, it identifies gaps and searches again — automatically.
+Unresolved queries now recurse. When `mnemos_explore` doesn't fully answer a query on the first pass, it identifies gaps and searches again — automatically.
 
-**How it works:** An LLM reads the retrieved notes, generates sub-questions about what's missing, and Ori re-explores for each sub-question. New notes are accumulated across passes. The system converges when the LLM finds no more gaps, new notes drop below threshold, or the depth budget is reached.
+**How it works:** An LLM reads the retrieved notes, generates sub-questions about what's missing, and Mnemos re-explores for each sub-question. New notes are accumulated across passes. The system converges when the LLM finds no more gaps, new notes drop below threshold, or the depth budget is reached.
 
 **Multi-provider support:** Works with any OpenAI-compatible API:
 - **Groq** (free tier, recommended) — Llama 3.3 70B, 30 req/min
 - **Ollama** (fully local) — Qwen 2.5, Phi-3, Llama 3.2
 - **OpenAI**, **Anthropic**, **Together AI**, **OpenRouter**, or any `/v1/chat/completions` endpoint
 
-**Graceful degradation:** No LLM configured? `ori_explore` falls back to single-pass explore with PPR graph traversal, warmth, and Q-value reranking. No functionality lost — recursion is additive.
+**Graceful degradation:** No LLM configured? `mnemos_explore` falls back to single-pass explore with PPR graph traversal, warmth, and Q-value reranking. No functionality lost — recursion is additive.
 
-**Explore audit logging:** Set `ORI_EXPLORE_AUDIT=true` to capture detailed recursion data locally — what recursion found vs flat retrieval, sub-questions generated, convergence status, per-pass breakdown.
+**Explore audit logging:** Set `MNEMOS_EXPLORE_AUDIT=true` to capture detailed recursion data locally — what recursion found vs flat retrieval, sub-questions generated, convergence status, per-pass breakdown.
 
 See [docs/recursive-explore.md](docs/recursive-explore.md) for setup and configuration.
 
@@ -326,7 +326,7 @@ See [docs/recursive-explore.md](docs/recursive-explore.md) for setup and configu
 
 ### Four-Signal Fusion Retrieval
 
-- `ori_explore` — deep graph traversal via Personalized PageRank (α=0.45, HippoRAG-validated)
+- `mnemos_explore` — deep graph traversal via Personalized PageRank (α=0.45, HippoRAG-validated)
 - Score-weighted Reciprocal Rank Fusion: semantic + BM25 + PageRank + warmth
 - Q-value reranking from session learning signals
 - Hebbian co-occurrence edge learning
@@ -345,13 +345,13 @@ See [docs/recursive-explore.md](docs/recursive-explore.md) for setup and configu
 - Hub dampening (prevents map/index notes from dominating)
 - Resolution boost (prioritizes decisions and learnings for action queries)
 - Exploration injection (epsilon-greedy discovery of unseen notes)
-- Update check in `ori_orient` — notifies when a newer version is published
+- Update check in `mnemos_orient` — notifies when a newer version is published
 
 ## [0.3.5] - 2026-03-08
 
 ### Bridge Install Lifecycle
 
-- `ori bridge` command for one-command client installation
+- `mnemos bridge` command for one-command client installation
 - Claude Code bridge with hooks (orient, capture, validate)
 - Archive SQLite cleanup and MCP graph caching fixes
 
@@ -359,7 +359,7 @@ See [docs/recursive-explore.md](docs/recursive-explore.md) for setup and configu
 
 ### First-Run Experience
 
-- Interactive first-run boot sequence for `ori init`
+- Interactive first-run boot sequence for `mnemos init`
 - MCP directory metadata optimization
 - npm registry discoverability improvements
 

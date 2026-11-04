@@ -1,8 +1,8 @@
 /**
- * Ori Mnemos — Edge Case Tests
+ * Mnemos — Edge Case Tests
  *
  * Tests boundary conditions, error handling, and resilience.
- * Each test verifies Ori doesn't crash under unusual conditions.
+ * Each test verifies Mnemos doesn't crash under unusual conditions.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
@@ -24,7 +24,7 @@ import { stringifyFrontmatter } from "../../src/core/frontmatter.js";
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-e2e-edge-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-e2e-edge-"));
   await runInit({ targetDir: tmpDir });
 });
 
@@ -227,7 +227,7 @@ describe("embedding index resilience", () => {
 
     // Build index then delete the DB
     await runIndexBuild(tmpDir, true);
-    const dbPath = path.join(tmpDir, ".ori", "embeddings.db");
+    const dbPath = path.join(tmpDir, ".mnemos", "embeddings.db");
     try {
       await fs.unlink(dbPath);
     } catch {
@@ -252,7 +252,7 @@ describe("embedding index resilience", () => {
 describe("filename collision handling", () => {
   it("two notes with same title get deduped filenames", async () => {
     // Disable auto-promote
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     const config = await fs.readFile(configPath, "utf8");
     await fs.writeFile(configPath, config.replace("auto: true", "auto: false"), "utf8");
 
@@ -373,7 +373,7 @@ describe("link health edge cases", () => {
 describe("promote edge cases", () => {
   it("promote with all overrides works", async () => {
     // Disable auto-promote
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     const config = await fs.readFile(configPath, "utf8");
     await fs.writeFile(configPath, config.replace("auto: true", "auto: false"), "utf8");
 

@@ -8,9 +8,9 @@ type: moc
 Your agent's persistent memory starts here.
 
 ## Getting Started
-1. `ori add "your first memory"` — capture something
-2. `ori query ranked "search term"` — find related memories
-3. `ori health` — check vault health
+1. `mnemos add "your first memory"` — capture something
+2. `mnemos query ranked "search term"` — find related memories
+3. `mnemos health` — check vault health
 
 ## Key Notes
 (Linked as the graph grows)

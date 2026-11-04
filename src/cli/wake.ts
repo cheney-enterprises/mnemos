@@ -1,5 +1,5 @@
 /**
- * ori wake — bounded session boot runner (manifest -> engine).
+ * mnemos wake — bounded session boot runner (manifest -> engine).
  */
 import { findVaultRoot, getVaultPaths } from "../core/vault.js";
 import { loadConfig } from "../core/config.js";

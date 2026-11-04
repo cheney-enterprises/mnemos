@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-export const DEFAULT_EXPLORE_AUDIT_PATH = ".ori/explore-audit.jsonl";
+export const DEFAULT_EXPLORE_AUDIT_PATH = ".mnemos/explore-audit.jsonl";
 
 export type ExploreAuditNote = {
   title: string;
@@ -50,13 +50,13 @@ export type ExploreAuditEvent = {
 };
 
 export function isExploreAuditEnabled(): boolean {
-  const value = process.env.ORI_EXPLORE_AUDIT;
+  const value = process.env.MNEMOS_EXPLORE_AUDIT;
   if (!value) return false;
   return value !== "0" && value.toLowerCase() !== "false";
 }
 
 function getExploreAuditPath(vaultRoot: string): string {
-  const override = process.env.ORI_EXPLORE_AUDIT_PATH;
+  const override = process.env.MNEMOS_EXPLORE_AUDIT_PATH;
   return path.resolve(vaultRoot, override && override.trim() ? override : DEFAULT_EXPLORE_AUDIT_PATH);
 }
 

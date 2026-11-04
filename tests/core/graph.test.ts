@@ -14,7 +14,7 @@ let tmpDir: string;
 let notesDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-test-graph-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-test-graph-"));
   notesDir = path.join(tmpDir, "notes");
   await fs.mkdir(notesDir);
 });

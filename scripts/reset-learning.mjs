@@ -62,7 +62,7 @@ function parseArgs(argv) {
 function main() {
   const args = parseArgs(process.argv);
   const vault = args.vault ?? path.join(os.homedir(), "brain");
-  const dbPath = path.join(vault, ".ori", "embeddings.db");
+  const dbPath = path.join(vault, ".mnemos", "embeddings.db");
 
   if (!existsSync(dbPath)) {
     console.error(`No index at ${dbPath}. Nothing to reset.`);

@@ -42,7 +42,7 @@ describe("#44 maskCode", () => {
 
 describe("#44 auto-linking", () => {
   it("does not link a title inside fenced or inline code", () => {
-    const body = "```\n.ori/caching strategy.db\n```\nSee `caching strategy` and the caching strategy itself.";
+    const body = "```\n.mnemos/caching strategy.db\n```\nSee `caching strategy` and the caching strategy itself.";
     const links = detectLinks(body, ["caching strategy"]);
     expect(links).toHaveLength(1);
     expect(body.slice(links[0].offset, links[0].offset + links[0].length)).toBe("caching strategy");
@@ -51,10 +51,10 @@ describe("#44 auto-linking", () => {
 
   it("promote never links the default area from prose or code", () => {
     const vi = index(["index", "caching strategy"]);
-    const r = promote("each vault index is small\n```\n.ori/index.db\n```\nsee caching strategy", vi);
+    const r = promote("each vault index is small\n```\n.mnemos/index.db\n```\nsee caching strategy", vi);
     const prose = r.updatedBody.split("Relevant Notes:")[0]!.split("Areas:")[0]!;
     expect(prose).not.toContain("[[index]]");
-    expect(prose).toContain(".ori/index.db");
+    expect(prose).toContain(".mnemos/index.db");
     expect(prose).toContain("[[caching strategy]]");
   });
 

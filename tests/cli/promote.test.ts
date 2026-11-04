@@ -7,7 +7,7 @@ import { runPromote } from "../../src/cli/promote.js";
 let tmpDir: string;
 
 async function scaffoldVault(root: string) {
-  await fs.writeFile(path.join(root, ".ori"), "", "utf8");
+  await fs.writeFile(path.join(root, ".mnemos"), "", "utf8");
   await fs.mkdir(path.join(root, "inbox"), { recursive: true });
   await fs.mkdir(path.join(root, "notes"), { recursive: true });
   await fs.mkdir(path.join(root, "ops"), { recursive: true });
@@ -51,7 +51,7 @@ async function scaffoldVault(root: string) {
 
   // Config
   await fs.writeFile(
-    path.join(root, "ori.config.yaml"),
+    path.join(root, "mnemos.config.yaml"),
     [
       "vault:",
       '  version: "0.2"',
@@ -77,7 +77,7 @@ function inboxNote(data: Record<string, unknown>, body = "Note content.") {
 }
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-test-promote-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-test-promote-"));
   await scaffoldVault(tmpDir);
 });
 

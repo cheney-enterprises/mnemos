@@ -1,5 +1,5 @@
 /**
- * Ori Mnemos — exploration injection (fix-list item 18)
+ * Mnemos — exploration injection (fix-list item 18)
  *
  * `injectExploration` picks ~1 random note to splice into the tail of a
  * result page. It used to copy every candidate title into a new array and

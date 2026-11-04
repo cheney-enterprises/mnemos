@@ -7,13 +7,13 @@ import {
   validateConfig,
   loadConfig,
   resolveTemplatePath,
-  type OriConfig,
+  type MnemosConfig,
 } from "../../src/core/config.js";
 
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-test-cfg-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-test-cfg-"));
 });
 
 afterEach(async () => {
@@ -84,7 +84,7 @@ describe("validateConfig", () => {
       vault: { version: "" },
       templates: { default: "", by_type: {} },
       vitality: { decay: {}, base: NaN },
-    } as OriConfig;
+    } as MnemosConfig;
     const errors = validateConfig(config);
     expect(errors.length).toBeGreaterThanOrEqual(2);
   });
@@ -98,7 +98,7 @@ describe("loadConfig", () => {
   });
 
   it("loads and parses a valid YAML config", async () => {
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     await fs.writeFile(
       configPath,
       "vault:\n  version: '0.2'\nvitality:\n  base: 2.0\n  decay:\n    insight: 45\n",
@@ -142,7 +142,7 @@ describe("api_key_cmd config", () => {
   });
 
   it("loads api_key_cmd from YAML config", async () => {
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     await fs.writeFile(
       configPath,
       "llm:\n  provider: anthropic\n  model: claude-sonnet-4-20250514\n  api_key_cmd: \"pass anthropic/api-key\"\n",

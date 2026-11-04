@@ -1,7 +1,7 @@
 /**
  * Read-only SQL over the memory index.
  *
- * Ori ships fixed tools for a fixed set of questions -- orphans, dangling
+ * Mnemos ships fixed tools for a fixed set of questions -- orphans, dangling
  * links, backlinks, cross-project, most-important. That set is a sample of an
  * unbounded space, and the interesting questions are the ones nobody
  * anticipated: which notes have never been retrieved, which are surfaced
@@ -217,7 +217,7 @@ export async function runReadOnlySql(
       stdio: ["ignore", "ignore", "pipe", "ipc"],
       env: {
         ...process.env,
-        ORI_SQL_JOB: JSON.stringify({
+        MNEMOS_SQL_JOB: JSON.stringify({
           dbPath,
           sql: validation.sql,
           rowCap: opts.rowCap,

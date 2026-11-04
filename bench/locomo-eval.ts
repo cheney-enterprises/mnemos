@@ -1,12 +1,12 @@
 #!/usr/bin/env npx tsx
 /**
- * LoCoMo Benchmark Adapter for Ori Mnemos
+ * LoCoMo Benchmark Adapter for Mnemos
  *
- * Converts LoCoMo conversation data into a temporary Ori vault,
+ * Converts LoCoMo conversation data into a temporary Mnemos vault,
  * runs retrieval queries, and evaluates against ground-truth evidence.
  *
- * Each conversation session becomes an Ori note. QA evidence fields
- * map back to session notes. Evaluation measures whether Ori retrieves
+ * Each conversation session becomes an Mnemos note. QA evidence fields
+ * map back to session notes. Evaluation measures whether Mnemos retrieves
  * the sessions containing the evidence turns.
  *
  * IMPORTANT: Creates a temp vault in os.tmpdir() — never touches real vaults.
@@ -39,7 +39,7 @@ import type { SignalResults } from "../src/core/fusion.js";
 import { rankByImportance } from "../src/core/ranking.js";
 import type { ScoredNote } from "../src/core/ranking.js";
 import { applyConfigDefaults } from "../src/core/config.js";
-import type { OriConfig } from "../src/core/config.js";
+import type { MnemosConfig } from "../src/core/config.js";
 import { stringifyFrontmatter } from "../src/core/frontmatter.js";
 
 // Explore imports
@@ -90,7 +90,7 @@ const CATEGORY_NAMES: Record<number, string> = {
 };
 
 // ---------------------------------------------------------------------------
-// Conversion: LoCoMo sessions → Ori notes
+// Conversion: LoCoMo sessions → Mnemos notes
 // ---------------------------------------------------------------------------
 
 interface SessionNote {
@@ -211,12 +211,12 @@ function evidenceToSessions(evidence: string[], sampleId: string): string[] {
 // ---------------------------------------------------------------------------
 
 async function createTempVault(notes: SessionNote[]): Promise<string> {
-  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-locomo-eval-"));
+  const tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-locomo-eval-"));
   const notesDir = path.join(tmpDir, "notes");
-  const oriDir = path.join(tmpDir, ".ori");
+  const mnemosDir = path.join(tmpDir, ".mnemos");
 
   await fs.mkdir(notesDir, { recursive: true });
-  await fs.mkdir(oriDir, { recursive: true });
+  await fs.mkdir(mnemosDir, { recursive: true });
 
   // Write config
   const configContent = `vault:
@@ -226,7 +226,7 @@ engine:
   embedding_dims: 384
   piecewise_bins: 8
   community_dims: 16
-  db_path: ".ori/embeddings.db"
+  db_path: ".mnemos/embeddings.db"
 retrieval:
   default_limit: 10
   candidate_multiplier: 5
@@ -242,7 +242,7 @@ bm25:
   title_boost: 3.0
   description_boost: 2.0
 `;
-  await fs.writeFile(path.join(tmpDir, "ori.config.yaml"), configContent, "utf-8");
+  await fs.writeFile(path.join(tmpDir, "mnemos.config.yaml"), configContent, "utf-8");
 
   // Write notes
   for (const note of notes) {
@@ -266,7 +266,7 @@ bm25:
 
 interface PipelineState {
   vaultRoot: string;
-  config: OriConfig;
+  config: MnemosConfig;
   linkGraph: LinkGraph;
   graphMetrics: GraphMetrics;
   bm25Index: BM25Index;
@@ -632,7 +632,7 @@ async function main(): Promise<void> {
   const args = parseArgs();
   const startTime = Date.now();
 
-  console.log("LoCoMo Benchmark — Ori Mnemos");
+  console.log("LoCoMo Benchmark — Mnemos");
   console.log("==============================\n");
 
   // LLM judge setup
@@ -645,9 +645,9 @@ async function main(): Promise<void> {
     console.log("LLM Judge: GPT-4.1-mini (answer generation + token F1)");
   }
   if (args.useExplore) {
-    console.log("Retrieval: ori_explore (PPR α=0.45, deep graph traversal)");
+    console.log("Retrieval: mnemos_explore (PPR α=0.45, deep graph traversal)");
   } else {
-    console.log("Retrieval: ori_query_ranked (flat 4-signal fusion)");
+    console.log("Retrieval: mnemos_query_ranked (flat 4-signal fusion)");
   }
   console.log("");
 
@@ -850,10 +850,10 @@ async function main(): Promise<void> {
   console.log("  COMPARISON TABLE (Answer F1 — same metric as Mem0 paper)");
   console.log(divider + "\n");
 
-  // Collect Ori's per-category answer F1
-  const oriByCategory: Record<string, number> = {};
+  // Collect Mnemos's per-category answer F1
+  const mnemosByCategory: Record<string, number> = {};
   for (const [cat, results] of byCategory) {
-    oriByCategory[CATEGORY_NAMES[cat] ?? "?"] = results.reduce((s, r) => s + r.answerF1, 0) / results.length;
+    mnemosByCategory[CATEGORY_NAMES[cat] ?? "?"] = results.reduce((s, r) => s + r.answerF1, 0) / results.length;
   }
 
   const compHeader = [
@@ -887,20 +887,20 @@ async function main(): Promise<void> {
     console.log("  " + row);
   }
 
-  // Ori's extractive row
+  // Mnemos's extractive row
   // Scale 0-1 to 0-100 to match Mem0 paper's scale
-  const oriSingle = ((oriByCategory["single-hop"] ?? 0) * 100).toFixed(2);
-  const oriMulti = ((oriByCategory["multi-hop"] ?? 0) * 100).toFixed(2);
-  const oriTemporal = ((oriByCategory["temporal"] ?? 0) * 100).toFixed(2);
-  const oriExtRow = [
-    "Ori (extractive)*".padEnd(20),
-    oriSingle.padStart(8),
-    oriMulti.padStart(8),
-    oriTemporal.padStart(8),
+  const mnemosSingle = ((mnemosByCategory["single-hop"] ?? 0) * 100).toFixed(2);
+  const mnemosMulti = ((mnemosByCategory["multi-hop"] ?? 0) * 100).toFixed(2);
+  const mnemosTemporal = ((mnemosByCategory["temporal"] ?? 0) * 100).toFixed(2);
+  const mnemosExtRow = [
+    "Mnemos (extractive)*".padEnd(20),
+    mnemosSingle.padStart(8),
+    mnemosMulti.padStart(8),
+    mnemosTemporal.padStart(8),
   ].join("  ");
-  console.log("  " + oriExtRow);
+  console.log("  " + mnemosExtRow);
 
-  // Ori's LLM-judged row
+  // Mnemos's LLM-judged row
   if (hasLLM) {
     const llmByCategory: Record<string, number> = {};
     for (const [cat, results] of byCategory) {
@@ -908,7 +908,7 @@ async function main(): Promise<void> {
         (results.reduce((s, r) => s + Math.max(0, r.llmAnswerF1), 0) / results.length) * 100;
     }
     const oriLLMRow = [
-      "Ori (GPT-4o-mini)".padEnd(20),
+      "Mnemos (GPT-4o-mini)".padEnd(20),
       (llmByCategory["single-hop"] ?? 0).toFixed(2).padStart(8),
       (llmByCategory["multi-hop"] ?? 0).toFixed(2).padStart(8),
       (llmByCategory["temporal"] ?? 0).toFixed(2).padStart(8),

@@ -1,7 +1,7 @@
 {
-  "name": "ori-memory",
+  "name": "mnemos",
   "version": "0.8.1",
-  "mcpName": "io.github.aayoawoyemi/ori-memory",
+  "mcpName": "io.github.aayoawoyemi/mnemos",
   "description": "Cognitive architecture for persistent AI agent memory. Knowledge graph with learning retrieval, ACT-R decay, and spreading activation. Markdown-native, local-first, zero cloud. MCP server + CLI.",
   "keywords": [
     "ai",
@@ -36,16 +36,16 @@
     "knowledge-management",
     "note-taking"
   ],
-  "homepage": "https://github.com/aayoawoyemi/Ori-Mnemos",
+  "homepage": "https://github.com/aayoawoyemi/Mnemos",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aayoawoyemi/Ori-Mnemos.git"
+    "url": "git+https://github.com/aayoawoyemi/Mnemos.git"
   },
   "license": "Apache-2.0",
   "author": "Aayo Awoyemi",
   "type": "module",
   "bin": {
-    "ori": "dist/index.js"
+    "mnemos": "dist/index.js"
   },
   "types": "./dist/lib.d.ts",
   "exports": {

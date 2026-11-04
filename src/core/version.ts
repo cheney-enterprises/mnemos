@@ -21,7 +21,7 @@ function resolvePackageJson(): string | null {
     try {
       const raw = readFileSync(candidate, "utf8");
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.name === "ori-memory" && typeof parsed.version === "string") {
+      if (parsed && parsed.name === "mnemos" && typeof parsed.version === "string") {
         return parsed.version;
       }
     } catch {

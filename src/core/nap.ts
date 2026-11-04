@@ -1,5 +1,5 @@
 /**
- * ori nap — agent-loop consolidation queue (docs/wake-nap-design.md).
+ * mnemos nap — agent-loop consolidation queue (docs/wake-nap-design.md).
  * Math proposes, agent disposes. One item per call.
  */
 import { promises as fs } from "node:fs";

@@ -52,7 +52,7 @@ const FOOTER_HEADINGS = ["Relevant Notes", "Areas"] as const;
 
 /**
  * Placeholder links shipped by the note template before #38. Vaults created
- * earlier keep their own copy of the template; `ori add` strips these lines
+ * earlier keep their own copy of the template; `mnemos add` strips these lines
  * from that template text before any user content goes in. Promote does NOT
  * filter them: at promote time a template line cannot be told from one the
  * user wrote, and user links are never removed.

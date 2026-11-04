@@ -13,27 +13,27 @@ let tempDir: string;
 
 beforeEach(async () => {
   // Create a temporary directory for the cache tests
-  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'ori-test-'));
-  process.env.ORI_UPDATE_CACHE_DIR = tempDir;
+  tempDir = await fs.mkdtemp(path.join(os.tmpdir(), 'mnemos-test-'));
+  process.env.MNEMOS_UPDATE_CACHE_DIR = tempDir;
 });
 
 afterEach(async () => {
-  delete process.env.ORI_UPDATE_CACHE_DIR;
+  delete process.env.MNEMOS_UPDATE_CACHE_DIR;
   // Clean up temporary directory
   await fs.rm(tempDir, { recursive: true, force: true });
 });
 
 describe('getUpdateCachePath', () => {
-  it('honors ORI_UPDATE_CACHE_DIR override', () => {
+  it('honors MNEMOS_UPDATE_CACHE_DIR override', () => {
     const cachePath = getUpdateCachePath();
     expect(cachePath.startsWith(tempDir)).toBeTruthy();
     expect(path.basename(cachePath)).toBe('update-cache.json');
   });
 
-  it('never contains the old ~/.ori/ collision path', () => {
+  it('never contains the old ~/.mnemos/ collision path', () => {
     const cachePath = getUpdateCachePath();
-    const collision = path.join(os.homedir(), '.ori', 'update-cache.json');
-    expect(cachePath.includes('.ori')).toBeFalsy();
+    const collision = path.join(os.homedir(), '.mnemos', 'update-cache.json');
+    expect(cachePath.includes('.mnemos')).toBeFalsy();
     expect(cachePath).not.toEqual(collision);
   });
 });

@@ -1,11 +1,11 @@
-// Persistent NDJSON bridge so ForgetEval (Python) can drive Ori (Node).
+// Persistent NDJSON bridge so ForgetEval (Python) can drive Mnemos (Node).
 //
 // ForgetEval issues ~10 adapter calls per case over 1,000 cases. A
 // subprocess-per-call CLI at ~1 s of Node startup each would take three hours
 // of process spawning to do ten minutes of work, so this stays resident:
 // one line of JSON in, one line of JSON out.
 //
-// It imports `ori-memory` as a library rather than shelling out, which is
+// It imports `mnemos` as a library rather than shelling out, which is
 // only possible as of 0.7.1 — before that the package had no exports and a
 // bare import threw. First real consumer of that surface.
 //
@@ -20,7 +20,7 @@ import { createInterface } from "node:readline";
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recall as oriRecall, supersede, release, purge, loadConfig } from "ori-memory";
+import { recall as mnemosRecall, supersede, release, purge, loadConfig } from "mnemos";
 
 let vault = null;
 
@@ -29,7 +29,7 @@ const notesDir = () => join(vault, "notes");
 let cfgCache = null;
 async function config() {
   // Same loader the CLI uses, so the embedder here is the embedder there.
-  if (!cfgCache) cfgCache = (await loadConfig(join(vault, "ori.config.yaml"))).engine;
+  if (!cfgCache) cfgCache = (await loadConfig(join(vault, "mnemos.config.yaml"))).engine;
   return cfgCache;
 }
 
@@ -56,10 +56,10 @@ function freshVault() {
   if (vault) {
     try { rmSync(vault, { recursive: true, force: true }); } catch {}
   }
-  vault = mkdtempSync(join(tmpdir(), "fe-ori-"));
+  vault = mkdtempSync(join(tmpdir(), "fe-mnemos-"));
   mkdirSync(join(vault, "notes"), { recursive: true });
-  mkdirSync(join(vault, ".ori"), { recursive: true });
-  writeFileSync(join(vault, "ori.config.yaml"), "engine:\n  db_path: .ori/embeddings.db\n");
+  mkdirSync(join(vault, ".mnemos"), { recursive: true });
+  writeFileSync(join(vault, "mnemos.config.yaml"), "engine:\n  db_path: .mnemos/embeddings.db\n");
   return vault;
 }
 
@@ -67,7 +67,7 @@ let seq = 0;
 const seen = new Map(); // slug -> full text, so recall can return what was inscribed
 
 function inscribe(text) {
-  // ForgetEval inscribes raw factual sentences. Ori is note-shaped, so the
+  // ForgetEval inscribes raw factual sentences. Mnemos is note-shaped, so the
   // sentence becomes both the title (slugified, deduped) and the body. The
   // body is what recall must return: the scorer substring-matches against it.
   let slug = slugify(text);
@@ -79,7 +79,7 @@ function inscribe(text) {
 }
 
 async function recall(query, k) {
-  const res = await oriRecall(vault, query, { limit: k });
+  const res = await mnemosRecall(vault, query, { limit: k });
   const list = res?.data?.results ?? res?.results ?? [];
   return list.slice(0, k).map((h) => {
     const slug = h.title ?? h.slug ?? h.id;

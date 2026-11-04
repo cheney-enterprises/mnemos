@@ -180,11 +180,11 @@ export function initIndexStore(db: DB): void {
   initQValueTables(db);
   initStageTables(db);
 
-  // Views are the public contract for `ori sql` / memory_sql. Agents write
+  // Views are the public contract for `mnemos sql` / memory_sql. Agents write
   // queries against these names, which makes them API: once someone's prompt
   // says "SELECT ... FROM v_note", renaming a physical column breaks them.
   // Keeping the physical tables behind views is what lets the schema keep
-  // moving. They are derived and disposable like everything else in .ori/,
+  // moving. They are derived and disposable like everything else in .mnemos/,
   // so DROP-then-CREATE keeps a stale definition from surviving an upgrade -
   // CREATE VIEW IF NOT EXISTS would silently keep the old body forever.
   db.exec(`
@@ -683,7 +683,7 @@ export function recordAccess(db: DB, slugs: string[], today?: string): void {
 /**
  * Write accumulated counters back into frontmatter.
  *
- * Runs on a maintenance pass (ori nap), never on the read path. This is what
+ * Runs on a maintenance pass (mnemos nap), never on the read path. This is what
  * keeps issue #17's durability property - "frontmatter lives in the markdown
  * files and survives" a deleted database - and keeps the audit trail
  * git-visible, while the fast path stays transactional.
@@ -814,11 +814,11 @@ export async function openSyncedIndex(
     // The sync could not account for some notes - unreadable files, a path
     // past Windows MAX_PATH, a file removed mid-scan. Say how many, and name
     // the repair that actually reparses everything. Until 2026-09-15 this
-    // message pointed at `ori index build`, which rebuilt embeddings only and
+    // message pointed at `mnemos index build`, which rebuilt embeddings only and
     // would not have touched the store that was complaining.
     return {
       reason: `Derived index covers ${covered} of ${expectedNotes} notes; using ` +
-              "per-query scans for this request (run `ori index build --force`)",
+              "per-query scans for this request (run `mnemos index build --force`)",
     };
   } catch (err: unknown) {
     return {
@@ -888,7 +888,7 @@ export function graphFingerprint(db: DB): string {
  * `saveGraphMetrics`/`loadGraphMetrics` write the numeric projection into
  * `graph_metric` so SQL surfaces can reach pagerank and betweenness, which a
  * JSON blob in `index_meta` cannot expose. This comment previously claimed
- * they existed for a case `ori health` reported; health.ts has never
+ * they existed for a case `mnemos health` reported; health.ts has never
  * referenced either function, and the table held 0 rows until 2026-09-19.
  */
 export function loadCachedGraphMetrics(db: DB, fingerprint: string): GraphMetrics | undefined {
@@ -939,7 +939,7 @@ export function saveCachedGraphMetrics(
 
   // Project the numeric metrics into graph_metric in the same call, from the
   // same object. The table existed with a CREATE, a writer, a reader, two
-  // tests and a comment claiming `ori health` consumed it -- and 0 rows in a
+  // tests and a comment claiming `mnemos health` consumed it -- and 0 rows in a
   // 1,545-note vault, because nothing ever called the writer. SQL surfaces
   // cannot read the JSON blob, so anything querying pagerank got NULL.
   //

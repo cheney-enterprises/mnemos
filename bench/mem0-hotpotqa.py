@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Mem0 HotpotQA Benchmark — head-to-head comparison with Ori.
+Mem0 HotpotQA Benchmark — head-to-head comparison with Mnemos.
 
 Same dataset, same scoring, same top-K. Ingests HotpotQA context paragraphs
 into a fresh Mem0 instance per question, queries, and measures retrieval.
@@ -27,7 +27,7 @@ from mem0 import Memory
 from openai import OpenAI
 
 # ---------------------------------------------------------------------------
-# Scoring (mirrors Ori's hotpotqa-eval.ts exactly)
+# Scoring (mirrors Mnemos's hotpotqa-eval.ts exactly)
 # ---------------------------------------------------------------------------
 
 def recall(retrieved: list[str], gold: list[str]) -> float:
@@ -145,7 +145,7 @@ def query_mem0(m: Memory, query: str, user_id: str, top_k: int) -> tuple[list[st
     return retrieved_titles, retrieved_text
 
 # ---------------------------------------------------------------------------
-# LLM judge (same as Ori benchmark)
+# LLM judge (same as Mnemos benchmark)
 # ---------------------------------------------------------------------------
 
 def llm_answer(client: OpenAI, question: str, context: str) -> str:
@@ -210,7 +210,7 @@ def main():
             sanitize_title(sf[0]) for sf in q["supporting_facts"]
         ))
 
-        # Fresh Mem0 per question with isolated storage (like Ori gets a fresh temp vault)
+        # Fresh Mem0 per question with isolated storage (like Mnemos gets a fresh temp vault)
         user_id = f"hotpot-{q['_id']}"
         storage_dir = tempfile.mkdtemp(prefix="mem0-hotpot-")
         try:
@@ -334,14 +334,14 @@ def main():
             json.dump(summary, f, indent=2)
         print(f"  Saved: {out_path}")
 
-    # Print comparison with Ori (hardcoded from latest run)
+    # Print comparison with Mnemos (hardcoded from latest run)
     print(f"\n{'=' * 70}")
-    print("  HEAD-TO-HEAD COMPARISON (Ori results from 200q run)")
+    print("  HEAD-TO-HEAD COMPARISON (Mnemos results from 200q run)")
     print(f"{'=' * 70}")
     print(f"  {'System':<12}  {'R@5':>7}  {'F1':>7}")
     print(f"  {'-'*30}")
-    print(f"  {'Ori flat':<12}  {'0.883':>7}  {'0.506':>7}")
-    print(f"  {'Ori explore':<12}  {'0.890':>7}  {'0.511':>7}")
+    print(f"  {'Mnemos flat':<12}  {'0.883':>7}  {'0.506':>7}")
+    print(f"  {'Mnemos explore':<12}  {'0.890':>7}  {'0.511':>7}")
     print(f"  {'Mem0':<12}  {avg_all(lambda x: x['R']):>7.3f}  {avg_all(lambda x: x['F1']):>7.3f}")
     print(f"{'=' * 70}")
 

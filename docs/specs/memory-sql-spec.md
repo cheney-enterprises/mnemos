@@ -1,4 +1,4 @@
-# `ori sql` / `memory_sql` — behaviour specification
+# `mnemos sql` / `memory_sql` — behaviour specification
 
 This describes what the feature is supposed to do. It is written to be
 testable without reading the implementation. If behaviour and this document
@@ -8,11 +8,11 @@ disagree, one of them is a defect — say which and why.
 
 ## 1. What it is
 
-A read-only SQL surface over the memory index at `<vault>/.ori/embeddings.db`.
+A read-only SQL surface over the memory index at `<vault>/.mnemos/embeddings.db`.
 
 Two entry points, same core:
 
-- **CLI**: `ori sql "<statement>" [--limit n] [--timeout ms] [--schema] [--stdin]`
+- **CLI**: `mnemos sql "<statement>" [--limit n] [--timeout ms] [--schema] [--stdin]`
 - **MCP**: tool `memory_sql` with `{ sql?: string, limit?: number, schema?: boolean }`
 
 Both print/return a single JSON object.
@@ -135,7 +135,7 @@ change without breaking callers.
 
 Requirements:
 
-- All six must exist and be **queryable immediately after `ori index build` on
+- All six must exist and be **queryable immediately after `mnemos index build` on
   a brand-new vault**, before any search has ever run. A view that parses but
   errors with "no such table" on a fresh vault is a defect.
 - `v_note.pagerank` must be populated, not `NULL`, for a vault with links.
@@ -146,7 +146,7 @@ Requirements:
 ## 9. Missing or broken index
 
 - If the index file does not exist, the call returns `success: false` with a
-  warning telling the caller to run `ori index build`. It must not throw an
+  warning telling the caller to run `mnemos index build`. It must not throw an
   uncaught exception and must not create the file.
 - A malformed or truncated database yields a warning, not a crash.
 
@@ -164,7 +164,7 @@ These are not defects. Reporting them as such is a false positive.
 ## Testing notes
 
 Use a scratch vault; do not touch any real one. A vault is a directory
-containing `notes/` and a `.ori/` directory; run `ori index build` inside it to
+containing `notes/` and a `.mnemos/` directory; run `mnemos index build` inside it to
 create the index.
 
 Adversarial input is welcome and encouraged: unicode, very long statements,

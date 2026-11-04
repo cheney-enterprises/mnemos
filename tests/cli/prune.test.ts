@@ -1,5 +1,5 @@
 /**
- * ori prune — Tests for zone classification, articulation point protection,
+ * mnemos prune — Tests for zone classification, articulation point protection,
  * and archive candidate identification.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
@@ -15,7 +15,7 @@ import { initDB } from "../../src/core/engine.js";
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-prune-test-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-prune-test-"));
   await runInit({ targetDir: tmpDir });
 });
 
@@ -46,7 +46,7 @@ async function seedSQLiteRows(
   withBoost = false,
   boostValue = 0.8,
 ) {
-  const config = await loadConfig(path.join(tmpDir, "ori.config.yaml"));
+  const config = await loadConfig(path.join(tmpDir, "mnemos.config.yaml"));
   const db = initDB(path.resolve(tmpDir, config.engine.db_path));
   db.prepare(
     `INSERT INTO embeddings
@@ -73,7 +73,7 @@ async function seedSQLiteRows(
 }
 
 async function getSQLiteCounts(title: string) {
-  const config = await loadConfig(path.join(tmpDir, "ori.config.yaml"));
+  const config = await loadConfig(path.join(tmpDir, "mnemos.config.yaml"));
   const db = initDB(path.resolve(tmpDir, config.engine.db_path));
   const embeddings = (
     db.prepare("SELECT COUNT(*) as cnt FROM embeddings WHERE title = ?").get(title) as { cnt: number }
@@ -89,7 +89,7 @@ async function getSQLiteCounts(title: string) {
 // Tests
 // ---------------------------------------------------------------------------
 
-describe("ori prune", () => {
+describe("mnemos prune", () => {
   it("dry-run returns candidates without modifying files", async () => {
     // Create a note with no connections — low vitality candidate
     await writeNote("isolated orphan note", {

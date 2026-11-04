@@ -140,8 +140,8 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
 
   // Embed on write (2026-09-06). Until now runAdd wrote the file and returned;
   // the vector index only learned about the note at the next manual
-  // `ori index build`. On 2026-09-06 that gap was 8 days and 34 notes — every
-  // note written in a session was invisible to ori_query_ranked for the rest
+  // `mnemos index build`. On 2026-09-06 that gap was 8 days and 34 notes — every
+  // note written in a session was invisible to mnemos_query_ranked for the rest
   // of that session. Best-effort: an embedding failure must never lose the
   // write. Zep/Graphiti index each episode on arrival for the same reason.
   const embedWarnings: string[] = [];
@@ -177,7 +177,7 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
     }
   } catch (err) {
     embedWarnings.push(
-      `embed-on-write failed (note saved, run \`ori index build\`): ${String(err)}`,
+      `embed-on-write failed (note saved, run \`mnemos index build\`): ${String(err)}`,
     );
   }
 

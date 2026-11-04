@@ -1,8 +1,8 @@
 /**
- * Ori Mnemos — Sandbox E2E Tests
+ * Mnemos — Sandbox E2E Tests
  *
  * Tests the complete fresh-user journey in isolated temp directories.
- * Nothing touches the real vault. Every test starts from `ori init`.
+ * Nothing touches the real vault. Every test starts from `mnemos init`.
  */
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
@@ -17,7 +17,7 @@ import { runStatus } from "../../src/cli/status.js";
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-e2e-sandbox-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-e2e-sandbox-"));
 });
 
 afterEach(async () => {
@@ -28,7 +28,7 @@ afterEach(async () => {
 // 1. INIT
 // ---------------------------------------------------------------------------
 
-describe("ori init", () => {
+describe("mnemos init", () => {
   it("creates full scaffold on empty directory", async () => {
     const result = await runInit({ targetDir: tmpDir });
 
@@ -38,12 +38,12 @@ describe("ori init", () => {
       expect(stat.isDirectory()).toBe(true);
     }
 
-    // .ori marker exists
-    await expect(fs.access(path.join(tmpDir, ".ori"))).resolves.toBeUndefined();
+    // .mnemos marker exists
+    await expect(fs.access(path.join(tmpDir, ".mnemos"))).resolves.toBeUndefined();
 
     // Config exists
     await expect(
-      fs.access(path.join(tmpDir, "ori.config.yaml"))
+      fs.access(path.join(tmpDir, "mnemos.config.yaml"))
     ).resolves.toBeUndefined();
 
     // Templates exist
@@ -95,7 +95,7 @@ describe("ori init", () => {
 // 2. ADD
 // ---------------------------------------------------------------------------
 
-describe("ori add", () => {
+describe("mnemos add", () => {
   beforeEach(async () => {
     await runInit({ targetDir: tmpDir });
   });
@@ -209,7 +209,7 @@ describe("ori add", () => {
 
   it("sets correct frontmatter defaults", async () => {
     // Disable auto-promote to read the inbox file directly
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     const configContent = await fs.readFile(configPath, "utf8");
     await fs.writeFile(
       configPath,
@@ -239,11 +239,11 @@ describe("ori add", () => {
 // 3. PROMOTE
 // ---------------------------------------------------------------------------
 
-describe("ori promote", () => {
+describe("mnemos promote", () => {
   beforeEach(async () => {
     await runInit({ targetDir: tmpDir });
     // Disable auto-promote so add puts things in inbox
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     const configContent = await fs.readFile(configPath, "utf8");
     await fs.writeFile(
       configPath,
@@ -309,7 +309,7 @@ describe("ori promote", () => {
 // 4. HEALTH
 // ---------------------------------------------------------------------------
 
-describe("ori health", () => {
+describe("mnemos health", () => {
   beforeEach(async () => {
     await runInit({ targetDir: tmpDir });
   });
@@ -378,7 +378,7 @@ describe("ori health", () => {
 // 5. STATUS
 // ---------------------------------------------------------------------------
 
-describe("ori status", () => {
+describe("mnemos status", () => {
   beforeEach(async () => {
     await runInit({ targetDir: tmpDir });
   });
@@ -394,7 +394,7 @@ describe("ori status", () => {
 
   it("counts inbox items correctly", async () => {
     // Disable auto-promote
-    const configPath = path.join(tmpDir, "ori.config.yaml");
+    const configPath = path.join(tmpDir, "mnemos.config.yaml");
     const configContent = await fs.readFile(configPath, "utf8");
     await fs.writeFile(
       configPath,

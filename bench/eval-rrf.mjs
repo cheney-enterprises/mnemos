@@ -1,10 +1,10 @@
 
-// eval-rrf.mjs — score ONE rrf_k against grep-grounded gold. Set ORI_RRF_K in env. Never writes config.
+// eval-rrf.mjs — score ONE rrf_k against grep-grounded gold. Set MNEMOS_RRF_K in env. Never writes config.
 import { runQueryRanked } from "../dist/cli/search.js";
 import { readFileSync } from "node:fs";
 const VAULT = process.argv[2];
 const gold = JSON.parse(readFileSync(process.argv[3], "utf8"));
-const k = process.env.ORI_RRF_K || "default";
+const k = process.env.MNEMOS_RRF_K || "default";
 let hit1 = 0, hit5 = 0, mrr = 0, n = 0; const rows = [];
 for (const [q, goldNotes] of Object.entries(gold)) {
   if (!goldNotes.length) continue;

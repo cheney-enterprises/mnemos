@@ -1,14 +1,14 @@
 /**
- * Ori Mnemos — OpenCode Lifecycle Plugin
+ * Mnemos — OpenCode Lifecycle Plugin
  *
- * Provides session lifecycle hooks for Ori vault integration:
+ * Provides session lifecycle hooks for Mnemos vault integration:
  * - session.created → detects first run, injects onboarding prompt
  * - session.compacted → auto-capture at context window checkpoint
  * - session.deleted → auto-capture at session end (fallback for short sessions)
- * - tool.execute.after (write) → auto-validate (note schema via `ori validate`)
+ * - tool.execute.after (write) → auto-validate (note schema via `mnemos validate`)
  *
  * Resolves vault path from opencode.json MCP config, so it works with
- * any named MCP entry (ori, coder-memory, research-memory, etc.).
+ * any named MCP entry (mnemos, coder-memory, research-memory, etc.).
  */
 
 import { readFileSync, appendFileSync, existsSync, mkdirSync } from "node:fs";
@@ -16,7 +16,7 @@ import { spawnSync } from "node:child_process";
 import path from "node:path";
 
 const LOG_ROOT = process.env.APPDATA || process.env.HOME || process.cwd();
-const LOG_FILE = path.join(LOG_ROOT, "opencode", "ori-plugin.log");
+const LOG_FILE = path.join(LOG_ROOT, "opencode", "mnemos-plugin.log");
 
 function logToFile(message) {
   try {
@@ -63,8 +63,8 @@ function getVaultFromMcpEntry(entry) {
   if (!entry || typeof entry !== "object") return null;
 
   const env = entry.environment || entry.env;
-  if (env && typeof env === "object" && typeof env.ORI_VAULT === "string" && env.ORI_VAULT.length > 0) {
-    return env.ORI_VAULT;
+  if (env && typeof env === "object" && typeof env.MNEMOS_VAULT === "string" && env.MNEMOS_VAULT.length > 0) {
+    return env.MNEMOS_VAULT;
   }
 
   const commandArgs = Array.isArray(entry.command)
@@ -81,13 +81,13 @@ function getVaultFromMcpEntry(entry) {
 }
 
 function getVaultPath(directory) {
-  if (process.env.ORI_VAULT) return path.resolve(process.env.ORI_VAULT);
+  if (process.env.MNEMOS_VAULT) return path.resolve(process.env.MNEMOS_VAULT);
 
   try {
     const configPath = path.join(directory, "opencode.json");
     const config = JSON.parse(readFileSync(configPath, "utf8"));
     const entries = config.mcp && typeof config.mcp === "object"
-      ? [config.mcp.ori, ...Object.values(config.mcp).filter((entry) => entry !== config.mcp.ori)]
+      ? [config.mcp.mnemos, ...Object.values(config.mcp).filter((entry) => entry !== config.mcp.mnemos)]
       : [];
 
     for (const entry of entries) {
@@ -101,12 +101,12 @@ function getVaultPath(directory) {
   return null;
 }
 
-function runOriCommand(args, cwd, content) {
+function runMnemosCommand(args, cwd, content) {
   const hasContent = content && content.length > 0;
   const finalArgs = hasContent ? [...args, "--content-stdin"] : [...args];
   const input = hasContent ? content : undefined;
 
-  const result = spawnSync("ori", finalArgs, {
+  const result = spawnSync("mnemos", finalArgs, {
     cwd,
     shell: false,
     stdio: ["pipe", "pipe", "pipe"],
@@ -115,7 +115,7 @@ function runOriCommand(args, cwd, content) {
   });
 
   if (result.error && process.platform === "win32") {
-    return spawnSync("ori.cmd", finalArgs, {
+    return spawnSync("mnemos.cmd", finalArgs, {
       cwd,
       shell: false,
       stdio: ["pipe", "pipe", "pipe"],
@@ -146,23 +146,23 @@ function isFirstRun(vault) {
 const ONBOARDING_PROMPT = `This is your FIRST SESSION. Your identity.md is blank.
 
 Run the onboarding flow now:
-1. Ask: "What should I call myself?" (default: Ori)
+1. Ask: "What should I call myself?" (default: Mnemos)
 2. Ask: "What's my purpose?" — offer: general-purpose AI agent, personal knowledge base, research assistant, work/professional, learning journal, or custom
 3. Say: "Tell me everything about you — what you're working on, what you care about, your projects, your goals. The more you share, the more useful I become."
 4. Ask: "How should I communicate with you?" — direct, formal, casual, opinionated, supportive?
 
-After collecting answers, use the ori_update tool to write:
+After collecting answers, use the mnemos_update tool to write:
 - file=identity (name, personality, communication style, values)
 - file=goals (projects and threads from their brain dump)
 - file=methodology (session rhythm based on their purpose)
 
 Make this feel warm and alive — this is their agent waking up for the first time.`;
 
-export const OriLifecyclePlugin = async ({ client, directory }) => {
+export const MnemosLifecyclePlugin = async ({ client, directory }) => {
   logToFile("=== PLUGIN LOADED === directory=" + directory);
   await client.app.log({
     body: {
-      service: "ori",
+      service: "mnemos",
       level: "info",
       message: "=== PLUGIN LOADED ===",
       extra: { directory },
@@ -178,9 +178,9 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
   if (!vault) {
     await client.app.log({
       body: {
-        service: "ori",
+        service: "mnemos",
         level: "error",
-        message: "No vault path found. Check opencode.json MCP config for an Ori MCP server with ORI_VAULT or --vault.",
+        message: "No vault path found. Check opencode.json MCP config for an Mnemos MCP server with MNEMOS_VAULT or --vault.",
         extra: { directory },
       },
     });
@@ -192,7 +192,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
 
   await client.app.log({
     body: {
-      service: "ori",
+      service: "mnemos",
       level: "info",
       message: `Lifecycle plugin initialized with vault: ${vault}`,
     },
@@ -209,7 +209,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
         if (onboardedSessions.has(sessionId)) {
           await client.app.log({
             body: {
-              service: "ori",
+              service: "mnemos",
               level: "info",
               message: `Skipping onboarding — already injected for session ${sessionId}`,
             },
@@ -219,7 +219,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
 
         await client.app.log({
           body: {
-            service: "ori",
+            service: "mnemos",
             level: "info",
             message: "session.created event received — checking first run",
             extra: { sessionId, eventKeys: Object.keys(event || {}) },
@@ -229,7 +229,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
         const firstRun = isFirstRun(vault);
         await client.app.log({
           body: {
-            service: "ori",
+            service: "mnemos",
             level: "info",
             message: `isFirstRun result: ${firstRun}`,
           },
@@ -240,7 +240,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
           onboardedSessions.add(sessionId);
           await client.app.log({
             body: {
-              service: "ori",
+              service: "mnemos",
               level: "info",
               message: `First run detected — injecting onboarding prompt for session ${sessionId} (once)`,
             },
@@ -250,7 +250,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
           try {
             await client.app.log({
               body: {
-                service: "ori",
+                service: "mnemos",
                 level: "info",
                 message: `Attempting session.prompt with sessionId: ${sessionId}`,
                 extra: { properties: JSON.stringify(event.properties || {}) },
@@ -266,7 +266,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
               });
               await client.app.log({
                 body: {
-                  service: "ori",
+                  service: "mnemos",
                   level: "info",
                   message: "session.prompt succeeded",
                 },
@@ -274,7 +274,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
             } else {
               await client.app.log({
                 body: {
-                  service: "ori",
+                  service: "mnemos",
                   level: "warn",
                   message: `Invalid sessionId: ${sessionId}`,
                 },
@@ -283,7 +283,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
           } catch (err) {
             await client.app.log({
               body: {
-                service: "ori",
+                service: "mnemos",
                 level: "error",
                 message: `session.prompt failed: ${err.message}`,
                 extra: { stack: err.stack },
@@ -293,7 +293,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
         } else {
           await client.app.log({
             body: {
-              service: "ori",
+              service: "mnemos",
               level: "info",
               message: "Session started — identity already configured",
               extra: { vault },
@@ -315,7 +315,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
 
         await client.app.log({
           body: {
-            service: "ori",
+            service: "mnemos",
             level: "info",
             message: `${event.type} — capturing session ${sessionId}`,
           },
@@ -326,7 +326,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
           const messages = await client.session.messages({ path: { id: sessionId } });
           if (!messages || !messages.data || messages.data.length === 0) {
             await client.app.log({
-              body: { service: "ori", level: "warn", message: "No messages to capture" },
+              body: { service: "mnemos", level: "warn", message: "No messages to capture" },
             });
             return;
           }
@@ -349,7 +349,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
 
           if (parts.length === 0) {
             await client.app.log({
-              body: { service: "ori", level: "warn", message: "No text content to capture" },
+              body: { service: "mnemos", level: "warn", message: "No text content to capture" },
             });
             return;
           }
@@ -363,20 +363,20 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
 
           await client.app.log({
             body: {
-              service: "ori",
+              service: "mnemos",
               level: "info",
               message: `Capturing ${parts.length} message parts (${content.length} chars)`,
             },
           });
 
           // Use stdin to pass content — no temp files, no encoding issues
-          const result = runOriCommand(["add", title, "--type", "insight"], vault, content);
-          logToFile("ori add exit code: " + result.status + " stdout: " + (result.stdout?.toString() || "").slice(0, 200) + " stderr: " + (result.stderr?.toString() || "").slice(0, 200));
+          const result = runMnemosCommand(["add", title, "--type", "insight"], vault, content);
+          logToFile("mnemos add exit code: " + result.status + " stdout: " + (result.stdout?.toString() || "").slice(0, 200) + " stderr: " + (result.stderr?.toString() || "").slice(0, 200));
           if (result.status === 0) {
             const output = result.stdout?.toString().trim();
             await client.app.log({
               body: {
-                service: "ori",
+                service: "mnemos",
                 level: "info",
                 message: `Session captured: ${output}`,
               },
@@ -384,7 +384,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
           } else {
             await client.app.log({
               body: {
-                service: "ori",
+                service: "mnemos",
                 level: "error",
                 message: `Capture failed: ${result.stderr?.toString() || "unknown error"}`,
               },
@@ -394,7 +394,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
           logToFile(event.type + " capture error: " + err.message + " stack: " + err.stack);
           await client.app.log({
             body: {
-              service: "ori",
+              service: "mnemos",
               level: "error",
               message: `${event.type} capture error: ${err.message}`,
               extra: { stack: err.stack },
@@ -413,17 +413,17 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
 
       await client.app.log({
         body: {
-          service: "ori",
+          service: "mnemos",
           level: "info",
           message: `Auto-validating vault note: ${notePath}`,
         },
       });
 
-      const validationResult = runOriCommand(["validate", notePath], vault);
+      const validationResult = runMnemosCommand(["validate", notePath], vault);
       if (validationResult.status === 0) {
         await client.app.log({
           body: {
-            service: "ori",
+            service: "mnemos",
             level: "info",
             message: "Validation passed",
           },
@@ -431,7 +431,7 @@ export const OriLifecyclePlugin = async ({ client, directory }) => {
       } else {
         await client.app.log({
           body: {
-            service: "ori",
+            service: "mnemos",
             level: "warn",
             message: `Validation issues: ${validationResult.stderr?.toString() || "unknown"}`,
           },

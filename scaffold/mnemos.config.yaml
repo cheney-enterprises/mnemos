@@ -1,4 +1,4 @@
-# ori.config.yaml - vault configuration for Ori Mnemos
+# mnemos.config.yaml - vault configuration for Mnemos
 
 vault:
   version: "0.1"
@@ -31,7 +31,7 @@ vitality:
   access_saturation_k: 10
 
 promote:
-  auto: true               # ori add auto-promotes to notes/
+  auto: true               # mnemos add auto-promotes to notes/
   require_llm: false       # true = only auto-promote when LLM available
   project_keywords: {}     # project_name: [keyword, keyword, ...]
   project_map_routing: {}  # project_name: map_note_title
@@ -60,7 +60,7 @@ engine:
   embedding_dims: 384
   piecewise_bins: 8
   community_dims: 16
-  db_path: ".ori/embeddings.db"
+  db_path: ".mnemos/embeddings.db"
 
 retrieval:
   default_limit: 10

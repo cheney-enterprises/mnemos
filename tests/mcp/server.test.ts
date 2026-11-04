@@ -1,5 +1,5 @@
 /**
- * Ori Mnemos — MCP Server Integration Tests
+ * Mnemos — MCP Server Integration Tests
  *
  * Tests the MCP server end-to-end over stdio JSON-RPC 2.0.
  * Each test suite creates a fresh vault, spawns the server, runs operations,
@@ -29,7 +29,7 @@ afterAll(async () => {
 describe("server initialization", () => {
   it("reports correct server name and version", () => {
     const info = ctx.client.getServerVersion();
-    expect(info?.name).toBe("ori-memory");
+    expect(info?.name).toBe("mnemos");
     expect(info?.version).toBe(VERSION);
   });
 
@@ -58,27 +58,27 @@ describe("tools listing", () => {
 
     // 21 -> 14. Removed: the three navigated-exploration tools (zero sessions in
     // six months, heaviest descriptions in the surface, still reachable via
-    // `ori explore-start/-expand/-conclude` and covered by
-    // tests/cli/explore-steering.test.ts); ori_orient, whose onboarding moved
-    // into ori_wake; and ori_status, ori_query, ori_query_important,
-    // ori_query_fading, which were SQL queries wearing a tool costume.
+    // `mnemos explore-start/-expand/-conclude` and covered by
+    // tests/cli/explore-steering.test.ts); mnemos_orient, whose onboarding moved
+    // into mnemos_wake; and mnemos_status, mnemos_query, mnemos_query_important,
+    // mnemos_query_fading, which were SQL queries wearing a tool costume.
     expect(toolNames).toEqual([
       "memory_sql",
-      "ori_add",
-      "ori_explore",
-      "ori_health",
-      "ori_index_build",
-      "ori_learning_reset",
-      "ori_promote",
-      "ori_prune",
-      "ori_query_ranked",
-      "ori_query_similar",
-      "ori_update",
-      "ori_update_decision",
-      "ori_validate",
-      "ori_wake",
-      "ori_warmth",
-      "ori_whats_new",
+      "mnemos_add",
+      "mnemos_explore",
+      "mnemos_health",
+      "mnemos_index_build",
+      "mnemos_learning_reset",
+      "mnemos_promote",
+      "mnemos_prune",
+      "mnemos_query_ranked",
+      "mnemos_query_similar",
+      "mnemos_update",
+      "mnemos_update_decision",
+      "mnemos_validate",
+      "mnemos_wake",
+      "mnemos_warmth",
+      "mnemos_whats_new",
     ]);
   });
 
@@ -97,9 +97,9 @@ describe("tools listing", () => {
   });
 });
 
-describe("ori_warmth", () => {
+describe("mnemos_warmth", () => {
   it("returns an empty warmth field on a fresh vault", async () => {
-    const { parsed } = await callTool(ctx.client, "ori_warmth", {
+    const { parsed } = await callTool(ctx.client, "mnemos_warmth", {
       context: "token incentives and memory resonance",
       limit: 5,
     });
@@ -124,57 +124,57 @@ describe("resources", () => {
     const uris = result.resources.map((r) => r.uri).sort();
 
     expect(uris).toEqual([
-      "ori://daily",
-      "ori://goals",
-      "ori://identity",
-      "ori://methodology",
-      "ori://reminders",
+      "mnemos://daily",
+      "mnemos://goals",
+      "mnemos://identity",
+      "mnemos://methodology",
+      "mnemos://reminders",
     ]);
   });
 
   it("reads identity resource", async () => {
-    const result = await ctx.client.readResource({ uri: "ori://identity" });
+    const result = await ctx.client.readResource({ uri: "mnemos://identity" });
     expect(result.contents).toHaveLength(1);
     expect(result.contents[0].mimeType).toBe("text/markdown");
   });
 
   it("reads goals resource", async () => {
-    const result = await ctx.client.readResource({ uri: "ori://goals" });
+    const result = await ctx.client.readResource({ uri: "mnemos://goals" });
     expect(result.contents).toHaveLength(1);
     expect(result.contents[0].mimeType).toBe("text/markdown");
   });
 
-  it("resource content updates after ori_update", async () => {
+  it("resource content updates after mnemos_update", async () => {
     // Write new identity
-    await callTool(ctx.client, "ori_update", {
+    await callTool(ctx.client, "mnemos_update", {
       file: "identity",
       content: "# My Agent\n\nI am a test agent named TestBot.",
     });
 
     // Read it back via resource
-    const result = await ctx.client.readResource({ uri: "ori://identity" });
+    const result = await ctx.client.readResource({ uri: "mnemos://identity" });
     const text = result.contents[0].text as string;
     expect(text).toContain("TestBot");
   });
 });
 
 // ---------------------------------------------------------------------------
-// 4. ori_status
+// 4. mnemos_status
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 5. ori_orient
+// 5. mnemos_orient
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 6. ori_add
+// 6. mnemos_add
 // ---------------------------------------------------------------------------
 
-describe("ori_add", () => {
+describe("mnemos_add", () => {
   it("creates a note successfully", async () => {
-    const { parsed } = await callTool(ctx.client, "ori_add", {
+    const { parsed } = await callTool(ctx.client, "mnemos_add", {
       title: "test note created via mcp server integration test",
       type: "insight",
       content: "This note was created through the MCP protocol.",
@@ -186,21 +186,21 @@ describe("ori_add", () => {
   });
 
   it("accepts description and project, and the note validates (#39)", async () => {
-    const { parsed } = await callTool(ctx.client, "ori_add", {
+    const { parsed } = await callTool(ctx.client, "mnemos_add", {
       title: "mcp agents can supply the schema fields at creation",
       type: "insight",
       content: "Created over MCP with description and project.",
-      description: "Agents pass description and project to ori_add so notes validate",
-      project: ["ori"],
+      description: "Agents pass description and project to mnemos_add so notes validate",
+      project: ["mnemos"],
     });
     const data = parsed as { success: boolean; data: { path: string } };
     expect(data.success).toBe(true);
-    const { parsed: v } = await callTool(ctx.client, "ori_validate", { path: data.data.path });
+    const { parsed: v } = await callTool(ctx.client, "mnemos_validate", { path: data.data.path });
     expect((v as { success: boolean; errors: string[] }).success).toBe(true);
   });
 
   it("rejects invalid titles", async () => {
-    const { parsed } = await callTool(ctx.client, "ori_add", {
+    const { parsed } = await callTool(ctx.client, "mnemos_add", {
       title: "x",
       type: "insight",
     });
@@ -211,13 +211,13 @@ describe("ori_add", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. ori_update
+// 7. mnemos_update
 // ---------------------------------------------------------------------------
 
-describe("ori_update", () => {
+describe("mnemos_update", () => {
   it("updates identity file", async () => {
     const newContent = "# Agent Identity\n\nName: IntegrationTestBot\nStyle: Direct and concise.";
-    const { parsed } = await callTool(ctx.client, "ori_update", {
+    const { parsed } = await callTool(ctx.client, "mnemos_update", {
       file: "identity",
       content: newContent,
     });
@@ -233,13 +233,13 @@ describe("ori_update", () => {
 
   it("creates backup before overwrite", async () => {
     // First write
-    await callTool(ctx.client, "ori_update", {
+    await callTool(ctx.client, "mnemos_update", {
       file: "goals",
       content: "# Goals v1\n\nFirst version.",
     });
 
     // Second write — should create backup of v1
-    const { parsed } = await callTool(ctx.client, "ori_update", {
+    const { parsed } = await callTool(ctx.client, "mnemos_update", {
       file: "goals",
       content: "# Goals v2\n\nSecond version.",
     });
@@ -258,7 +258,7 @@ describe("ori_update", () => {
     // Zod enum validation rejects invalid values at the protocol level,
     // throwing an MCP error before the handler runs. This is correct behavior.
     await expect(
-      callTool(ctx.client, "ori_update", {
+      callTool(ctx.client, "mnemos_update", {
         file: "nonexistent",
         content: "should fail",
       })
@@ -267,17 +267,17 @@ describe("ori_update", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 8. ori_query
+// 8. mnemos_query
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 9. ori_health
+// 9. mnemos_health
 // ---------------------------------------------------------------------------
 
-describe("ori_health", () => {
+describe("mnemos_health", () => {
   it("returns health diagnostic", async () => {
-    const { parsed } = await callTool(ctx.client, "ori_health");
+    const { parsed } = await callTool(ctx.client, "mnemos_health");
     const data = parsed as { success: boolean; data: Record<string, unknown> };
 
     expect(data.success).toBe(true);
@@ -288,13 +288,13 @@ describe("ori_health", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 10. ori_promote
+// 10. mnemos_promote
 // ---------------------------------------------------------------------------
 
-describe("ori_promote", () => {
+describe("mnemos_promote", () => {
   it("promotes an inbox note to notes/", async () => {
     // First, disable auto-promote so add goes to inbox
-    const configPath = path.join(ctx.vaultDir, "ori.config.yaml");
+    const configPath = path.join(ctx.vaultDir, "mnemos.config.yaml");
     const config = await fs.readFile(configPath, "utf8");
     await fs.writeFile(
       configPath,
@@ -303,7 +303,7 @@ describe("ori_promote", () => {
     );
 
     // Add a note (goes to inbox because auto=false)
-    const addResult = await callTool(ctx.client, "ori_add", {
+    const addResult = await callTool(ctx.client, "mnemos_add", {
       title: "promotable note about retrieval via mcp test",
       type: "insight",
       content: "This note will be promoted through the MCP protocol.",
@@ -318,7 +318,7 @@ describe("ori_promote", () => {
     const filename = path.basename(addData.data.path);
 
     // Promote it
-    const promoteResult = await callTool(ctx.client, "ori_promote", {
+    const promoteResult = await callTool(ctx.client, "mnemos_promote", {
       path: filename,
     });
     const promoteData = promoteResult.parsed as {
@@ -340,13 +340,13 @@ describe("ori_promote", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 11. ori_validate
+// 11. mnemos_validate
 // ---------------------------------------------------------------------------
 
-describe("ori_validate", () => {
+describe("mnemos_validate", () => {
   it("validates a note against schema", async () => {
     // Add a note first (auto-promotes with default config)
-    await callTool(ctx.client, "ori_add", {
+    await callTool(ctx.client, "mnemos_add", {
       title: "note for validation test via mcp server harness",
       type: "insight",
       content: "Content for validation testing.",
@@ -358,7 +358,7 @@ describe("ori_validate", () => {
     const noteFile = files.find((f) => f.includes("validation-test"));
 
     if (noteFile) {
-      const { parsed } = await callTool(ctx.client, "ori_validate", {
+      const { parsed } = await callTool(ctx.client, "mnemos_validate", {
         path: path.join(notesDir, noteFile),
       });
       expect(parsed).toBeDefined();
@@ -367,12 +367,12 @@ describe("ori_validate", () => {
 });
 
 // ---------------------------------------------------------------------------
-// 12. ori_query_important (PageRank)
+// 12. mnemos_query_important (PageRank)
 // ---------------------------------------------------------------------------
 
 
 // ---------------------------------------------------------------------------
-// 13. ori_query_fading
+// 13. mnemos_query_fading
 // ---------------------------------------------------------------------------
 
 
@@ -381,7 +381,7 @@ describe("ori_validate", () => {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// first-run onboarding (migrated from ori_orient to ori_wake)
+// first-run onboarding (migrated from mnemos_orient to mnemos_wake)
 // ---------------------------------------------------------------------------
 
 describe("first-run onboarding", () => {
@@ -389,21 +389,21 @@ describe("first-run onboarding", () => {
     // Drive the vault into the unwritten state rather than assuming the
     // fixture is in it: a headers-only identity is what the scaffold leaves
     // behind and is exactly what first-run detection keys on.
-    await callTool(ctx.client, "ori_update", { file: "identity", content: "# Identity\n\n" });
+    await callTool(ctx.client, "mnemos_update", { file: "identity", content: "# Identity\n\n" });
 
-    const { parsed } = await callTool(ctx.client, "ori_wake");
+    const { parsed } = await callTool(ctx.client, "mnemos_wake");
     const data = parsed as Record<string, unknown>;
     expect(data.firstRun).toBe(true);
     expect(data).toHaveProperty("onboarding");
   });
 
   it("after writing a real identity, wake no longer reports firstRun", async () => {
-    await callTool(ctx.client, "ori_update", {
+    await callTool(ctx.client, "mnemos_update", {
       file: "identity",
       content: "# Aries\n\nI am Aries, a memory-sovereign agent. Direct, opinionated, proactive.",
     });
 
-    const { parsed } = await callTool(ctx.client, "ori_wake");
+    const { parsed } = await callTool(ctx.client, "mnemos_wake");
     const data = parsed as Record<string, unknown>;
     expect(data.firstRun).toBe(false);
     expect(data).not.toHaveProperty("onboarding");

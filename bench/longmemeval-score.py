@@ -1,4 +1,4 @@
-"""Score Ori's LongMemEval rankings with the benchmark's own metric code.
+"""Score Mnemos's LongMemEval rankings with the benchmark's own metric code.
 
 The metrics are NOT reimplemented here. This imports evaluate_retrieval from
 the official LongMemEval checkout and calls it, then writes the JSONL that
@@ -46,7 +46,7 @@ with open(out_path, "w", encoding="utf-8") as out:
         out.write(json.dumps({
             "question_id": e["question_id"],
             "question_type": e["question_type"],
-            # Session granularity: one note per session, so the ids Ori ranks
+            # Session granularity: one note per session, so the ids Mnemos ranks
             # are already session ids and no turn->session collapse is needed.
             "retrieval_results": {"metrics": {"session": metrics}},
         }) + "\n")

@@ -125,7 +125,7 @@ describe("computePromotion", () => {
         frontmatter: {
           description: "keep this",
           type: "insight",
-          project: ["ori"],
+          project: ["mnemos"],
           status: "inbox",
           created: "2026-02-20",
           last_accessed: "2026-02-20",
@@ -149,13 +149,13 @@ describe("computePromotion", () => {
         frontmatter: {
           description: "test",
           type: "insight",
-          project: ["ori"],
+          project: ["mnemos"],
           status: "inbox",
           created: "2026-02-20",
           last_accessed: "2026-02-20",
           access_count: 0,
         },
-        mapRouting: { ori: "ai agents map" },
+        mapRouting: { mnemos: "ai agents map" },
       })
     );
     expect(result.suggestedAreas).toContain("ai agents map");
@@ -374,7 +374,7 @@ describe("resolveAreas", () => {
   // The old test for "is this a map" was title.includes("map"), which is true
   // of "roadmap". A note could be filed under a roadmap and count as mapped.
   it("does not treat a title ending in roadmap as a map", () => {
-    const r = resolveAreas(["ori"], {}, ["ori roadmap", "ori design doc"], "index");
+    const r = resolveAreas(["mnemos"], {}, ["mnemos roadmap", "mnemos design doc"], "index");
     expect(r.areas).toEqual(["index"]);
     expect(r.usedDefault).toBe(true);
   });

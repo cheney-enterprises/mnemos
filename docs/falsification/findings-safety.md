@@ -1,4 +1,4 @@
-# `ori sql` — safety & validation falsification report
+# `mnemos sql` — safety & validation falsification report
 
 **Agent:** SqlSafety · **Date:** 2026-09-19 · **Method:** black box.
 The implementation (`src/core/sqlquery.ts`, `sqlquery-worker.ts`, `src/cli/sqlcmd.ts`,
@@ -16,8 +16,8 @@ dist/cli/sqlcmd.js   sha256 ba200645bff9f6cc00af169585275752…
 > rebuild** (`reverify-safety.mjs`, plus the full 191-probe regression). One
 > earlier finding no longer reproduces and is recorded as retracted at the end.
 
-**Scratch vault:** `C:/Users/aayoa/AppData/Local/Temp/ori-falsify-safety/vault`
-(3 notes, 4 link edges, 1 dangling target; built with `ori index build`).
+**Scratch vault:** `C:/Users/aayoa/AppData/Local/Temp/mnemos-falsify-safety/vault`
+(3 notes, 4 link edges, 1 dangling target; built with `mnemos index build`).
 No command was ever run against `C:/Users/aayoa/brain`.
 
 **≈330 probes.** Scripts beside this file:
@@ -36,7 +36,7 @@ No command was ever run against `C:/Users/aayoa/brain`.
 ## HEADLINE: the scratch database is byte-identical
 
 ```
-baseline (immediately after `ori index build`)
+baseline (immediately after `mnemos index build`)
   c1680743fcd4a32f2c6aa28e7a1042de99b4ebba62b2de89fe564737927adad7
 final (after every probe in this report, both builds)
   c1680743fcd4a32f2c6aa28e7a1042de99b4ebba62b2de89fe564737927adad7
@@ -57,7 +57,7 @@ sidecar files appear beside it.
 
 ## S-01 · MAJOR — every option placed *after* the statement is silently ignored, and the spec's own synopsis puts them there
 
-**Spec §1:** "`ori sql "<statement>" [--limit n] [--timeout ms] [--schema] [--stdin]`"
+**Spec §1:** "`mnemos sql "<statement>" [--limit n] [--timeout ms] [--schema] [--stdin]`"
 **Spec §6:** "**Rows**: CLI default 1000 … Exceeding the cap sets `truncated: true` and adds a warning."
 **Spec §7:** "`--schema` / `schema: true` returns every table and view with its DDL … **instead of running a query**."
 **Spec §2:** "`warnings` — every degradation is reported here. **Silence means nothing went wrong.**"
@@ -113,11 +113,11 @@ as two separate bugs (`--limit` dead, `--schema` ignored).*
 **Spec §2:** "`warnings` — every degradation is reported here. Silence means nothing went wrong."
 
 A zero-length `embeddings.db` is the normal result of an interrupted or
-out-of-disk `ori index build`. SQLite opens it happily as an empty database and
+out-of-disk `mnemos index build`. SQLite opens it happily as an empty database and
 nothing notices.
 
 ```
-$ mkdir -p /tmp/zv/notes /tmp/zv/.ori && : > /tmp/zv/.ori/embeddings.db
+$ mkdir -p /tmp/zv/notes /tmp/zv/.mnemos && : > /tmp/zv/.mnemos/embeddings.db
 $ cd /tmp/zv
 $ node dist/index.js sql "SELECT 1"
 {"success":true,"data":{"columns":["1"],"rows":[[1]],"truncated":false,"elapsedMs":62},"warnings":[]}
@@ -134,14 +134,14 @@ $ node dist/index.js sql "SELECT count(*) FROM v_note"
 real but empty vault. An MCP client calling `memory_sql {schema:true}` will
 correctly conclude "this vault has no data" when the truth is "your index is
 destroyed, rebuild it". The only signal that leaks through — `no such table:
-v_note` — carries no path and no hint to run `ori index build`.
+v_note` — carries no path and no hint to run `mnemos index build`.
 
 The surface *does* distinguish absent from present-but-empty, and gets the second
 one wrong: the missing-file case is handled correctly (see negative results).
 
 ---
 
-## S-03 · MAJOR — `ori sql` never exits after a runaway query; only the JSON is delivered
+## S-03 · MAJOR — `mnemos sql` never exits after a runaway query; only the JSON is delivered
 
 **Spec §6:** "On timeout, `success: false`, and a warning naming the timeout."
 **Spec §10 (declared non-defect):** "Timeout cancellation is checked between rows… one very long single step may still be running **after the caller is answered**."
@@ -225,17 +225,17 @@ No file named `pwned*` was created anywhere, by any of these.
 
 ---
 
-## S-05 · MAJOR — outside any vault, `ori sql` silently queries a different database
+## S-05 · MAJOR — outside any vault, `mnemos sql` silently queries a different database
 
-**Spec §1:** "A read-only SQL surface over the memory index at `<vault>/.ori/embeddings.db`."
-(Testing notes: "A vault is a directory containing `notes/` and a `.ori/` directory".)
+**Spec §1:** "A read-only SQL surface over the memory index at `<vault>/.mnemos/embeddings.db`."
+(Testing notes: "A vault is a directory containing `notes/` and a `.mnemos/` directory".)
 **Spec §2:** "Silence means nothing went wrong."
 
 In a directory that is not a vault and has no vault ancestor, the call does not
 fail — it opens someone else's index and answers `success: true`.
 
 ```
-$ mkdir -p /tmp/notavault/notes        # notes/ but NO .ori/ ; no vault ancestor
+$ mkdir -p /tmp/notavault/notes        # notes/ but NO .mnemos/ ; no vault ancestor
 $ cd /tmp/notavault
 $ node dist/index.js sql "SELECT 1"
 {"success":true,"data":{"columns":["1"],"rows":[[1]],"truncated":false,"elapsedMs":73},"warnings":[]}
@@ -246,10 +246,10 @@ $ node dist/index.js sql "SELECT count(*) FROM v_note"
 ```
 
 A database really was opened — a nonexistent one gives `unable to open database
-file`, and a genuinely missing index gives the `run \`ori index build\`` message
+file`, and a genuinely missing index gives the `run \`mnemos index build\`` message
 (both verified below). An earlier run of this scenario echoed the resolved path
-back in the `--schema` warning: ``no index at C:\Users\aayoa\.ori\embeddings.db;
-run `ori index build` `` — i.e. the resolver falls back to a home-directory
+back in the `--schema` warning: ``no index at C:\Users\aayoa\.mnemos\embeddings.db;
+run `mnemos index build` `` — i.e. the resolver falls back to a home-directory
 index. I stopped probing at that point rather than issue further reads against a
 non-scratch path.
 
@@ -262,7 +262,7 @@ wrong cwd gets plausible-looking answers computed from a *different* vault, with
 
 Ordinary upward resolution is correct and I verified it separately in scratch —
 from `outer/sub/deeper` (a plain directory beneath a real vault) the surface
-resolves to `outer/.ori/embeddings.db`, confirmed via
+resolves to `outer/.mnemos/embeddings.db`, confirmed via
 `SELECT file FROM pragma_database_list`. The defect is only the final fallback
 when *no* ancestor is a vault.
 
@@ -318,22 +318,22 @@ this is the one runaway case that *does* exit, in 1808 ms — see S-03.)
 **Spec §5:** "No statement may modify the database, **create or drop anything**, or reach a file outside the index."
 
 ```
-$ ls .ori
+$ ls .mnemos
 embeddings.db                                   # pristine copy, nothing else
 $ node dist/index.js sql "SELECT 1"
 {"success":true,…,"warnings":[]}
-$ ls .ori
+$ ls .mnemos
 embeddings.db  embeddings.db-shm (32768 B)  embeddings.db-wal (0 B)
 ```
 
-**Actual** — two new files in `.ori/`, still there after the process exits.
+**Actual** — two new files in `.mnemos/`, still there after the process exits.
 **Expected** — no filesystem mutation from a read-only surface.
 
 The index file's sha256 is unchanged, so this is minor rather than data loss. It
 is reported because §5's wording is "create … anything", because a single trivial
 `SELECT 1` triggers it, and because it also fires while *failing* on a corrupt
 index (the truncated-db scenario creates both sidecars on the way to an error).
-It also implies `ori sql` needs a writable `.ori/` directory. Confirmed the
+It also implies `mnemos sql` needs a writable `.mnemos/` directory. Confirmed the
 surface still works when the db *file* is read-only (`attrib +R`):
 `SELECT count(*) FROM v_note` returned 3, hash unchanged — consistent with a
 genuine read-only open — but the sidecars were created anyway.
@@ -586,15 +586,15 @@ comment stripping — a comment bomb cannot get past it.
   `--timeout "1; DROP TABLE note"` → no injection, query runs normally, hash
   unchanged.
 - No `pwned-dq.txt` / `pwned-by-sql.txt` / `pwned-abs.txt` / `pwned-reverify.txt`
-  anywhere; the vault contains only `.ori/` and `notes/`.
+  anywhere; the vault contains only `.mnemos/` and `notes/`.
 
 ### Missing index (§9) — correct
 
 ```
-$ mkdir -p /tmp/v/notes /tmp/v/.ori          # vault, no embeddings.db
+$ mkdir -p /tmp/v/notes /tmp/v/.mnemos          # vault, no embeddings.db
 $ cd /tmp/v && node dist/index.js sql "SELECT 1"
 {"success":false,"data":{"columns":[],"rows":[],"truncated":false,"elapsedMs":0},
- "warnings":["no index at …\\.ori\\embeddings.db; run `ori index build`"]}
+ "warnings":["no index at …\\.mnemos\\embeddings.db; run `mnemos index build`"]}
 ```
 Same correct, path-bearing, actionable warning from `SELECT count(*) FROM v_note`
 and from `--schema`. Exit 1, valid JSON, no exception, and **`NEW FILES: []` —
@@ -604,7 +604,7 @@ the index file is not created**, exactly as §9 requires.
 
 | scenario | `SELECT 1` | `--schema` |
 |---|---|---|
-| 4 KiB random bytes | `file is not a database` | `no index at …; run \`ori index build\` (file is not a database)` |
+| 4 KiB random bytes | `file is not a database` | `no index at …; run \`mnemos index build\` (file is not a database)` |
 | plain text file | `file is not a database` | `… (file is not a database)` |
 | first 3000 B of a real index | `database disk image is malformed` | `… (database disk image is malformed)` |
 | valid SQLite header, no content | `database disk image is malformed` | `… (database disk image is malformed)` |
@@ -632,7 +632,7 @@ connection and a SQLite authorizer sitting behind the validator.
   Re-run 3× isolated: `no such function: readfile` in 60–77 ms. Load artifact,
   not a hang. (The real hang, S-03, reproduces 4/4 idle on a different path.)
 - **One early run gave `unable to open database file` instead of the
-  `run \`ori index build\`` message** for a vault with an empty `.ori/`. Not
+  `run \`mnemos index build\`` message** for a vault with an empty `.mnemos/`. Not
   reproducible; the same directory now returns the correct message every time.
   Excluded.
 - **My first harness run reported `'better-sqlite3' is not yet supported in Bun`
@@ -655,7 +655,7 @@ connection and a SQLite authorizer sitting behind the validator.
 | S-05 | major | outside any vault, silently queries a home-directory index with `warnings:[]` |
 | S-06 | minor | `--limit 0` / `-1` return 1 row; `--limit abc` silently disables the cap |
 | S-07 | minor | `--timeout abc` → warning reads "SQL timed out after NaN ms" |
-| S-08 | minor | `SELECT 1` creates `embeddings.db-wal` / `-shm` in `.ori/` |
+| S-08 | minor | `SELECT 1` creates `embeddings.db-wal` / `-shm` in `.mnemos/` |
 | S-09 | minor | "offending token" is the whole statement for non-ASCII-delimited input |
 | S-10 | minor | 2000 ms budget includes cold start (~1 s), causing fabricated timeouts under load |
 | — | retracted | leading `--` comment rejected by the option parser; real pre-16:03, gone on the current build |

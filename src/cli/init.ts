@@ -43,12 +43,12 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
 
   await copyDir(scaffoldRoot, target, result);
 
-  // Ensure .ori marker exists (as a directory — engine stores embeddings.db here)
+  // Ensure .mnemos marker exists (as a directory — engine stores embeddings.db here)
   const paths = getVaultPaths(target);
   try {
     const stat = await fs.stat(paths.marker);
     if (!stat.isDirectory()) {
-      // Migrate: .ori was a file in older versions, now it's a directory
+      // Migrate: .mnemos was a file in older versions, now it's a directory
       await fs.unlink(paths.marker);
       await fs.mkdir(paths.marker, { recursive: true });
       result.created.push(paths.marker);

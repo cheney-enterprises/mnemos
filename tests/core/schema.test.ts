@@ -10,7 +10,7 @@ import {
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-test-schema-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-test-schema-"));
 });
 
 afterEach(async () => {

@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 
-export const DEFAULT_WARMTH_AUDIT_PATH = ".ori/warmth-audit.jsonl";
+export const DEFAULT_WARMTH_AUDIT_PATH = ".mnemos/warmth-audit.jsonl";
 
 export type WarmthAuditEntry = {
   title: string;
@@ -26,13 +26,13 @@ export type WarmthAuditEvent = {
 };
 
 export function isWarmthAuditEnabled(): boolean {
-  const value = process.env.ORI_WARMTH_AUDIT;
+  const value = process.env.MNEMOS_WARMTH_AUDIT;
   if (!value) return false;
   return value !== "0" && value.toLowerCase() !== "false";
 }
 
 function getWarmthAuditPath(vaultRoot: string): string {
-  const override = process.env.ORI_WARMTH_AUDIT_PATH;
+  const override = process.env.MNEMOS_WARMTH_AUDIT_PATH;
   return path.resolve(vaultRoot, override && override.trim() ? override : DEFAULT_WARMTH_AUDIT_PATH);
 }
 

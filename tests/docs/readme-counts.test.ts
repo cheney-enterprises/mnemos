@@ -23,7 +23,7 @@ const readme = read("README.md");
 const serve = read("src/cli/serve.ts");
 const index = read("src/index.ts");
 
-const toolCount = new Set(serve.match(/ori_[a-z_]+/g) ?? []).size;
+const toolCount = new Set(serve.match(/mnemos_[a-z_]+/g) ?? []).size;
 const resourceCount = (serve.match(/server\.resource\(/g) ?? []).length;
 const commandCount = (index.match(/^\s*\.command\(/gm) ?? []).length;
 
@@ -53,7 +53,7 @@ describe("README advertises the surface that exists", () => {
   // checked every mention and immediately failed on the migration table that
   // documents which tools were removed and what replaced them -- naming a
   // dead tool in order to say it is dead is the opposite of the failure being
-  // guarded against. A row is `| \`ori_x\` | description |`; prose is prose.
+  // guarded against. A row is `| \`mnemos_x\` | description |`; prose is prose.
   it("offers no tool in its table that is not registered", () => {
     // The README holds two tables of the same shape: what is offered, and a
     // migration table naming removed tools so readers can find the
@@ -65,9 +65,9 @@ describe("README advertises the surface that exists", () => {
     expect(start).toBeGreaterThan(-1);
     expect(end).toBeGreaterThan(start);
 
-    const registered = new Set(serve.match(/ori_[a-z_]+/g) ?? []);
+    const registered = new Set(serve.match(/mnemos_[a-z_]+/g) ?? []);
     const offered = [
-      ...readme.slice(start, end).matchAll(/^\|\s*`(ori_[a-z_]+|memory_sql)`\s*\|/gm),
+      ...readme.slice(start, end).matchAll(/^\|\s*`(mnemos_[a-z_]+|memory_sql)`\s*\|/gm),
     ].map((m) => m[1]);
 
     expect(offered.length).toBeGreaterThan(5);

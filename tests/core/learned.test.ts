@@ -3,8 +3,8 @@ import Database from "better-sqlite3";
 import { exportLearned, importLearned, LEARNED_TABLES } from "../../src/core/learned.js";
 import { initQValueTables, migrateRuleColumn, updateQ, getQState } from "../../src/core/qvalue.js";
 
-// The README claimed for months that everything under .ori/ is derived and
-// disposable. Measured on a real vault, `rm -rf .ori/ && ori index build`
+// The README claimed for months that everything under .mnemos/ is derived and
+// disposable. Measured on a real vault, `rm -rf .mnemos/ && mnemos index build`
 // empties eight accumulated tables: six months of retrieval history, the
 // learned Q-values, and the live LinUCB arms. These tests cover the contract
 // that makes the disposability claim true rather than aspirational.
@@ -79,7 +79,7 @@ describe("learned state export/import", () => {
 
     const db = seed();
     const ndjson =
-      JSON.stringify({ _format: "ori-learned", version: 1 }) + "\n" +
+      JSON.stringify({ _format: "mnemos-learned", version: 1 }) + "\n" +
       JSON.stringify({ _t: "q_history_genuine", note_id: "alpha", old_q: 0, new_q: 0.5, reward: 1, reward_source: "genuine", session_id: "s1", timestamp: "2026-08-01" }) + "\n";
     const stats = importLearned(db, ndjson);
     const n = db.prepare("SELECT count(*) c FROM q_history_genuine").get() as { c: number };
@@ -89,11 +89,11 @@ describe("learned state export/import", () => {
   });
 
   it("refuses to invent tables that have an owning module", () => {
-    // A missing note_q means the caller skipped `ori index build`. Creating
+    // A missing note_q means the caller skipped `mnemos index build`. Creating
     // it here would fork the schema away from qvalue.ts.
     const db = new Database(":memory:");
     const ndjson =
-      JSON.stringify({ _format: "ori-learned", version: 1 }) + "\n" +
+      JSON.stringify({ _format: "mnemos-learned", version: 1 }) + "\n" +
       JSON.stringify({ _t: "note_q", note_id: "alpha", q_value: 0.5 }) + "\n";
     const stats = importLearned(db, ndjson);
     db.close();

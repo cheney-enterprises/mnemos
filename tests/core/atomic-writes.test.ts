@@ -12,7 +12,7 @@ import { recordKeptSeparate, generateNapQueue } from "../../src/core/nap.js";
 let tmpDir: string;
 
 beforeEach(async () => {
-  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-test-atomic-"));
+  tmpDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-test-atomic-"));
 });
 
 afterEach(async () => {
@@ -23,7 +23,7 @@ afterEach(async () => {
 describe("writeState", () => {
   it("keeps the previous state when the write is interrupted", async () => {
     await writeState(tmpDir, { onboarded: true, version: "1.0.0" });
-    const statePath = path.join(tmpDir, ".ori", "state.json");
+    const statePath = path.join(tmpDir, ".mnemos", "state.json");
     const original = await fs.readFile(statePath, "utf8");
 
     vi.spyOn(fs, "rename").mockRejectedValue(new Error("simulated crash"));
@@ -35,11 +35,11 @@ describe("writeState", () => {
     expect(await fs.readFile(statePath, "utf8")).toBe(original);
     const state = await readState(tmpDir);
     expect(state).toEqual({ onboarded: true, version: "1.0.0" });
-    expect(await fs.readdir(path.join(tmpDir, ".ori"))).toEqual(["state.json"]);
+    expect(await fs.readdir(path.join(tmpDir, ".mnemos"))).toEqual(["state.json"]);
   });
 
   it("stages a sibling temp file, never the target itself", async () => {
-    const statePath = path.join(tmpDir, ".ori", "state.json");
+    const statePath = path.join(tmpDir, ".mnemos", "state.json");
     const writeSpy = vi.spyOn(fs, "writeFile");
 
     await writeState(tmpDir, { onboarded: true, version: "1.0.0" });

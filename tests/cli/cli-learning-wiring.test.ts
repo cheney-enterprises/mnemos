@@ -4,7 +4,7 @@
  * This file exists because the defect was never a wrong algorithm - it was a
  * callsite nobody called. `useIntelligence` required an external database AND a
  * caller-supplied session id, both of which only the MCP server passed, so
- * `ori search` retrieved without ever tracking a stage, writing `stage_log`,
+ * `mnemos search` retrieved without ever tracking a stage, writing `stage_log`,
  * persisting a bandit policy, logging exposure, or crediting a Q-value.
  *
  * Measured consequences before this wiring:
@@ -37,9 +37,9 @@ const NOTES: Array<[string, string, string]> = [
 ];
 
 beforeEach(async () => {
-  vault = await fs.mkdtemp(path.join(os.tmpdir(), "ori-cliwire-"));
+  vault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-cliwire-"));
   await fs.mkdir(path.join(vault, "notes"), { recursive: true });
-  await fs.mkdir(path.join(vault, ".ori"), { recursive: true });
+  await fs.mkdir(path.join(vault, ".mnemos"), { recursive: true });
   for (const [name, description, body] of NOTES) {
     await fs.writeFile(
       path.join(vault, "notes", `${name}.md`),
@@ -56,7 +56,7 @@ afterEach(async () => {
 });
 
 function open(): InstanceType<typeof Database> {
-  return new Database(path.join(vault, ".ori", "embeddings.db"), { readonly: true });
+  return new Database(path.join(vault, ".mnemos", "embeddings.db"), { readonly: true });
 }
 
 function count(db: InstanceType<typeof Database>, sql: string): number {
@@ -68,7 +68,7 @@ function count(db: InstanceType<typeof Database>, sql: string): number {
 describe("a CLI query learns (fix-list items 5, 9, 10)", () => {
   it("runs Q reranking like MCP does (#37 follow-up)", async () => {
     // The phaseB guard also required a caller-supplied sessionId, so every
-    // `ori query ranked` skipped Q reranking and CLI and MCP ranked differently.
+    // `mnemos query ranked` skipped Q reranking and CLI and MCP ranked differently.
     await runQueryRanked(vault, "agents remember memory", 3);
     const db = open();
     try {

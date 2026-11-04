@@ -3,12 +3,12 @@ import path from "node:path";
 import { writeFileAtomic } from "./frontmatter.js";
 import { getVaultPaths } from "./vault.js";
 
-export interface OriState {
+export interface MnemosState {
   onboarded: boolean;
   version: string;
 }
 
-const DEFAULT_STATE: OriState = {
+const DEFAULT_STATE: MnemosState = {
   onboarded: false,
   version: "0.0.0",
 };
@@ -17,7 +17,7 @@ function statePath(vaultDir: string): string {
   return path.join(getVaultPaths(vaultDir).marker, "state.json");
 }
 
-export async function readState(vaultDir: string): Promise<OriState> {
+export async function readState(vaultDir: string): Promise<MnemosState> {
   try {
     const raw = await fs.readFile(statePath(vaultDir), "utf8");
     return { ...DEFAULT_STATE, ...JSON.parse(raw) };
@@ -26,7 +26,7 @@ export async function readState(vaultDir: string): Promise<OriState> {
   }
 }
 
-export async function writeState(vaultDir: string, updates: Partial<OriState>): Promise<void> {
+export async function writeState(vaultDir: string, updates: Partial<MnemosState>): Promise<void> {
   const current = await readState(vaultDir);
   const merged = { ...current, ...updates };
   const fp = statePath(vaultDir);
@@ -34,6 +34,6 @@ export async function writeState(vaultDir: string, updates: Partial<OriState>): 
   await writeFileAtomic(fp, JSON.stringify(merged, null, 2) + "\n");
 }
 
-export function isOnboarded(state: OriState): boolean {
+export function isOnboarded(state: MnemosState): boolean {
   return state.onboarded === true;
 }

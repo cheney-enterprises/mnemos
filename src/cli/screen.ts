@@ -1,6 +1,6 @@
 /**
  * Alternate screen buffer + parchment background for interactive commands.
- * Used by ori init (boot sequence) and future TUI modes.
+ * Used by mnemos init (boot sequence) and future TUI modes.
  * One-shot commands (status, health, query, etc.) do NOT use this.
  */
 
@@ -23,7 +23,7 @@ function cleanup(): void {
 
 /**
  * Enter parchment mode: alternate screen buffer + warm background.
- * Terminal transforms into the Ori parchment world.
+ * Terminal transforms into the Mnemos parchment world.
  * Call exitParchment() or Ctrl+C to restore.
  */
 export function enterParchment(): void {

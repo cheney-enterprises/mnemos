@@ -1,6 +1,6 @@
 # How much should you trust ForgetEval?
 
-Ori scores 978/1000 (97.8%) on ForgetEval's template suite. Before quoting
+Mnemos scores 978/1000 (97.8%) on ForgetEval's template suite. Before quoting
 that anywhere, here is what the benchmark is and is not, established by
 reading its source and running controls through it rather than by reading its
 paper.
@@ -86,7 +86,7 @@ table says so.
 Nothing in the oracle punishes destroying data the caller did not name,
 except `must_contain` — which is absent in 35% of cases.
 
-Ori demonstrated the consequence on itself. An early version of
+Mnemos demonstrated the consequence on itself. An early version of
 `matchForForget` had an identifier bug: the regex excluded `@` and `.`, so
 emails were invisible, and `purge("alice@post.dev customer history")` matched
 on the shared word "customer" and deleted **bob's** record too.
@@ -108,11 +108,11 @@ system scores 0:
 | amnesia | 99% | 198/200 = 99% |
 | drift | 99% | 198/200 = 99% |
 | **purge** | **91%** | **32/50 = 64%** |
-| **Ori overall** | **97.8%** | **628/650 = 96.6%** |
+| **Mnemos overall** | **97.8%** | **628/650 = 96.6%** |
 | AMNESIAC | 35% | **0/650 = 0%** |
 
-Ori's headline moves little. Its **purge** number moves a lot: 91% → 64%.
-Purge is Ori's genuinely weak family and the full-suite figure hides it.
+Mnemos's headline moves little. Its **purge** number moves a lot: 91% → 64%.
+Purge is Mnemos's genuinely weak family and the full-suite figure hides it.
 
 The published figures for LangMem (99.5), Lethe (99.3) and Mem0 (88.8) are
 full-suite and cannot be corrected without re-running those systems. The
@@ -146,7 +146,7 @@ authorship, so the provenance problem is propagating uncorrected.
 - Nobody uses it yet. "Third on ForgetEval" is third of four, in a 14-star
   repo, behind the repo's owner.
 
-Use it as Ori does: as a **capability gate**, not a leaderboard. Its real
+Use it as Mnemos does: as a **capability gate**, not a leaderboard. Its real
 finding is binary and stark — most systems cannot attempt it at all, and
 fifteen agent-memory vendors publish no forgetting benchmark of any kind.
 

@@ -1,5 +1,5 @@
-name: ori
+name: mnemos
 version: "0.1.0"
-description: "Ori Mnemos — persistent agent memory with learning retrieval. Provides vault health at session start and session capture at end."
-author: "Ori Mnemos"
-homepage: "https://github.com/aayoawoyemi/Ori-Mnemos"
+description: "Mnemos — persistent agent memory with learning retrieval. Provides vault health at session start and session capture at end."
+author: "Mnemos"
+homepage: "https://github.com/aayoawoyemi/Mnemos"

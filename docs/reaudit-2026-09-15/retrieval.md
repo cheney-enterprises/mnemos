@@ -1,6 +1,6 @@
-# Ori re-audit — slice `retrieval` (2026-09-15)
+# Mnemos re-audit — slice `retrieval` (2026-09-15)
 
-**Delivery note.** My toolset (read/grep/glob/web_search/hub/yield) has no `write` tool, so this report could not be written to `local://ori-reaudit-retrieval.md`; Main should persist this `report` field there.
+**Delivery note.** My toolset (read/grep/glob/web_search/hub/yield) has no `write` tool, so this report could not be written to `local://mnemos-reaudit-retrieval.md`; Main should persist this `report` field there.
 
 **Method.** Read-only. Real DB opened with `{readonly:true}` and `.backup()`'d to `%TEMP%`; the derived index was built on that copy (and on a fresh DB) with `dist/core/indexstore.js` `syncIndex` (reads vault files only). `dist/` is current (has `dangling_link`, `BOOTSTRAP_HUB_POSTER_CAP`). Vault: 1,538 notes.
 
@@ -9,7 +9,7 @@
 ## 1. Findings
 
 ### F1 (S0) — The production DB has never executed the fix pass
-`sqlite_master` of `<vault>/.ori/embeddings.db` lists: boosts, co_occurrence, embeddings, memory_events, meta, note_q, q_history, q_history_genuine, retrieval_log, session_checkpoint, stage_log, stage_q. **No `note`, `edge`, `note_term`, `note_access`, `note_project`, `dangling_link`, `graph_metric`, `index_meta`.** File 222,146,560 B, mtime 2026-09-13T05:10Z, `-wal` 103,288,432 B (un-checkpointed). `meta.built_at` = 2026-09-13T04:06Z, `note_count` 1524. Every "real vault" number in tier 2 was produced against a copy (fix-list §Tier 2: "Every number … is from a copy"). Consequences: (a) all learning-table numbers below are pre-fix; (b) the first query on prod pays a full `syncIndex`: **5,677 ms on a fresh DB, 60,047 ms when run inside the 222 MB prod copy** (measured), inside `openSyncedIndex` (indexstore.ts:712-740), which sits on the query path before any signal runs. "A stale index never stops a session" holds only in the sense that the query eventually answers. No-op resync afterwards: 228 ms.
+`sqlite_master` of `<vault>/.mnemos/embeddings.db` lists: boosts, co_occurrence, embeddings, memory_events, meta, note_q, q_history, q_history_genuine, retrieval_log, session_checkpoint, stage_log, stage_q. **No `note`, `edge`, `note_term`, `note_access`, `note_project`, `dangling_link`, `graph_metric`, `index_meta`.** File 222,146,560 B, mtime 2026-09-13T05:10Z, `-wal` 103,288,432 B (un-checkpointed). `meta.built_at` = 2026-09-13T04:06Z, `note_count` 1524. Every "real vault" number in tier 2 was produced against a copy (fix-list §Tier 2: "Every number … is from a copy"). Consequences: (a) all learning-table numbers below are pre-fix; (b) the first query on prod pays a full `syncIndex`: **5,677 ms on a fresh DB, 60,047 ms when run inside the 222 MB prod copy** (measured), inside `openSyncedIndex` (indexstore.ts:712-740), which sits on the query path before any signal runs. "A stale index never stops a session" holds only in the sense that the query eventually answers. No-op resync afterwards: 228 ms.
 
 ### F2 (S0) — CLI learning is a systematic *negative* signal; MCP credits twice
 - search.ts:765-788: per invocation, `new SessionRewardAccumulator(activeSession)` → `logRetrieval` for each returned note → `concludeSession(mainDb)` immediately. No `logAdd`/`logUpdate` can have happened.
@@ -31,7 +31,7 @@ dampening.ts:62 `if (note.score <= threshold) return note;` threshold 0.3. Post-
 `runHomeostasis` (cooccurrence.ts:186-224) scales every edge of a node by `0.5/mean_w`, once for `note_a` and once for `note_b`, sequentially over nodes, with no clamp; `recomputeAllNPMI` bounds |npmi|≤1 but homeostasis runs after it at every MCP session end (serve.ts:279-283). prod: bootstrap rows avg `npmi_weight` **864.8**, retrieval rows **6,925.8** (1,838 NULL). ppr.ts:40-59 adds `0.3·w` per co-occurrence edge against 1.0 per wiki-link → co-occurrence dominates the combined PPR by 2–3 orders of magnitude. 88,056 / 239,993 rows (36.7%) reference a node matching no current note slug or title; 374 rows use title-shaped keys. New bootstrap with current code on the fresh index: 11,326 rows, 3,931 ms, 0 placeholder rows (vs 223,917 bootstrap rows in prod).
 
 ### F7 (S2) — Temporal space measures re-embed time
-engine.ts:725-731: recency = exp(−days since `vectors.indexedAt`/30). `indexed_at` is `embeddings.indexed_at` (set on (re)embed). `ori index build --force` makes the whole vault "recent"; a note edited today but with an unchanged hash stays old.
+engine.ts:725-731: recency = exp(−days since `vectors.indexedAt`/30). `indexed_at` is `embeddings.indexed_at` (set on (re)embed). `mnemos index build --force` makes the whole vault "recent"; a note edited today but with an unchanged hash stays old.
 
 ### F8 (S2) — Item 10 residual divergence
 Budget: fixed — `stage_time_budget_ms` (config.ts:190, default 500 ms) is applied via search.ts:351-354 on both transports because `useIntelligence = true` unconditionally (search.ts:326). Remaining transport differences: (a) `q_reranking` requires the raw `sessionId` param (search.ts ~:610 `useIntelligence && sessionId && …`), so CLI never reranks and MCP truncates to K2=8 (rerank.ts:30, 119); (b) `recordCoRetrieval` is called only from serve.ts:902/981/1093 — CLI queries never grow co_occurrence; (c) MCP passes `graphCache.get()` (graph.ts:16-21 → `buildGraph(notesDir)` with no index, invalidated only on add/archive/index-build) while CLI uses `buildGraph(paths.notes, indexDb)`.
@@ -55,11 +55,11 @@ stage_q.bm25: 80 samples, total −21.66. stage_log shows bm25 `run` avg 1,819 m
 | 7 confidence signal | **Open** | 0 grep hits; F4. |
 | 8 exposure concentration | **Partial / unmeasured** | Code: `exposureDamping` (qvalue.ts:459-500), `applyColdStartFloor` (qvalue.ts:540-580, MCP-only via phaseB, ε=0.1, 1 of 8 slots), `injectExploration` rejection sampling (tracking.ts:82-170 — a perf change; same uniform distribution). prod: top-50 exposure share **46.5%** (was 47.2%), 939/1,538 notes never exposed, 695 never in retrieval_log. Nothing on the CLI path beyond the pre-existing 10% random injection. |
 | 10 CLI↔MCP | **Partial** | Budget unified (config.ts:190; search.ts:326,351). Three divergences remain (F8). |
-| 20 zero inbound | **Open** | 748/1,538 = 48.6% (fix-list 56%); 669 of those link *out* to something dangling; 40 fully isolated. `hygiene()` exists (indexstore.ts:878) but `ori health` still uses `findOrphans` over a fresh `buildGraph` (health.ts:32-34). |
+| 20 zero inbound | **Open** | 748/1,538 = 48.6% (fix-list 56%); 669 of those link *out* to something dangling; 40 fully isolated. `hygiene()` exists (indexstore.ts:878) but `mnemos health` still uses `findOrphans` over a fresh `buildGraph` (health.ts:32-34). |
 | 21 dangling targets | **Open (measured)** | 1,966 rows, 110 distinct targets, 984 source notes. relevant-map 882 + related-note 853 = **88.3%** of rows. `dangling_link` populated, no consumer besides `hygiene()`. |
 | 22 status separates nothing | **Open** | status: active 1,493; blank 35; proposed 3; superseded 2; open 2; planned 1; 22 notes with no frontmatter. |
 | 23 access_count median 1 | **Open** | `note_access` empty in prod (table absent). vitality still reads fm_access_count/live counter (noteindex.ts:92-105). |
-| 24 untagged project | **Open** | 949/1,538 = **61.7%** with no `note_project` row; ai-agents 447, meta 61, jojo-dynasty 38, courtshare 37, crypto 32, basketball-sim 30, career 25, ori 14. |
+| 24 untagged project | **Open** | 949/1,538 = **61.7%** with no `note_project` row; ai-agents 447, meta 61, jojo-dynasty 38, courtshare 37, crypto 32, basketball-sim 30, career 25, mnemos 14. |
 | 25 MAX_PATH | **Not in slice; unobserved** | `syncIndex` scanned 1,538 = reparsed 1,538 (no unreadable file on Node). |
 | 27 promote.min_confidence | **Open / phantom** | grep `min_confidence` over src/scaffold/config → 0 hits (only docs + `.aries/tmp/issue34-comment.md`). The key does not exist in config; the item is mis-stated — either add+enforce or delete from the list. |
 | 28 `--limit 5` → 10 | **Fixed [code-read]** | index.ts:93,117 → `runQueryRanked(…, parseInt(limit))`; search.ts:194 `resultLimit = limit ?? default`; trimmed at search.ts ~:655. Not executed against prod (would write learning tables). Caveat F10. |
@@ -120,23 +120,23 @@ Caveats to resolve before it lands: (1) tokenizer parity — bm25.ts `tokenize` 
 
 ## 5. Vault hygiene (fresh derived index over 1,538 notes; 4,884 edges)
 
-**Top dangling targets:** relevant-map 882; related-note 853; ori-map 20; meta-map 12; codemode-paradigm 12; 2026-02-17-obsidian-internals-deep-dive 11; codemode-primitive-set 9; codemode-sandbox-architecture 7; ori-cloud-product-strategy 6; identity 6; codemode-vs-competitive-landscape 6; codemode-build-path 6. 110 distinct targets; 74 are singletons.
+**Top dangling targets:** relevant-map 882; related-note 853; mnemos-map 20; meta-map 12; codemode-paradigm 12; 2026-02-17-obsidian-internals-deep-dive 11; codemode-primitive-set 9; codemode-sandbox-architecture 7; mnemos-cloud-product-strategy 6; identity 6; codemode-vs-competitive-landscape 6; codemode-build-path 6. 110 distinct targets; 74 are singletons.
 **Inbound:** zero-inbound 748 (48.6%); zero-outbound 43; isolated 40. Top in-degree: index 1,016; ai agents map 462; jojo-dynasty-map 65; builder map 53; courtshare map 37.
 **Project:** 949 (61.7%) with no project.
 **Status:** active 1,493 / blank 35 / other 10. 22 notes without frontmatter.
 
-**Proposed `ori doctor` / `ori health --fix`:**
+**Proposed `mnemos doctor` / `mnemos health --fix`:**
 
 | Action | Safe to automate? | Why |
 |---|---|---|
 | Report top-N dangling targets with inbound counts (from `dangling_link`) | Report | free now; `hygiene()` already exists |
 | Strip `[[relevant-map]]` / `[[related-note]]` placeholder lines from notes whose *template* still carries them (match the exact template line) | `--fix`, opt-in, dry-run default | 1,735 of 1,966 dangling rows; exact-line match is reversible in git |
-| Create stub notes for dangling targets with inbound ≥ 5 (`ori-map`, `meta-map`, codemode-*) | Report + suggested `ori add` | authoring decision |
+| Create stub notes for dangling targets with inbound ≥ 5 (`mnemos-map`, `meta-map`, codemode-*) | Report + suggested `mnemos add` | authoring decision |
 | Exclude dangling targets from PageRank/PPR/co-occurrence bootstrap | Automate (code) | phantom mass; `loadLinkGraph` must not `link()` dangling rows into the ranking graph |
 | Flag notes with zero inbound AND zero outbound (40) | Report | |
 | Project backfill from folder/title patterns | Report only | 61.7% is a taxonomy problem, not a data fix |
-| Purge `note_q`/`boosts`/`co_occurrence` rows for non-existent notes (145 / 327 / 88,056) | Automate on `ori index build` | derived data |
-| WAL checkpoint on `ori index build` / `ori nap` | Automate | 103 MB WAL on prod |
+| Purge `note_q`/`boosts`/`co_occurrence` rows for non-existent notes (145 / 327 / 88,056) | Automate on `mnemos index build` | derived data |
+| WAL checkpoint on `mnemos index build` / `mnemos nap` | Automate | 103 MB WAL on prod |
 
 ---
 
@@ -171,13 +171,13 @@ Open: 7, 20, 21, 22, 23, 24, 27 (phantom), 29, 30, 31. Partial: 6, 8, 10. Fixed:
 4. **F5** — dampening.ts:62: make the threshold a percentile of the current list (or remove gravity; measured reward ≈ 0).
 5. **F6** — cooccurrence.ts `runHomeostasis`: clamp `scale` to [0.5, 2] and `npmi_weight` to [0, 1], or run it once per edge; purge phantom nodes on bootstrap; ppr.ts: read only edges incident to the seed frontier (`WHERE note_a IN (…) OR note_b IN (…)`) rather than the whole table.
 6. **F8** — gate q_reranking on `activeSession`, call `recordCoRetrieval` from search.ts, and have serve.ts pass no `linkGraph` so `buildGraph(notes, indexDb)` is used.
-7. **F1** — `ori index build` should checkpoint the WAL and run the derived-index build eagerly so the first query does not carry 5–60 s; document that the 09-15 fixes are not live until it runs.
+7. **F1** — `mnemos index build` should checkpoint the WAL and run the derived-index build eagerly so the first query does not carry 5–60 s; document that the 09-15 fixes are not live until it runs.
 8. **F7** — store `mtime_ms`/`created` from `note` and use that for the temporal space; `indexed_at` is a cache timestamp.
 9. Item 27 — delete from the fix list or add the key; the config key does not exist.
-10. Hygiene — wire `hygiene()` into `ori health` (replace `findOrphans`/`findDanglingLinks` scans) and add the `--fix` actions above.
+10. Hygiene — wire `hygiene()` into `mnemos health` (replace `findOrphans`/`findDanglingLinks` scans) and add the `--fix` actions above.
 
 ## 9. Open questions
 - Was the 60 s vs 5.7 s `syncIndex` gap due to the 222 MB prod copy's page cache / WAL, or to Windows AV? Either way prod will see the slow one first.
 - Which note is the intended "<probe query>" target? None of the 10 notes containing term `j` has it in the title; if the target is body-only, the current probe can never score a hit for this canonical example.
 - Is `memory_events` (June telemetry) meant to return? Its `foundBy`/`explanation` payload is the shape item 7 needs.
-- Should the CLI ever credit Q at all without an outcome signal (a follow-up `ori add` in the same shell session is unobservable)? If not, CLI should be exposure-only by design and the docs should say so.
+- Should the CLI ever credit Q at all without an outcome signal (a follow-up `mnemos add` in the same shell session is unobservable)? If not, CLI should be exposure-only by design and the docs should say so.

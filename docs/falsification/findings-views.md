@@ -1,11 +1,11 @@
-# Findings — `ori sql` views (§8) and the fresh-vault guarantee
+# Findings — `mnemos sql` views (§8) and the fresh-vault guarantee
 
 Black-box run. Only `docs/specs/memory-sql-spec.md` was read; `src/core/sqlquery*.ts`,
 `src/cli/sqlcmd.ts`, and the view-creation code were never opened. Views were discovered
-through `ori sql --schema` and by querying them.
+through `mnemos sql --schema` and by querying them.
 
-Binary under test: `C:/Users/aayoa/Desktop/ori/dist/index.js` (`ori-memory` 0.7.0).
-All vaults are scratch vaults under `%TEMP%/ori-fv/`. `C:/Users/aayoa/brain` was never touched.
+Binary under test: `C:/Users/aayoa/Desktop/mnemos/dist/index.js` (`mnemos` 0.7.0).
+All vaults are scratch vaults under `%TEMP%/mnemos-fv/`. `C:/Users/aayoa/brain` was never touched.
 
 Probe scripts live alongside this file:
 
@@ -18,7 +18,7 @@ Probe scripts live alongside this file:
 | `probe.mjs` + `probes-*.json` | generic SQL probe runner and probe sets |
 | `stale-view.mjs` | rewrites `v_note` to a legacy definition to test view refresh on re-index |
 | `mcp-client.mjs`, `mcp-multi.mjs`, `mcp-multi-slow.mjs` | MCP stdio driver — `transport` classification and per-session aggregates |
-| `schema-v1.json` | captured `ori sql --schema` output |
+| `schema-v1.json` | captured `mnemos sql --schema` output |
 
 ---
 
@@ -27,7 +27,7 @@ Probe scripts live alongside this file:
 | # | severity | finding |
 |---|---|---|
 | 1 | **major** | `index build` crashes with an uncaught `pagerank: failed to converge` on a vault with zero notes; no views are created and `v_note` then fails with `no such table` — the exact failure §8 names as a defect |
-| 2 | **major** | after a note is deleted or renamed, a plain `index build` leaves `v_dangling` silently incomplete; the affected wiki-links disappear from *both* `v_link` and `v_dangling`, while `ori query dangling` on the same index still reports them |
+| 2 | **major** | after a note is deleted or renamed, a plain `index build` leaves `v_dangling` silently incomplete; the affected wiki-links disappear from *both* `v_link` and `v_dangling`, while `mnemos query dangling` on the same index still reports them |
 | 3 | **major** | `v_retrieval` is not "one row per note returned by a query" on the MCP path: 11 rows logged for a 3-result query, the same note appearing twice, and `rank` is 0-based there but 1-based on the CLI path |
 | 4 | **major** | `v_session.queries` counts *distinct query text*, not queries; two identical queries 3 s apart in one session report `queries = 1` |
 | 5 | minor | `v_note.modified` is rendered in UTC while `v_note.created` is a local date; a note touched at 23:30 local reports `modified = 2026-09-20 04:30:00`, a day ahead |
@@ -108,24 +108,24 @@ topology with slugs `a`–`j`): `a` in3/out2, `b` in2/out1, `c` in3/out0, `d` in
 
 ## Finding 1 — `index build` crashes on a zero-note vault; views are never created (major)
 
-> §8: "All six must exist and be **queryable immediately after `ori index build` on a
+> §8: "All six must exist and be **queryable immediately after `mnemos index build` on a
 > brand-new vault**, before any search has ever run. A view that parses but errors with
 > "no such table" on a fresh vault is a defect."
 
 The spec's own Testing Notes define a vault as "a directory containing `notes/` and a
-`.ori/` directory; run `ori index build` inside it to create the index." Do exactly that,
+`.mnemos/` directory; run `mnemos index build` inside it to create the index." Do exactly that,
 with `notes/` still empty:
 
 ```
-$ mkdir -p v5/notes v5/.ori && cd v5
-$ node C:/Users/aayoa/Desktop/ori/dist/index.js index build
+$ mkdir -p v5/notes v5/.mnemos && cd v5
+$ node C:/Users/aayoa/Desktop/mnemos/dist/index.js index build
 Error: graphology-metrics/centrality/pagerank: failed to converge.
 EXIT=1
 
-$ node -e "console.log(require('fs').statSync('.ori/embeddings.db').size)"
+$ node -e "console.log(require('fs').statSync('.mnemos/embeddings.db').size)"
 4096
 
-$ node C:/Users/aayoa/Desktop/ori/dist/index.js sql "SELECT COUNT(*) FROM v_note"
+$ node C:/Users/aayoa/Desktop/mnemos/dist/index.js sql "SELECT COUNT(*) FROM v_note"
 {"success":false,"data":{"columns":[],"rows":[],"truncated":false,"elapsedMs":73},"warnings":["no such table: v_note"]}
 EXIT=1
 ```
@@ -151,8 +151,8 @@ false
 `v_note` reports a note that no longer exists on disk, and nothing warns about it
 (§2: "every degradation is reported here. Silence means nothing went wrong.").
 
-Scoped, not critical: `ori init` seeds `notes/index.md`, so an init-created vault has one
-note and builds fine. Verified — `ori init .` then `index build` → `indexed:1`,
+Scoped, not critical: `mnemos init` seeds `notes/index.md`, so an init-created vault has one
+note and builds fine. Verified — `mnemos init .` then `index build` → `indexed:1`,
 `v_note` → `["index","index",0,0,1]`. Hand-made vaults (the spec's own instructions) and
 emptied vaults are the reachable paths.
 
@@ -188,7 +188,7 @@ $ node .../dist/index.js query dangling
 
 Actual: `v_dangling` lists only `missing-note`. The three live `[[c]]` links in `a`, `b`, `j`
 appear in neither `v_link` (edges dropped 11 → 8) nor `v_dangling`. They are invisible in the
-entire SQL surface. `ori query dangling`, reading the same index at the same moment, *does*
+entire SQL surface. `mnemos query dangling`, reading the same index at the same moment, *does*
 report `c`.
 Expected: `v_dangling` contains `("c", 3, "a | b | j")`, matching the tool's own dangling report.
 
@@ -237,7 +237,7 @@ rows: [["cli-mu8un1nj-uy57w3","cli",1,"gamma"],["cli-mu8un1nj-uy57w3","cli",2,"t
 
 3 results in, 3 rows, `rank` 1..3. Correct.
 
-The MCP tool `ori_query_ranked` with `{"query":"mcp transport probe","limit":3}` (driven by
+The MCP tool `mnemos_query_ranked` with `{"query":"mcp transport probe","limit":3}` (driven by
 `mcp-client.mjs`) returns 3 results but writes 11 rows for that one query event:
 
 ```
@@ -364,7 +364,7 @@ answerable from `v_note` alone.
 
 ## Finding 7 — undocumented `id` column and join surprises (minor)
 
-`ori sql --schema` and `SELECT * FROM v_note WHERE 0` both report:
+`mnemos sql --schema` and `SELECT * FROM v_note WHERE 0` both report:
 
 ```
 ["id","slug","title","type","status","description","created","modified","access_count","last_accessed","inbound","outbound","pagerank","betweenness","q_value","q_updates","exposure_count"]
@@ -484,18 +484,18 @@ $ node .../dist/index.js sql "SELECT COUNT(*) AS n, SUM(slug = title) AS title_e
 -> [[2,2]]
 ```
 
-Actual: `ori add` writes the prose title as the H1 and the slugified form as the filename;
+Actual: `mnemos add` writes the prose title as the H1 and the slugified form as the filename;
 `v_note.title` reports the slugified form. `title`, `src_title` and `dst_title` are therefore
 redundant aliases of `slug`, `src` and `dst` — four of the fourteen documented `v_note`/`v_link`
 columns carry zero information — and `SELECT title FROM v_note` never returns any note's
 authored title. `WHERE title LIKE '% %'` matches nothing in a vault built entirely through
-`ori add`.
+`mnemos add`.
 Expected: either `title` surfaces the authored title (H1 / frontmatter), or §8 drops the
 three `*title*` columns rather than documenting them as distinct key columns.
 
-Considered and rejected as a false positive: ori's prose-as-title convention makes the
+Considered and rejected as a false positive: mnemos's prose-as-title convention makes the
 filename the canonical claim, so `title == slug` may be intentional. It still leaves three
-documented columns informationless and the H1 — which `ori add` itself writes — unqueryable,
+documented columns informationless and the H1 — which `mnemos add` itself writes — unqueryable,
 so it is filed as minor rather than dropped.
 
 *(Finding 11 is written up in the Addendum at the end of this file — it came out of the same
@@ -531,7 +531,7 @@ correctly (v9: 0.3333… × 3 = 1.0).
 
 > §8: "`transport` in `v_retrieval` is `cli` for session ids beginning `cli-`, else `mcp`."
 
-`ori explore-start` mints session ids of the form `exp-mu8ukfc1-c5wv28`, which by the letter
+`mnemos explore-start` mints session ids of the form `exp-mu8ukfc1-c5wv28`, which by the letter
 of the rule would be labelled `mcp` despite being CLI-originated. Tested:
 
 ```
@@ -629,9 +629,9 @@ and their full column lists intact — exactly as §2 requires for a legitimatel
 - **Subdirectories under `notes/` are ignored by the scanner**, so a duplicate slug at
   `notes/sub/anchor.md` cannot fan out `v_note` (`indexed:0, skipped:35`; `v_note` stayed at
   35 rows, one `anchor`). Not a view defect — noted so the next run does not chase it.
-- **Pre-index behaviour is clean.** With `.ori/` present but no database,
-  `ori sql --schema` returned
-  `{"success":false,"data":{},"warnings":["no index at …\\.ori\\embeddings.db; run \`ori index build\` (unable to open database file)"]}`
+- **Pre-index behaviour is clean.** With `.mnemos/` present but no database,
+  `mnemos sql --schema` returned
+  `{"success":false,"data":{},"warnings":["no index at …\\.mnemos\\embeddings.db; run \`mnemos index build\` (unable to open database file)"]}`
   — no crash, and the warning names the fix, per §9. (After the finding-1 crash the database
   exists but is empty, and the warning degrades to a bare `no such table: v_note` that does
   not tell the caller to rebuild — minor, flagged for the §9 owner.)
@@ -645,8 +645,8 @@ form produced `edges:0 / dangling:2596` while slug-form links produced `edges:19
 inferred that link resolution is slug-only. Tested directly, because if true it would mean
 `v_link` is empty for any vault following the documented `[[prose title]]` convention.
 
-Vault v10: `ori init`, then three notes created the real way —
-`ori add "fake money is not sticky because users have nothing to lose"` etc., which produces
+Vault v10: `mnemos init`, then three notes created the real way —
+`mnemos add "fake money is not sticky because users have nothing to lose"` etc., which produces
 slugified filenames — then a `citer.md` linking them in the title form CLAUDE.md documents,
 plus one slug-form control:
 
@@ -673,7 +673,7 @@ $ node .../dist/index.js sql "SELECT src, dst FROM v_link ORDER BY src, dst"
 
 **Hypothesis refuted — do not file this.** All three title-form links resolved. Link text is
 slugified and matched against filenames, so `[[prose title]]` resolves exactly when the title
-slugifies to the filename — which is what `ori add` guarantees. The peer's zero-edge result
+slugifies to the filename — which is what `mnemos add` guarantees. The peer's zero-edge result
 came from a vault whose filenames (`note-0004.md`) did not slugify from its H1s
 (`# test claim number 4 asserts …`), so the link text matched no file. Correct behaviour, not
 a defect. Combined with the case-folding, alias and fragment results in the negative-results
@@ -696,8 +696,8 @@ all, so title search cannot match anything a user would actually type.
 
 > §8: "| `v_dangling` | missing link target | `target`, `citing_notes`, `cited_by` |"
 
-The `ori add` template itself writes placeholder footers `- [[related note]]` and
-`- [[relevant map]]` — with spaces. After indexing the three `ori add` notes:
+The `mnemos add` template itself writes placeholder footers `- [[related note]]` and
+`- [[relevant map]]` — with spaces. After indexing the three `mnemos add` notes:
 
 ```
 $ node .../dist/index.js sql "SELECT target, citing_notes, cited_by FROM v_dangling ORDER BY target"
@@ -711,7 +711,7 @@ it finds nothing, and the "missing link target" it names is not a string that ap
 in the source. Expected: either the authored link text, or a documented note that `target` is
 normalised.
 
-Secondary observation, worth a fix note rather than a finding: `ori add` manufactures two
+Secondary observation, worth a fix note rather than a finding: `mnemos add` manufactures two
 dangling links per note through its own template placeholders, so every vault built with
-`ori add` carries `related-note` and `relevant-map` in `v_dangling` cited by every note.
+`mnemos add` carries `related-note` and `relevant-map` in `v_dangling` cited by every note.
 

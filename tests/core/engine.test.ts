@@ -356,7 +356,7 @@ describe("initDB", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = path.join(os.tmpdir(), `ori-engine-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    tmpDir = path.join(os.tmpdir(), `mnemos-engine-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(tmpDir, { recursive: true });
   });
 
@@ -424,7 +424,7 @@ describe("loadVectors", () => {
   let tmpDir: string;
 
   beforeEach(() => {
-    tmpDir = path.join(os.tmpdir(), `ori-load-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    tmpDir = path.join(os.tmpdir(), `mnemos-load-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
     mkdirSync(tmpDir, { recursive: true });
   });
 
@@ -614,7 +614,7 @@ describe("removeNoteFromDB", () => {
   beforeEach(() => {
     tmpDir = path.join(
       os.tmpdir(),
-      `ori-remove-note-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      `mnemos-remove-note-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     mkdirSync(tmpDir, { recursive: true });
   });
@@ -668,7 +668,7 @@ describe("buildIndex cleanup", () => {
   beforeEach(async () => {
     vaultDir = path.join(
       os.tmpdir(),
-      `ori-build-index-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      `mnemos-build-index-test-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     await runInit({ targetDir: vaultDir });
   });
@@ -693,7 +693,7 @@ describe("buildIndex cleanup", () => {
       "utf8",
     );
 
-    const config = await loadConfig(path.join(vaultDir, "ori.config.yaml"));
+    const config = await loadConfig(path.join(vaultDir, "mnemos.config.yaml"));
     const db = initDB(path.resolve(vaultDir, config.engine.db_path));
     insertEmbeddingRow(
       db,
@@ -751,7 +751,7 @@ describe("buildIndex cleanup", () => {
       "utf8",
     );
 
-    const config = await loadConfig(path.join(vaultDir, "ori.config.yaml"));
+    const config = await loadConfig(path.join(vaultDir, "mnemos.config.yaml"));
     const db = initDB(path.resolve(vaultDir, config.engine.db_path));
     insertEmbeddingRow(
       db,
@@ -836,7 +836,7 @@ const FIXTURE_CONFIG: EngineConfig = {
   embedding_dims: 8,
   piecewise_bins: 8,
   community_dims: 16,
-  db_path: ".ori/embeddings.db",
+  db_path: ".mnemos/embeddings.db",
 };
 
 const FIXTURE_METRICS: GraphMetrics = {
@@ -892,7 +892,7 @@ describe("loadVectors column pruning", () => {
   beforeEach(() => {
     tmpDir = path.join(
       os.tmpdir(),
-      `ori-prune-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      `mnemos-prune-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     mkdirSync(tmpDir, { recursive: true });
     db = initDB(path.join(tmpDir, "prune.db"));
@@ -1023,7 +1023,7 @@ describe("community space", () => {
   beforeEach(() => {
     tmpDir = path.join(
       os.tmpdir(),
-      `ori-community-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      `mnemos-community-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     );
     mkdirSync(tmpDir, { recursive: true });
     db = initDB(path.join(tmpDir, "community.db"));

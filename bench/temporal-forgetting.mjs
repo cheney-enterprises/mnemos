@@ -1,11 +1,11 @@
-// Temporal forgetting: does Ori's decay actually do anything?
+// Temporal forgetting: does Mnemos's decay actually do anything?
 //
 // Every forgetting benchmark that exists measures COMMANDED forgetting --
 // ForgetEval's supersede/release/purge, MemoryAgentBench's selective
 // forgetting, Memora's FAMA. All of them are control-plane operations: an
 // agent decides to forget and issues a call.
 //
-// Ori's distinctive mechanism is the opposite and is measured by none of
+// Mnemos's distinctive mechanism is the opposite and is measured by none of
 // them: Ebbinghaus decay on wall-clock time, where a memory nobody touches
 // weakens on its own and a memory touched often resists. ForgetEval even has
 // a family named "decay", and it means `release(query)` -- an explicit call.
@@ -28,7 +28,7 @@ function halfLife(rate) {
 }
 function expiry(boost, rate) {
   // days until the boost falls under the floor and the note stops being
-  // boosted at all -- the closest thing Ori has to automatic eviction
+  // boosted at all -- the closest thing Mnemos has to automatic eviction
   return Math.log(boost / FLOOR) / rate;
 }
 

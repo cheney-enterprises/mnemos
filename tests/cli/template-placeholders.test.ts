@@ -17,7 +17,7 @@ const OLD_FOOTER =
 
 let vault: string;
 beforeEach(async () => {
-  vault = await fs.mkdtemp(path.join(os.tmpdir(), "ori-38-"));
+  vault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-38-"));
   await runInit({ targetDir: vault });
   const tpl = path.join(vault, "templates", "note.md");
   const cur = await fs.readFile(tpl, "utf8");

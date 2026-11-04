@@ -1,7 +1,7 @@
 /**
- * Ori Mnemos — MCP Test Harness
+ * Mnemos — MCP Test Harness
  *
- * Spawns `ori serve --mcp` as a child process pointed at a temp vault,
+ * Spawns `mnemos serve --mcp` as a child process pointed at a temp vault,
  * connects via StdioClientTransport, and provides a clean API for tests.
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -24,7 +24,7 @@ export type McpTestContext = {
  */
 export async function createMcpTestContext(): Promise<McpTestContext> {
   // Create temp vault
-  const vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-mcp-test-"));
+  const vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-mcp-test-"));
   await runInit({ targetDir: vaultDir });
 
   // Find the built dist/index.js
@@ -43,13 +43,13 @@ export async function createMcpTestContext(): Promise<McpTestContext> {
     cwd: vaultDir,
     stderr: "pipe",
     // The SDK passes only a small env whitelist to the server; without this
-    // ORI_UPDATE_CACHE_DIR (vitest.config.ts) never arrives and test servers
+    // MNEMOS_UPDATE_CACHE_DIR (vitest.config.ts) never arrives and test servers
     // write update and what's-new state into the developer's real cache.
     env: process.env as Record<string, string>,
   });
 
   const client = new Client(
-    { name: "ori-test-client", version: "1.0.0" },
+    { name: "mnemos-test-client", version: "1.0.0" },
     { capabilities: {} }
   );
 

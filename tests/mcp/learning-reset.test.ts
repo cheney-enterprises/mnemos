@@ -1,5 +1,5 @@
 /**
- * #37 end to end over a real `ori serve --mcp`: the agent is told, the agent
+ * #37 end to end over a real `mnemos serve --mcp`: the agent is told, the agent
  * relays, the tool applies the user's answer. The reset must never happen
  * without the tool call.
  */
@@ -25,7 +25,7 @@ async function seededContext(
   const vault = first.vaultDir;
   await first.client.close();
   // 2. Seed an index with legacy learning.
-  const dbPath = path.join(vault, ".ori", "embeddings.db");
+  const dbPath = path.join(vault, ".mnemos", "embeddings.db");
   await fs.mkdir(path.dirname(dbPath), { recursive: true });
   const db = new Database(dbPath);
   db.exec("CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)");
@@ -53,7 +53,7 @@ async function seededContext(
     stderr: "pipe",
     env: process.env as Record<string, string>,
   });
-  const client = new Client({ name: "ori-test-client", version: "1.0.0" }, { capabilities: {} });
+  const client = new Client({ name: "mnemos-test-client", version: "1.0.0" }, { capabilities: {} });
   await client.connect(transport);
   const c: McpTestContext = {
     client,
@@ -80,9 +80,9 @@ describe("#37 learning reset over MCP", () => {
   it("wake carries the notice once per session, and nothing is reset without the tool", async () => {
     const s = await seededContext();
     ctx = s.ctx;
-    const first = (await callTool(ctx.client, "ori_wake")).parsed as Record<string, unknown>;
-    expect(String(first.learning_reset_notice)).toContain("ori_learning_reset");
-    const second = (await callTool(ctx.client, "ori_wake")).parsed as Record<string, unknown>;
+    const first = (await callTool(ctx.client, "mnemos_wake")).parsed as Record<string, unknown>;
+    expect(String(first.learning_reset_notice)).toContain("mnemos_learning_reset");
+    const second = (await callTool(ctx.client, "mnemos_wake")).parsed as Record<string, unknown>;
     expect(second).not.toHaveProperty("learning_reset_notice");
     expect(count(s.dbPath, "SELECT COUNT(*) c FROM note_q WHERE update_count > 0")).toBe(5);
   });
@@ -104,11 +104,11 @@ describe("#37 learning reset over MCP", () => {
           stderr: "pipe",
           env: process.env as Record<string, string>,
         });
-        const client = new Client({ name: "ori-test-client", version: "1.0.0" }, { capabilities: {} });
+        const client = new Client({ name: "mnemos-test-client", version: "1.0.0" }, { capabilities: {} });
         await client.connect(transport);
         ctx = { ...ctx, client, transport };
       }
-      const wake = (await callTool(ctx.client, "ori_wake")).parsed as Record<string, unknown>;
+      const wake = (await callTool(ctx.client, "mnemos_wake")).parsed as Record<string, unknown>;
       shown.push("learning_reset_notice" in wake);
     }
     expect(shown).toEqual([true, true, true, false]);
@@ -121,20 +121,20 @@ describe("#37 learning reset over MCP", () => {
   it("accepted via the tool: learned state cleared, backup written, not asked again", async () => {
     const s = await seededContext();
     ctx = s.ctx;
-    await callTool(ctx.client, "ori_wake"); // the agent sees the notice first
-    const r = (await callTool(ctx.client, "ori_learning_reset", { decision: "accepted" })).parsed as Record<string, unknown>;
+    await callTool(ctx.client, "mnemos_wake"); // the agent sees the notice first
+    const r = (await callTool(ctx.client, "mnemos_learning_reset", { decision: "accepted" })).parsed as Record<string, unknown>;
     expect(r).toMatchObject({ success: true, decision: "accepted", notesCleared: 5, historyArchived: 30 });
     expect(typeof r.backup).toBe("string");
     await fs.access(r.backup as string);
     expect(count(s.dbPath, "SELECT COUNT(*) c FROM note_q WHERE update_count > 0")).toBe(0);
-    const wake = (await callTool(ctx.client, "ori_wake")).parsed as Record<string, unknown>;
+    const wake = (await callTool(ctx.client, "mnemos_wake")).parsed as Record<string, unknown>;
     expect(wake).not.toHaveProperty("learning_reset_notice");
   });
 
   it("declined via the tool: learning kept", async () => {
     const s = await seededContext();
     ctx = s.ctx;
-    const r = (await callTool(ctx.client, "ori_learning_reset", { decision: "declined" })).parsed as Record<string, unknown>;
+    const r = (await callTool(ctx.client, "mnemos_learning_reset", { decision: "declined" })).parsed as Record<string, unknown>;
     expect(r).toMatchObject({ success: true, decision: "declined", notesCleared: 0 });
     expect(count(s.dbPath, "SELECT COUNT(*) c FROM note_q WHERE update_count > 0")).toBe(5);
   });
@@ -142,14 +142,14 @@ describe("#37 learning reset over MCP", () => {
   it("an accept the agent was never prompted for is refused", async () => {
     const s = await seededContext();
     ctx = s.ctx;
-    const r = (await callTool(ctx.client, "ori_learning_reset", { decision: "accepted" })).parsed as Record<string, unknown>;
+    const r = (await callTool(ctx.client, "mnemos_learning_reset", { decision: "accepted" })).parsed as Record<string, unknown>;
     expect(r).toMatchObject({ success: true, skipped: "not offered", notesCleared: 0 });
     expect(count(s.dbPath, "SELECT COUNT(*) c FROM note_q WHERE update_count > 0")).toBe(5);
   });
 
   it("a fresh vault is never asked", async () => {
     ctx = await createMcpTestContext();
-    const wake = (await callTool(ctx.client, "ori_wake")).parsed as Record<string, unknown>;
+    const wake = (await callTool(ctx.client, "mnemos_wake")).parsed as Record<string, unknown>;
     expect(wake).not.toHaveProperty("learning_reset_notice");
   });
 });
@@ -170,7 +170,7 @@ describe("checkpoint recovery across the #37 rule change", () => {
       put.run("live-session", JSON.stringify({ rule: 37, rewards: { "live-note": 1.0 } }), "-10 seconds");
     });
     ctx = s.ctx;
-    await callTool(ctx.client, "ori_wake"); // recovery runs at server start
+    await callTool(ctx.client, "mnemos_wake"); // recovery runs at server start
     const db = new Database(s.dbPath, { readonly: true });
     try {
       const rows = db.prepare("SELECT note_id, update_count, rule FROM note_q WHERE note_id IN ('old-dead-end', 'old-neutral', 'cited-note', 'live-note')").all();

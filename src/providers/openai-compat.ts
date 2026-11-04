@@ -6,7 +6,7 @@ import type {
   ChatOptions,
 } from "../core/llm.js";
 
-const SYSTEM_PROMPT = `You are a knowledge management assistant for Ori Mnemos, a markdown-native memory system.
+const SYSTEM_PROMPT = `You are a knowledge management assistant for Mnemos, a markdown-native memory system.
 Your job is to enhance a note that is being promoted from inbox to permanent storage.
 
 Given a note's title, body, and frontmatter, plus context about the vault's existing notes:

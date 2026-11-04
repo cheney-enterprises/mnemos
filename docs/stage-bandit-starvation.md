@@ -13,14 +13,14 @@ short-circuit that could preempt it.**
 
 ## Symptom
 
-A live `ori_query_ranked` returned:
+A live `mnemos_query_ranked` returned:
 
 ```
 stages_skipped: [pagerank, warmth, cooccurrence_ppr,
                  gravity_dampening, hub_dampening, q_reranking]
 ```
 
-Six of eight — exactly the six with `essential: false`. `ori_health` reported
+Six of eight — exactly the six with `essential: false`. `mnemos_health` reported
 `exposure/Q correlation = -1.000`, which read as a reward defect and was not.
 
 `stage_q`, measured directly:
@@ -127,7 +127,7 @@ very little to rank on. That is a design question, not a bug.
 
 - Index freshness: the index was five days old holding 1,423 of 1,524 notes, so
   101 notes were invisible to every ranked query. Rebuild was manual and
-  therefore never run. Now handled at launch by `scripts/ori_refresh.py` in the
+  therefore never run. Now handled at launch by `scripts/mnemos_refresh.py` in the
   aries-cli repo, which reads the index read-only and rebuilds when a note is
   missing or the build is over 12h old.
 - `note_q` held one raw-title key alongside its slug counterpart, splitting one

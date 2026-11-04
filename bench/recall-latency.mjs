@@ -1,4 +1,4 @@
-// Is Ori's 10.4 s/query at 18k notes a one-time index build, or every query?
+// Is Mnemos's 10.4 s/query at 18k notes a one-time index build, or every query?
 //
 // factconsolidation.mjs measured total query wall time for 100 questions and
 // divided. That total includes whatever the FIRST recall() does to build the
@@ -14,7 +14,7 @@
 import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { recall as oriRecall } from "ori-memory";
+import { recall as mnemosRecall } from "mnemos";
 
 const DATA = process.env.MAB_JSONL ?? "C:/tmp/mabdata/conflict.jsonl";
 const N_QUERIES = 12;
@@ -23,7 +23,7 @@ const slugify = (t, n = 56) =>
 
 const rows = readFileSync(DATA, "utf8").split(/\r?\n/).filter(Boolean).map((l) => JSON.parse(l));
 
-console.log("Ori recall() latency: first query vs steady state\n");
+console.log("Mnemos recall() latency: first query vs steady state\n");
 console.log("  facts    build+q1     q2      q3    median(q2..)   total/12   ratio q1/med");
 console.log("  " + "-".repeat(76));
 
@@ -37,8 +37,8 @@ for (const size of ["6k", "32k", "64k"]) {
 
   const v = mkdtempSync(join(tmpdir(), "lat-"));
   mkdirSync(join(v, "notes"), { recursive: true });
-  mkdirSync(join(v, ".ori"), { recursive: true });
-  writeFileSync(join(v, "ori.config.yaml"), "engine:\n  db_path: .ori/embeddings.db\n");
+  mkdirSync(join(v, ".mnemos"), { recursive: true });
+  writeFileSync(join(v, "mnemos.config.yaml"), "engine:\n  db_path: .mnemos/embeddings.db\n");
   for (const { idx, text } of lines) {
     writeFileSync(join(v, "notes", `f${String(idx).padStart(6, "0")}-${slugify(text)}.md`),
       `---\ndescription: ${JSON.stringify(text).slice(1, -1)}\ntype: insight\ncreated: 2026-09-19\n---\n\n${text}\n`, "utf8");
@@ -47,7 +47,7 @@ for (const size of ["6k", "32k", "64k"]) {
   const times = [];
   for (let q = 0; q < N_QUERIES; q++) {
     const t = Date.now();
-    await oriRecall(v, row.questions[q], { limit: 10 });
+    await mnemosRecall(v, row.questions[q], { limit: 10 });
     times.push(Date.now() - t);
   }
   rmSync(v, { recursive: true, force: true });
@@ -82,7 +82,7 @@ console.log("  implied one-time build at 18,332 notes: " + impliedBuild.toFixed(
 console.log("  linear extrapolation from the small sizes: " + linearBuild.toFixed(0) + "s");
 console.log("  build is " + (impliedBuild / linearBuild).toFixed(1) + "x superlinear at this scale");
 console.log("");
-console.log("  This is why .ori/ is not disposable. The README once called it a");
+console.log("  This is why .mnemos/ is not disposable. The README once called it a");
 console.log("  throwaway cache; deleting it at 18k notes costs an 11-minute");
 console.log("  rebuild, on top of the 56,850 learned rows already shown to be");
 console.log("  unrecoverable from the notes alone.");

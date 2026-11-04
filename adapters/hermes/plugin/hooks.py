@@ -1,7 +1,7 @@
-"""Ori Mnemos lifecycle hooks for Hermes Agent.
+"""Mnemos lifecycle hooks for Hermes Agent.
 
 on_session_start: prints vault health summary (note count, inbox, fading, orphans).
-on_session_end:   captures a session insight via `ori add`.
+on_session_end:   captures a session insight via `mnemos add`.
 
 Both hooks silently no-op if no vault is found.
 """
@@ -12,14 +12,14 @@ import subprocess
 
 
 def _find_vault():
-    """Resolve vault root: ORI_VAULT env > walk up from cwd looking for .ori directory."""
-    vault = os.environ.get("ORI_VAULT")
-    if vault and os.path.isdir(os.path.join(vault, ".ori")):
+    """Resolve vault root: MNEMOS_VAULT env > walk up from cwd looking for .mnemos directory."""
+    vault = os.environ.get("MNEMOS_VAULT")
+    if vault and os.path.isdir(os.path.join(vault, ".mnemos")):
         return vault
 
     current = os.path.abspath(os.getcwd())
     while True:
-        if os.path.isdir(os.path.join(current, ".ori")):
+        if os.path.isdir(os.path.join(current, ".mnemos")):
             return current
         parent = os.path.dirname(current)
         if parent == current:
@@ -35,7 +35,7 @@ def on_session_start(**kwargs):
 
     try:
         result = subprocess.run(
-            ["ori", "health"],
+            ["mnemos", "health"],
             capture_output=True,
             text=True,
             timeout=8,
@@ -82,7 +82,7 @@ def on_session_start(**kwargs):
 
 
 def on_session_end(**kwargs):
-    """Capture session summary as an inbox note via `ori add`."""
+    """Capture session summary as an inbox note via `mnemos add`."""
     vault = _find_vault()
     if not vault:
         return
@@ -101,7 +101,7 @@ def on_session_end(**kwargs):
 
     try:
         subprocess.run(
-            ["ori", "add", title, "--type", "insight"],
+            ["mnemos", "add", title, "--type", "insight"],
             timeout=10,
         )
     except (subprocess.TimeoutExpired, FileNotFoundError):

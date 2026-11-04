@@ -104,7 +104,7 @@ export async function runHealth(
   }
 
   // Learning-signal health. Added 2026-08-28: a per-query reward proxy ran for
-  // five months and inverted every Q-value, and nothing in `ori health` would
+  // five months and inverted every Q-value, and nothing in `mnemos health` would
   // have shown it. These four numbers are the ones that would have.
   let learning: Record<string, unknown> | undefined;
   const learningWarnings: string[] = [];
@@ -158,7 +158,7 @@ export async function runHealth(
       // record exposure without credit and neutral / dead-end outcomes write
       // nothing, so uncredited notes and sessions are normal. The outage it
       // guarded against (session-end flush never running) is reported per
-      // session on stderr by serve.ts ("[ori] session learning: ...").
+      // session on stderr by serve.ts ("[mnemos] session learning: ...").
     } finally {
       db.close();
     }

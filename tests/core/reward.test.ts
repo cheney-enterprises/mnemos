@@ -32,7 +32,7 @@ describe("SessionRewardAccumulator", () => {
   });
 
   describe("forward citation detection", () => {
-    it("gives +1.0 reward when retrieved note is cited in ori_add content", () => {
+    it("gives +1.0 reward when retrieved note is cited in mnemos_add content", () => {
       const acc = new SessionRewardAccumulator("s1");
       acc.logRetrieval("note-a", 0, "query", "semantic");
       acc.logAdd("new-note", "This builds on [[note-a]] and extends it");

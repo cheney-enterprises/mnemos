@@ -63,7 +63,7 @@ export function applyGravityDampening(
   return results.map((note) => {
     if (note.score <= threshold) return note;
 
-    // Check term overlap against note title (which IS the note ID in Ori)
+    // Check term overlap against note title (which IS the note ID in Mnemos)
     const titleTerms = extractKeyTerms(note.title);
     let overlap = 0;
     for (const term of queryTerms) {

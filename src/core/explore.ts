@@ -1,11 +1,11 @@
 /**
- * ori_explore — Recursive Memory Harness
+ * mnemos_explore — Recursive Memory Harness
  *
  * Phase 1: Deep graph traversal via PPR at α=0.45 (HippoRAG-validated).
  * Phase 3: Recursive sub-question decomposition with adaptive depth,
  *          convergence detection, and learning signal wiring.
  *
- * The LLM does exactly one thing: identify gaps. Ori fills them.
+ * The LLM does exactly one thing: identify gaps. Mnemos fills them.
  * All navigation is deterministic code (PPR, BM25, seed fusion).
  * Every pass generates learning signals (Q-values, co-occurrence).
  *

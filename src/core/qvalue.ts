@@ -122,7 +122,7 @@ export function initQValueTables(db: Database.Database): void {
  * vault only one can classify.
  *
  * Exported because some entry points open the database without
- * initQValueTables: `ori health` (the new queries need the column) and
+ * initQValueTables: `mnemos health` (the new queries need the column) and
  * `index export-learned` / `import-learned`, where importing into an
  * unmigrated table would silently drop incoming `rule` values and then let
  * this classification re-infer them from mixed history (Codex review).
@@ -485,7 +485,7 @@ export function updateQ(
       `updateQ: refusing write from source '${source}'. Q-values may only be ` +
         `written at session end (session_batch) or on explore conclusion ` +
         `(explore_conclude). Per-query writes create a degenerate feedback ` +
-        `loop — see notes/the-ori-q-value-proxy-reward-was-a-degenerate-` +
+        `loop — see notes/the-mnemos-q-value-proxy-reward-was-a-degenerate-` +
         `feedback-loop. Pass allowUnsafe=true only from a migration script.`,
     );
   }
@@ -818,7 +818,7 @@ export function batchUpdateQ(
 }
 
 /**
- * Health snapshot of the learning signal, for `ori_health` and for tests.
+ * Health snapshot of the learning signal, for `mnemos_health` and for tests.
  *
  * The 2026-08 failure was invisible for five months because nothing summarized
  * *what kind* of reward was accumulating. These numbers would have made it

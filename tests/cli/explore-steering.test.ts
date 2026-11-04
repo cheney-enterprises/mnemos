@@ -1,8 +1,8 @@
 /**
- * Ori Mnemos — Manual Steering CLI Tests (v0.5.1)
+ * Mnemos — Manual Steering CLI Tests (v0.5.1)
  *
  * File-backed navigated sessions: explore-start persists to
- * .ori/explore-sessions/, explore-expand resumes across invocations
+ * .mnemos/explore-sessions/, explore-expand resumes across invocations
  * (fresh deps each time, like real CLI calls), conclude validates and
  * removes the session file.
  */
@@ -22,7 +22,7 @@ import {
 let vaultDir: string;
 
 beforeAll(async () => {
-  vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "ori-cli-steer-"));
+  vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-cli-steer-"));
   await runInit({ targetDir: vaultDir });
   const notes: Array<[string, string, string]> = [
     ["court coin origin", "decision", "Started as [[courtshare pivot]]. NBA player stock market."],
@@ -42,11 +42,11 @@ afterAll(async () => {
 });
 
 describe("manual steering via file-backed sessions", () => {
-  it("start persists a session file under .ori/explore-sessions/", async () => {
+  it("start persists a session file under .mnemos/explore-sessions/", async () => {
     const r = await runExploreStartCli(vaultDir, "why did we start court coin", 3);
     expect(r.success).toBe(true);
     const id = (r.data as { exploration_id: string }).exploration_id;
-    const file = path.join(vaultDir, ".ori", "explore-sessions", `${id}.json`);
+    const file = path.join(vaultDir, ".mnemos", "explore-sessions", `${id}.json`);
     await expect(fs.access(file)).resolves.toBeUndefined();
   }, 60000);
 
@@ -63,7 +63,7 @@ describe("manual steering via file-backed sessions", () => {
 
     // And the persisted state reflects it
     const raw = await fs.readFile(
-      path.join(vaultDir, ".ori", "explore-sessions", `${id}.json`), "utf8");
+      path.join(vaultDir, ".mnemos", "explore-sessions", `${id}.json`), "utf8");
     const state = JSON.parse(raw) as { nodes: unknown[]; budgetRemaining: number };
     expect(state.nodes.length).toBe(2);
     expect(state.budgetRemaining).toBe(2);
@@ -82,7 +82,7 @@ describe("manual steering via file-backed sessions", () => {
     expect(summary.usedNotes).toEqual(["court-coin-origin"]);
     expect(summary.rejectedNotes).toEqual(["phantom-note"]);
 
-    const file = path.join(vaultDir, ".ori", "explore-sessions", `${id}.json`);
+    const file = path.join(vaultDir, ".mnemos", "explore-sessions", `${id}.json`);
     await expect(fs.access(file)).rejects.toThrow();
 
     // Expanding a concluded (deleted) session fails cleanly

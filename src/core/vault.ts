@@ -18,7 +18,7 @@ export type VaultPaths = {
 
 export async function isVaultRoot(dir: string): Promise<boolean> {
   try {
-    await fs.access(path.join(dir, ".ori"));
+    await fs.access(path.join(dir, ".mnemos"));
     return true;
   } catch {
     return false;
@@ -27,12 +27,12 @@ export async function isVaultRoot(dir: string): Promise<boolean> {
 
 /**
  * A vault whose derived index has been deleted still has its config. This is
- * what distinguishes "the user removed .ori/ on purpose" from "this directory
- * has nothing to do with Ori".
+ * what distinguishes "the user removed .mnemos/ on purpose" from "this directory
+ * has nothing to do with Mnemos".
  */
 export async function hasVaultConfig(dir: string): Promise<boolean> {
   try {
-    await fs.access(path.join(dir, "ori.config.yaml"));
+    await fs.access(path.join(dir, "mnemos.config.yaml"));
     return true;
   } catch {
     return false;
@@ -45,7 +45,7 @@ export type VaultRootResult = {
 };
 
 export function getGlobalVaultPath(): string {
-  return path.join(os.homedir(), ".ori-memory");
+  return path.join(os.homedir(), ".mnemos-memory");
 }
 
 export async function findVaultRootWithSource(
@@ -57,26 +57,26 @@ export async function findVaultRootWithSource(
     const resolved = path.resolve(override);
     if (await isVaultRoot(resolved)) return { path: resolved, source: "project" };
     throw new Error(
-      `Vault not found at specified path: ${resolved}. Run 'ori init ${resolved}' to create one.`,
+      `Vault not found at specified path: ${resolved}. Run 'mnemos init ${resolved}' to create one.`,
     );
   }
 
   // 1.5. Environment override — authoritative, validate or throw
-  const envVault = process.env.ORI_VAULT?.trim();
+  const envVault = process.env.MNEMOS_VAULT?.trim();
   if (envVault) {
     const resolved = path.resolve(envVault);
     if (await isVaultRoot(resolved)) return { path: resolved, source: "project" };
     throw new Error(
-      `Vault not found at ORI_VAULT: ${resolved}. Run 'ori init ${resolved}' to create one.`,
+      `Vault not found at MNEMOS_VAULT: ${resolved}. Run 'mnemos init ${resolved}' to create one.`,
     );
   }
 
-  // 2. Walk up from startDir looking for .ori
+  // 2. Walk up from startDir looking for .mnemos
   //
-  // A directory holding ori.config.yaml is a vault root even when .ori/ is
-  // absent, and the walk MUST stop there. Before this, `rm -rf .ori/ && ori
+  // A directory holding mnemos.config.yaml is a vault root even when .mnemos/ is
+  // absent, and the walk MUST stop there. Before this, `rm -rf .mnemos/ && mnemos
   // index build` — the recovery procedure the README documents — walked past
-  // the vault it was run in, found the next .ori up the tree (a
+  // the vault it was run in, found the next .mnemos up the tree (a
   // home-directory vault, in the case that surfaced this), and rebuilt THAT
   // one while reporting {"success":true}. Wrong vault, plausible output, no
   // error. An index deleted on purpose must not silently promote its parent.
@@ -95,7 +95,7 @@ export async function findVaultRootWithSource(
 
   // 4. No vault anywhere — throw
   throw new Error(
-    "No .ori marker found. Run 'ori init' to create a vault, or connect via MCP to auto-create one.",
+    "No .mnemos marker found. Run 'mnemos init' to create a vault, or connect via MCP to auto-create one.",
   );
 }
 
@@ -108,8 +108,8 @@ export async function findVaultRoot(startDir: string, override?: string): Promis
 export function getVaultPaths(root: string): VaultPaths {
   return {
     root,
-    marker: path.join(root, ".ori"),
-    config: path.join(root, "ori.config.yaml"),
+    marker: path.join(root, ".mnemos"),
+    config: path.join(root, "mnemos.config.yaml"),
     notes: path.join(root, "notes"),
     inbox: path.join(root, "inbox"),
     templates: path.join(root, "templates"),
