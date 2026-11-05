@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { VERSION } from "./core/version.js";
 import { checkForUpdate } from "./core/update-check.js";
 import { disposeEmbedder } from "./core/engine.js";
+import { runForget } from "./cli/forget.js";
 import { readFileSync } from "node:fs";
 
 import { runInitInteractive } from "./cli/init.js";
@@ -476,6 +477,33 @@ program
         throw new Error(`Unknown graph action: ${action}`);
     }
     await emit(result);
+  });
+
+program
+  .command("forget")
+  .description("Query-addressed forgetting: release (soft-evict), supersede (replace), purge (hard delete, CLI-only)")
+  .argument("<op>", "release | supersede | purge")
+  .argument("<query>", "what to forget — matched by rare-token anchor + embedding similarity")
+  .option("--new-text <text>", "supersede only: the replacement content")
+  .option("-p, --project <projects...>", "supersede only: project tags for the replacement note")
+  .option("--apply", "actually mutate (default: dry-run preview)")
+  .option("--max-forget <n>", "refuse if the query addresses more than N notes (default 10; Infinity disables)", "10")
+  .action(async (op, query, options: { newText?: string; project?: string[]; apply?: boolean; maxForget?: string }) => {
+    if (!["release", "supersede", "purge"].includes(op)) {
+      await emit({ success: false, warnings: [`unknown op "${op}" — release | supersede | purge`] });
+      return;
+    }
+    const cap = options.maxForget === "Infinity" ? Infinity : Number(options.maxForget);
+    const result = await runForget({
+      startDir: process.cwd(),
+      op: op as "release" | "supersede" | "purge",
+      query,
+      newText: options.newText,
+      project: options.project,
+      apply: options.apply === true,
+      maxForget: cap,
+    });
+    await emit(result, result.success ? 0 : 1);
   });
 
 program

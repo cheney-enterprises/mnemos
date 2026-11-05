@@ -14,6 +14,7 @@ import { runQueryRanked, runQuerySimilar, runQueryWarmth } from "./search.js";
 import { runExplore } from "./explore.js";
 import { runIndexBuild } from "./indexcmd.js";
 import { runPrune } from "./prune.js";
+import { runForget } from "./forget.js";
 import { findVaultRootWithSource, getGlobalVaultPath, getVaultPaths, type VaultPaths } from "../core/vault.js";
 import { runInit } from "./init.js";
 import { runWake } from "./wake.js";
@@ -989,6 +990,41 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       if (apply === true && result.success) {
         graphCache.invalidate();
       }
+      return textResult(result);
+    }
+  );
+
+  // mnemos_forget — release | supersede. Dry-run by default; blast-radius cap.
+  // purge is deliberately NOT exposed as a tool: an agent must not be able to
+  // hard-delete vault records — a human types `mnemos forget purge` in a shell.
+  server.tool(
+    "mnemos_forget",
+    "Query-addressed forgetting. op=release: soft-evict matched notes (status=released, files kept, never recalled). " +
+      "op=supersede: mark the single best match superseded and write a replacement note. " +
+      "Dry-run by default — set apply=true after reviewing the match list. Refuses when the query addresses more than max_forget notes (default 10). " +
+      "purge (hard delete) is intentionally CLI-only.",
+    {
+      op: z.enum(["release", "supersede"]).describe("release = soft-evict; supersede = replace with new note"),
+      query: z.string().describe("What to forget — matched by rare-token anchor + embedding similarity"),
+      new_text: z.string().optional().describe("supersede only: the replacement content"),
+      project: z.array(z.string()).optional().describe("supersede only: project tags for the replacement note"),
+      apply: z.boolean().optional().describe("Actually mutate (default false = dry-run preview)"),
+      max_forget: z.number().optional().describe("Blast-radius cap (default 10)"),
+    },
+    async ({ op, query, new_text, project, apply, max_forget }) => {
+      if (op === "supersede" && !new_text?.trim()) {
+        return errorResult("supersede requires new_text (the replacement content)");
+      }
+      const result = await runForget({
+        startDir: vaultDir,
+        op,
+        query,
+        newText: new_text,
+        project,
+        apply: apply === true,
+        maxForget: max_forget,
+      });
+      if (result.success) graphCache.invalidate();
       return textResult(result);
     }
   );

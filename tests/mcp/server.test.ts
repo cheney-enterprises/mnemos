@@ -66,6 +66,7 @@ describe("tools listing", () => {
       "memory_sql",
       "mnemos_add",
       "mnemos_explore",
+      "mnemos_forget",
       "mnemos_health",
       "mnemos_index_build",
       "mnemos_learning_reset",
