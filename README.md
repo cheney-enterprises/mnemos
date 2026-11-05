@@ -579,6 +579,9 @@ mnemos promote [note] [--all]        # Promote to knowledge graph
 mnemos validate <path>               # Schema validation
 mnemos archive [--dry-run]           # Archive stale notes
 mnemos prune [--apply] [--verbose]   # Topology analysis + archive candidates
+mnemos forget release <query> [--apply] [--max-forget <n>]   # Soft-evict matched notes (dry-run default)
+mnemos forget supersede <query> --new-text <text> [-p <proj>] [--apply]  # Retire the best match, write its replacement
+mnemos forget purge <query> [--apply]                         # Hard delete — human-only, prefer release
 
 # Retrieval
 mnemos explore <query>               # Recursive graph traversal (RMH)

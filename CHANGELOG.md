@@ -1,5 +1,26 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- `mnemos forget <op> <query>` CLI command and `mnemos_forget` MCP tool (17th tool) wire the
+  query-addressed forgetting engine (`src/core/forget.ts`) into the user surface:
+  `release` (soft-evict, files kept, filtered from retrieval), `supersede` (retire the best
+  match and write its replacement with forward-declared `supersedes:` frontmatter), and
+  `purge` (hard delete, CLI-only by design — an agent must not be able to unlink records).
+  Dry-run is the default at both layers; the blast-radius cap (default 10, `Infinity` to
+  disable) refuses over-broad queries.
+
+### Fixed
+- Ranked and similar retrieval filtered forgotten statuses with the hardcoded
+  `!== 'archived'` literal while indexstore/explore/engine used `isForgotten()` —
+  the exact drift `status.ts` exists to prevent. Superseded and released notes
+  resurfaced in ranked retrieval; both filter sites now use `isForgotten()`.
+- CLI hang: `add`/`promote` could sit forever after printing because the onnxruntime
+  embedding session kept the event loop alive, and `process.exit()` mid-session aborted
+  with a libc++abi mutex error. Shared `emit()` now disposes the embedder, flushes the
+  JSON, and exits from the stdout write callback with an unref'd backstop.
+
 ## [0.8.1] - 2026-10-01
 
 Auto-promote fixes, found by adding notes to a real 1,571-note vault.
