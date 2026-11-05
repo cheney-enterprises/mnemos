@@ -2,4 +2,4 @@ name: mnemos
 version: "0.1.0"
 description: "Mnemos — persistent agent memory with learning retrieval. Provides vault health at session start and session capture at end."
 author: "Mnemos"
-homepage: "https://github.com/aayoawoyemi/Mnemos"
+homepage: "https://github.com/cheney-enterprises/mnemos"

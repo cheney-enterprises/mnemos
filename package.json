@@ -1,7 +1,7 @@
 {
   "name": "mnemos",
   "version": "0.8.1",
-  "mcpName": "io.github.aayoawoyemi/mnemos",
+  "mcpName": "io.github.cheney-enterprises/mnemos",
   "description": "Cognitive architecture for persistent AI agent memory. Knowledge graph with learning retrieval, ACT-R decay, and spreading activation. Markdown-native, local-first, zero cloud. MCP server + CLI.",
   "keywords": [
     "ai",
@@ -36,10 +36,10 @@
     "knowledge-management",
     "note-taking"
   ],
-  "homepage": "https://github.com/aayoawoyemi/Mnemos",
+  "homepage": "https://github.com/cheney-enterprises/mnemos",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/aayoawoyemi/Mnemos.git"
+    "url": "git+https://github.com/cheney-enterprises/mnemos.git"
   },
   "license": "Apache-2.0",
   "author": "Aayo Awoyemi",

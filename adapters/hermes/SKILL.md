@@ -7,7 +7,7 @@ license: Apache-2.0
 metadata:
   hermes:
     tags: [Memory, Knowledge Graph, MCP, Persistent, Identity, Session, Retrieval]
-    homepage: https://github.com/aayoawoyemi/Mnemos
+    homepage: https://github.com/cheney-enterprises/mnemos
     related_skills: [native-mcp]
 prerequisites:
   commands: [node, npm]

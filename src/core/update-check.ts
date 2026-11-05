@@ -192,7 +192,7 @@ export async function buildAgentNotice(info: UpdateInfo): Promise<string | null>
   if (prior && prior.version === info.latest) return null; // user already answered for this version
   return (
     `Mnemos ${info.latest} is available (installed: ${info.current}). ` +
-    `What changed: https://github.com/aayoawoyemi/Mnemos/releases/tag/v${info.latest} ` +
+    `What changed: https://github.com/cheney-enterprises/mnemos/releases/tag/v${info.latest} ` +
     `Ask the user at a natural pause: "By the way, Mnemos pushed an update to v${info.latest} — want me to update it, or keep using v${info.current}?" ` +
     `If they say yes: run \`npm update -g mnemos\` and then call mnemos_update_decision with decision="accepted". ` +
     `If they say no: call mnemos_update_decision with decision="declined". ` +

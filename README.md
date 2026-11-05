@@ -756,7 +756,7 @@ This is not ideological. It is architectural. Portable memory is composable memo
 ## Development
 
 ```bash
-git clone https://github.com/aayoawoyemi/Mnemos.git
+git clone https://github.com/cheney-enterprises/mnemos.git
 cd Mnemos
 npm install
 npm run build

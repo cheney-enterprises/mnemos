@@ -1,11 +1,11 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.aayoawoyemi/mnemos",
+  "name": "io.github.cheney-enterprises/mnemos",
   "title": "Mnemos — Persistent Agent Memory",
   "description": "Cognitive architecture for persistent AI agent memory. Knowledge graph with learning retrieval, ACT-R decay, and spreading activation. Markdown-native, local-first, zero cloud. MCP server + CLI.",
   "websiteUrl": "https://mnemos.com",
   "repository": {
-    "url": "https://github.com/aayoawoyemi/Mnemos",
+    "url": "https://github.com/cheney-enterprises/mnemos",
     "source": "github"
   },
   "version": "0.8.1",
