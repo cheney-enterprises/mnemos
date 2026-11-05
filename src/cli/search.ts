@@ -20,6 +20,7 @@ import {
   buildGraphologyGraph,
 } from "../core/importance.js";
 import { fuseScoreWeightedRRF, normalizeSignalWeights } from "../core/fusion.js";
+import { isForgotten } from "../core/status.js";
 import { injectExploration, logAccess } from "../core/tracking.js";
 import type { ScoredNote } from "../core/ranking.js";
 import { buildNoteIndex, computeAllVitality, recordNoteAccess } from "../core/noteindex.js";
@@ -661,11 +662,15 @@ export async function runQueryRanked(
     }
   }
 
-  // 12. Filter archived before trimming — ensures full result count
+  // 12. Filter forgotten (archived/superseded/released) before trimming —
+  // ensures full result count. This site used the `archived` literal while
+  // indexstore/explore/engine all used isForgotten — exactly the drift
+  // status.ts exists to prevent; superseded notes resurfaced in ranked
+  // retrieval after mnemos forget supersede.
   const filtered = excludeArchived !== false
     ? ranked.filter(note => {
         const fm = noteIndex.frontmatter.get(note.title);
-        return fm?.status !== 'archived';
+        return !isForgotten(fm?.status);
       })
     : ranked;
   const warmthDebug = summarizeWarmthInfluence(
@@ -1005,11 +1010,12 @@ export async function runQuerySimilar(
     config: config.engine,
   });
 
-  // 6. Filter archived before trimming
+  // 6. Filter forgotten (archived/superseded/released) before trimming —
+  // same drift fix as the ranked path above.
   const filtered = excludeArchived !== false
     ? compositeResults.filter(note => {
         const fm = noteIndex.frontmatter.get(note.title);
-        return fm?.status !== 'archived';
+        return !isForgotten(fm?.status);
       })
     : compositeResults;
   const results = filtered.slice(0, resultLimit);
