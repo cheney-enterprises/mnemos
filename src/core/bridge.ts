@@ -99,7 +99,7 @@ export async function resolveBridgePlan(request: BridgeRequest): Promise<BridgeP
 
   if (!request.uninstall && (request.target === "generic" || request.target === "codex") && activation === "auto") {
     warnings.push(
-      `${request.target === "codex" ? "Codex" : "Generic installs"} cannot auto-orient by themselves. Treat activation=auto as a request for client-side startup wiring.`,
+      `${request.target === "codex" ? "Codex" : "Generic installs"} cannot run startup hooks by themselves. Treat activation=auto as a request for client-side startup wiring.`,
     );
     instructions.push(
       "If your client supports startup hooks or startup prompts, wire them to run `mnemos wake` (CLI) or call the `mnemos_wake` MCP tool at session start. Otherwise use manual activation.",

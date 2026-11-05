@@ -11,7 +11,7 @@ import os from "node:os";
 
 const PACKAGE_NAME = "mnemos";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
-const REQUEST_TIMEOUT_MS = 3000; // don't block orient if npm is slow
+const REQUEST_TIMEOUT_MS = 3000; // don't block wake if npm is slow
 
 // Current installed version
 const CURRENT_VERSION = VERSION;
@@ -169,7 +169,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
         `Mnemos v${latest} available (you have v${CURRENT_VERSION}). Run: npm update -g mnemos`;
     }
   } catch {
-    // Update check is best-effort — never fail orient
+    // Update check is best-effort — never fail the command
   }
 
   return result;

@@ -1,6 +1,6 @@
 """Mnemos plugin for Hermes Agent.
 
-Registers lifecycle hooks for automatic session orient and capture.
+Registers lifecycle hooks for vault health at session start and capture at session end.
 Requires the `mnemos` CLI to be installed and available on PATH.
 """
 

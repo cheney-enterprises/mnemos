@@ -25,12 +25,16 @@ import {
 
 const BRIDGE_SENTINEL = "<!-- mnemos-bridge:claude-code -->";
 const MNEMOS_MCP_SENTINEL = "mnemos";
-const MNEMOS_HOOK_SCRIPT_NAMES = ["orient.mjs", "validate.mjs", "capture.mjs"] as const;
+const MNEMOS_HOOK_SCRIPT_NAMES = ["status.mjs", "validate.mjs", "capture.mjs"] as const;
+// status.mjs was named orient.mjs before the orient tool was superseded by
+// mnemos_wake. The old name is detection-only: uninstalls of pre-rename
+// installs must still find and remove its hooks. It is never copied.
+const MNEMOS_LEGACY_HOOK_SCRIPT_NAMES = ["orient.mjs"] as const;
 
 function claudeSnippet(activation: BridgeActivation): string {
   const hookLine =
     activation === "auto"
-      ? "- Hooks in `.claude/hooks/`: `orient.mjs` prints raw vault status at session start, `capture.mjs` writes a session insight at Stop, `validate.mjs` validates vault-note writes."
+      ? "- Hooks in `.claude/hooks/`: `status.mjs` prints vault status at session start, `capture.mjs` writes a session insight at Stop, `validate.mjs` validates vault-note writes."
       : "- Manual activation: only `validate.mjs` is installed — automatic session hooks are disabled.";
 
   return `# Mnemos — Claude Code Bridge
@@ -40,7 +44,7 @@ usage doctrine (session boot, retrieval, capture, forgetting) — this block rec
 this client adds.
 
 ${hookLine}
-- Boot: call \`mnemos_wake\` at session start.${activation === "auto" ? " The orient hook prints raw status; wake returns the actual briefing." : " No hook loads it for you."}
+- Boot: call \`mnemos_wake\` at session start.${activation === "auto" ? " The status hook prints raw counts; wake returns the actual briefing." : " No hook loads it for you."}
 `;
 }
 
@@ -66,7 +70,7 @@ function localSettings(activation: BridgeActivation) {
         hooks: [
           {
             type: "command",
-            command: "node .claude/hooks/orient.mjs",
+            command: "node .claude/hooks/status.mjs",
             timeout: 10,
           },
         ],
@@ -89,7 +93,7 @@ function localSettings(activation: BridgeActivation) {
 }
 
 function globalSettings(hooksDir: string, activation: BridgeActivation) {
-  const orientCmd = `node "${path.join(hooksDir, "orient.mjs")}"`;
+  const statusCmd = `node "${path.join(hooksDir, "status.mjs")}"`;
   const validateCmd = `node "${path.join(hooksDir, "validate.mjs")}"`;
   const captureCmd = `node "${path.join(hooksDir, "capture.mjs")}"`;
   const hooks: Record<string, unknown[]> = {
@@ -104,7 +108,7 @@ function globalSettings(hooksDir: string, activation: BridgeActivation) {
   if (activation === "auto") {
     hooks.SessionStart = [
       {
-        hooks: [{ type: "command", command: orientCmd, timeout: 10 }],
+        hooks: [{ type: "command", command: statusCmd, timeout: 10 }],
       },
     ];
     hooks.Stop = [
@@ -127,7 +131,7 @@ function hookEntryHasMnemosMarker(entry: unknown): boolean {
     return (
       typeof cmd === "string" &&
       (cmd.replace(/\\/g, "/").includes("hooks/mnemos/") ||
-        MNEMOS_HOOK_SCRIPT_NAMES.some((scriptName) =>
+        [...MNEMOS_HOOK_SCRIPT_NAMES, ...MNEMOS_LEGACY_HOOK_SCRIPT_NAMES].some((scriptName) =>
           cmd.replace(/\\/g, "/").includes(`.claude/hooks/${scriptName}`),
         ))
     );
@@ -294,7 +298,7 @@ function getClaudeAdaptersDir(): string {
 
 async function copyHooks(adaptersDir: string, hooksDir: string): Promise<void> {
   await fs.mkdir(hooksDir, { recursive: true });
-  for (const hook of ["orient.mjs", "validate.mjs", "capture.mjs"]) {
+  for (const hook of MNEMOS_HOOK_SCRIPT_NAMES) {
     await fs.copyFile(
       path.join(adaptersDir, "hooks", hook),
       path.join(hooksDir, hook)
@@ -586,7 +590,7 @@ export async function runBridgeStatus(startDir: string) {
         "Cursor activation is reported as unknown because the adapter currently stores MCP wiring only, not startup behavior.",
         "Codex stores MCP servers in ~/.codex/config.toml only.",
         "Hermes stores MCP servers in ~/.hermes/config.yaml. Auto activation installs a native plugin at ~/.hermes/plugins/mnemos/.",
-        "OpenCode uses .opencode/plugins/lifecycle.js for lifecycle hooks (orient, validate, capture).",
+        "OpenCode uses .opencode/plugins/lifecycle.js for lifecycle hooks (onboarding, capture, validate).",
       ],
       warnings: [],
     },

@@ -810,7 +810,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       if (result.success) attachLearningResetNotice(result.data as Record<string, unknown>);
       if (result.success) await attachWhatsNew(result.data as Record<string, unknown>);
 
-      // Once-per-session update notice fallback (sessions that skip orient)
+      // Once-per-session update notice fallback (sessions that skip wake)
       if (result.success) {
         try {
           const update = await checkForUpdate();

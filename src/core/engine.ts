@@ -603,7 +603,7 @@ export async function buildIndex(
     indexed++;
   }
 
-  // Persist build timestamp so orient can surface index freshness
+  // Persist build timestamp so wake can surface index freshness
   db.prepare(
     "INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)",
   ).run("built_at", new Date().toISOString());

@@ -23,7 +23,7 @@ if (!vaultRoot) {
   process.exit(0);
 }
 
-// Try enhanced health-based orient first
+// Vault health first: the enhanced status line
 const healthResult = spawnSync("mnemos", ["health"], {
   encoding: "utf8",
   timeout: 8000,

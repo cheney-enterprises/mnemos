@@ -144,7 +144,7 @@ describe("resolveBridgePlan", () => {
       activation: "auto",
     });
 
-    expect(plan.warnings.some((warning) => warning.includes("auto-orient"))).toBe(true);
+    expect(plan.warnings.some((warning) => warning.includes("cannot run startup hooks"))).toBe(true);
     const output = buildGenericInstallOutput(plan);
     expect(output.command).toBe("mnemos");
     expect(output.scope).toBe("global");
@@ -185,7 +185,7 @@ describe("config merge helpers", () => {
       hooks: {
         SessionStart: [
           {
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/orient.mjs"', timeout: 10 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/status.mjs"', timeout: 10 }],
           },
         ],
         Stop: [
@@ -219,7 +219,7 @@ describe("config merge helpers", () => {
       hooks: {
         SessionStart: [
           {
-            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/orient.mjs"', timeout: 10 }],
+            hooks: [{ type: "command", command: 'node "C:/Users/test/.claude/hooks/mnemos/status.mjs"', timeout: 10 }],
           },
         ],
         PostToolUse: [
