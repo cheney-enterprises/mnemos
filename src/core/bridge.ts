@@ -102,12 +102,14 @@ export async function resolveBridgePlan(request: BridgeRequest): Promise<BridgeP
       `${request.target === "codex" ? "Codex" : "Generic installs"} cannot auto-orient by themselves. Treat activation=auto as a request for client-side startup wiring.`,
     );
     instructions.push(
-      "If your client supports startup hooks or startup prompts, call `mnemos_orient` automatically at session start. Otherwise use manual activation.",
+      "If your client supports startup hooks or startup prompts, wire them to run `mnemos wake` (CLI) or call the `mnemos_wake` MCP tool at session start. Otherwise use manual activation.",
     );
   }
 
   if (!request.uninstall && activation === "manual") {
-    instructions.push("Manual activation disables auto-orient. Call `mnemos_orient` explicitly when you want session context loaded.");
+    instructions.push(
+      "Manual activation installs no startup hooks. Call `mnemos_wake` at session start — the MCP server instructions carry the wake-first rule.",
+    );
   }
 
   instructions.push("Project installs override global installs when both exist for the same client.");

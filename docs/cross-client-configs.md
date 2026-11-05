@@ -13,9 +13,9 @@ Add to your project's `.mcp.json` or `~/.claude/settings.json`:
       "command": "npx",
       "args": ["-y", "mnemos", "serve", "--mcp", "--vault", "/path/to/your/vault"],
       "autoapprove": [
-        "mnemos_orient", "mnemos_status", "mnemos_query", "mnemos_health",
-        "mnemos_query_ranked", "mnemos_query_similar", "mnemos_query_important",
-        "mnemos_query_fading", "mnemos_validate", "mnemos_index_build"
+        "memory_sql", "mnemos_wake", "mnemos_health", "mnemos_query_ranked",
+        "mnemos_query_similar", "mnemos_explore", "mnemos_validate",
+        "mnemos_index_build", "mnemos_warmth", "mnemos_whats_new"
       ]
     }
   }
@@ -128,16 +128,17 @@ After configuring, verify Mnemos is connected by asking your AI agent:
 
 > "What tools do you have from Mnemos?"
 
-It should list 13 tools starting with `mnemos_orient`, `mnemos_status`, etc.
+It should list 17 tools: `memory_sql` plus 16 `mnemos_*` tools such as `mnemos_wake`,
+`mnemos_query_ranked`, `mnemos_add`, and `mnemos_forget`.
 
 Then test with:
 
-> "Run mnemos_status to check the vault"
+> "Run mnemos_wake to boot the session"
 
 ## Notes
 
 - Replace `/path/to/your/vault` with your actual vault directory
 - Mnemos discovers the vault root by looking for `.mnemos/` marker directory
 - The `--vault` flag is required when running via npx (no cwd inference)
-- All 13 tools and 5 resources are available in every client
+- All 17 tools and 5 resources are available in every client
 - No API keys or cloud services required — everything runs locally

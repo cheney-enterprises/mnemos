@@ -28,37 +28,19 @@ const MNEMOS_MCP_SENTINEL = "mnemos";
 const MNEMOS_HOOK_SCRIPT_NAMES = ["orient.mjs", "validate.mjs", "capture.mjs"] as const;
 
 function claudeSnippet(activation: BridgeActivation): string {
-  const orientLine =
+  const hookLine =
     activation === "auto"
-      ? "- Mnemos injects identity via MCP instructions automatically"
-      : "- Manual activation is enabled; call `mnemos_orient` when you want session context loaded";
-  const persistLine =
-    activation === "auto"
-      ? "- Session capture runs automatically at stop"
-      : "- Automatic session capture is disabled in manual mode to avoid junk notes";
+      ? "- Hooks in `.claude/hooks/`: `orient.mjs` prints raw vault status at session start, `capture.mjs` writes a session insight at Stop, `validate.mjs` validates vault-note writes."
+      : "- Manual activation: only `validate.mjs` is installed — automatic session hooks are disabled.";
 
-  return `# Mnemos - Claude Code Bridge
+  return `# Mnemos — Claude Code Bridge
 
-## Session Rhythm
-Every session: Orient -> Work -> Persist
+Mnemos is attached as the \`mnemos\` MCP server. Its server instructions carry the complete
+usage doctrine (session boot, retrieval, capture, forgetting) — this block records only what
+this client adds.
 
-### Orient (always first)
-- ${orientLine}
-- Call \`mnemos_orient\` for session briefing (daily + goals + reminders + vault status)
-- Use \`mnemos_orient brief=false\` for full context including identity and methodology
-- Read \`mnemos://identity\` or \`mnemos://goals\` resources for specific context
-
-### Work
-- Use \`mnemos_query_ranked\` to find related notes before creating new ones
-- Use \`mnemos add\` to capture insights to inbox/
-- NEVER write to notes/ directly — use \`mnemos add\` then \`mnemos_promote\`
-
-### Persist
-- Use \`mnemos_update\` file=daily to mark completed items
-- Use \`mnemos_update\` file=goals to update active threads
-- Run \`mnemos validate\` on notes you create
-- ${persistLine}
-- Keep notes atomic and link to maps
+${hookLine}
+- Boot: call \`mnemos_wake\` at session start.${activation === "auto" ? " The orient hook prints raw status; wake returns the actual briefing." : " No hook loads it for you."}
 `;
 }
 
@@ -320,18 +302,37 @@ async function copyHooks(adaptersDir: string, hooksDir: string): Promise<void> {
   }
 }
 
-async function appendClaudeInstructions(claudePath: string, activation: BridgeActivation): Promise<BridgeMutationKind> {
+/**
+ * Write or refresh a managed bridge block. The sentinel marks block start;
+ * everything from the sentinel to EOF is bridge-managed territory (matching
+ * removeClaudeInstructions and friends). Re-bridging replaces the block in
+ * place so snippet upgrades propagate instead of freezing at first install.
+ */
+async function upsertBridgeBlock(
+  filePath: string,
+  sentinel: string,
+  snippet: string,
+): Promise<BridgeMutationKind> {
   let existing = "";
   try {
-    existing = await fs.readFile(claudePath, "utf8");
+    existing = await fs.readFile(filePath, "utf8");
   } catch {
     // file doesn't exist yet
   }
-  if (existing.includes(BRIDGE_SENTINEL)) {
-    return "noop";
+  const block = `\n\n${sentinel}\n${snippet}`;
+  let next: string;
+  if (existing.includes(sentinel)) {
+    next = existing.slice(0, existing.indexOf(sentinel)).replace(/\s*$/, "") + block;
+  } else {
+    next = existing.length > 0 ? existing.replace(/\s*$/, "") + block : block;
   }
-  await fs.appendFile(claudePath, `\n\n${BRIDGE_SENTINEL}\n${claudeSnippet(activation)}`);
+  if (next === existing) return "noop";
+  await fs.writeFile(filePath, next, "utf8");
   return existing.length > 0 ? "updated" : "installed";
+}
+
+async function appendClaudeInstructions(claudePath: string, activation: BridgeActivation): Promise<BridgeMutationKind> {
+  return upsertBridgeBlock(claudePath, BRIDGE_SENTINEL, claudeSnippet(activation));
 }
 
 export function removeClaudeInstructions(content: string): string {
@@ -688,8 +689,10 @@ export async function runBridgeCursor(startDir: string, request: Omit<BridgeRequ
       ? `Removed Mnemos MCP config from ${paths.mcpPath}.`
       : `Cursor MCP config written to ${paths.mcpPath}.`,
   );
-  if (!request.uninstall && plan.activation === "auto") {
-    instructions.push("If Cursor exposes a startup prompt or rules surface in your workflow, call `mnemos_orient` at session start there.");
+  if (!request.uninstall) {
+    instructions.push(
+      "Cursor has no hook wiring in this adapter — the MCP server instructions carry the wake-first doctrine. Optionally add a `.cursor/rules` entry: \"At session start, call mnemos_wake.\"",
+    );
   }
 
   return {
@@ -749,37 +752,19 @@ type HermesConfig = {
 };
 
 function hermesSnippet(activation: BridgeActivation): string {
-  const orientLine =
+  const pluginLine =
     activation === "auto"
-      ? "- Mnemos plugin auto-orients at session start"
-      : "- Manual activation is enabled; call `mnemos_orient` when you want session context loaded";
-  const persistLine =
-    activation === "auto"
-      ? "- Session capture runs automatically at session end via plugin"
-      : "- Automatic session capture is disabled in manual mode";
+      ? "- Lifecycle plugin at `~/.hermes/plugins/mnemos/`: prints vault health at session start, captures a session insight at session end."
+      : "- Manual activation: no plugin installed — no automatic session capture.";
 
-  return `# Mnemos - Hermes Agent Bridge
+  return `# Mnemos — Hermes Bridge
 
-## Session Rhythm
-Every session: Orient -> Work -> Persist
+Mnemos is attached as the \`mnemos\` MCP server. Its server instructions carry the complete
+usage doctrine (session boot, retrieval, capture, forgetting) — this block records only what
+this client adds.
 
-### Orient (always first)
-- ${orientLine}
-- The Mnemos MCP server provides tools: \`mnemos_orient\`, \`mnemos_query_ranked\`, \`mnemos_add\`, \`mnemos_validate\`, and more
-- Call \`mnemos_orient\` for session briefing (daily + goals + reminders + vault status)
-
-### Work
-- Use \`mnemos_query_ranked\` to find related notes before creating new ones
-- Use \`mnemos_add\` to capture insights to inbox/
-- Pass \`description\` and \`project\` to \`mnemos_add\`
-- NEVER write to notes/ directly — use \`mnemos_add\` then \`mnemos_promote\`
-
-### Persist
-- Use \`mnemos_update\` file=daily to mark completed items
-- Use \`mnemos_update\` file=goals to update active threads
-- Run \`mnemos_validate\` on notes you create
-- ${persistLine}
-- Keep notes atomic and link to maps
+${pluginLine}
+- Boot: call \`mnemos_wake\` at session start.
 `;
 }
 
@@ -890,17 +875,7 @@ async function removeHermesPlugin(pluginDir: string): Promise<BridgeMutationKind
 }
 
 async function appendHermesInstructions(instructionsPath: string, activation: BridgeActivation): Promise<BridgeMutationKind> {
-  let existing = "";
-  try {
-    existing = await fs.readFile(instructionsPath, "utf8");
-  } catch {
-    // file doesn't exist yet
-  }
-  if (existing.includes(HERMES_BRIDGE_SENTINEL)) {
-    return "noop";
-  }
-  await fs.appendFile(instructionsPath, `\n\n${HERMES_BRIDGE_SENTINEL}\n${hermesSnippet(activation)}`);
-  return existing.length > 0 ? "updated" : "installed";
+  return upsertBridgeBlock(instructionsPath, HERMES_BRIDGE_SENTINEL, hermesSnippet(activation));
 }
 
 export function removeHermesInstructions(content: string): string {
@@ -1031,43 +1006,19 @@ export async function runBridgeHermes(startDir: string, request: Omit<BridgeRequ
 const OPENCODE_BRIDGE_SENTINEL = "<!-- mnemos-bridge:opencode -->";
 
 function openCodeSnippet(activation: BridgeActivation): string {
-  const orientLine =
+  const pluginLine =
     activation === "auto"
-      ? "Identity auto-injected via MCP instructions at session start"
-      : "Manual activation is enabled; call `mnemos_orient` when you want session context loaded";
-  const persistLine =
-    activation === "auto"
-      ? "Session capture runs automatically at session idle via plugin"
-      : "Automatic session capture is disabled in manual mode";
-  const validateLine =
-    activation === "auto"
-      ? "Note validation runs automatically when writing to vault notes via plugin"
-      : "Run `mnemos validate` manually on notes you create";
+      ? "- Lifecycle plugin at `.opencode/plugins/lifecycle.js`: injects first-run onboarding, auto-captures at context compaction and session end, auto-validates vault-note writes."
+      : "- Manual activation: no plugin installed — no automatic onboarding, capture, or validation.";
 
-  return `# Mnemos - OpenCode Bridge
+  return `# Mnemos — OpenCode Bridge
 
-## Session Rhythm
-Every session: Orient -> Work -> Persist
+Mnemos is attached as the \`mnemos\` MCP server. Its server instructions carry the complete
+usage doctrine (session boot, retrieval, capture, forgetting) — this block records only what
+this client adds.
 
-### Orient (always first)
-- ${orientLine}
-- Call \`mnemos_orient\` for session briefing (daily + goals + reminders + vault status)
-- Use \`mnemos_orient brief=false\` for full context including identity and methodology
-- Read \`mnemos://identity\` or \`mnemos://goals\` resources for specific context
-
-### Work
-- Use \`mnemos_query_ranked\` to find related notes before creating new ones
-- Use \`mnemos_add\` to capture insights to inbox/
-- Pass \`description\` and \`project\` to \`mnemos_add\`
-- NEVER write to notes/ directly — use \`mnemos_add\` then \`mnemos_promote\`
-
-### Persist
-- Use \`mnemos_update\` file=daily to mark completed items
-- Use \`mnemos_update\` file=goals to update active threads
-- Run \`mnemos_validate\` on notes you create
-- ${validateLine}
-- ${persistLine}
-- Keep notes atomic and link to maps
+${pluginLine}
+- Boot: call \`mnemos_wake\` at session start.
 `;
 }
 
@@ -1177,17 +1128,7 @@ async function removeOpenCodePlugin(pluginDir: string): Promise<BridgeMutationKi
 }
 
 async function appendOpenCodeInstructions(instructionsPath: string, activation: BridgeActivation): Promise<BridgeMutationKind> {
-  let existing = "";
-  try {
-    existing = await fs.readFile(instructionsPath, "utf8");
-  } catch {
-    // file doesn't exist yet
-  }
-  if (existing.includes(OPENCODE_BRIDGE_SENTINEL)) {
-    return "noop";
-  }
-  await fs.appendFile(instructionsPath, `\n\n${OPENCODE_BRIDGE_SENTINEL}\n${openCodeSnippet(activation)}`);
-  return existing.length > 0 ? "updated" : "installed";
+  return upsertBridgeBlock(instructionsPath, OPENCODE_BRIDGE_SENTINEL, openCodeSnippet(activation));
 }
 
 export function removeOpenCodeInstructions(content: string): string {

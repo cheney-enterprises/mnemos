@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { mkdtemp, mkdir, readFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {
@@ -528,6 +528,41 @@ describe("claude adapter", () => {
 });
 
 describe("hermes adapter", () => {
+  it("refreshes a stale managed block on re-bridge instead of freezing it", async () => {
+    await withTempHome(async () => {
+      const cwd = await mkdtemp(path.join(os.tmpdir(), "bridge-refresh-"));
+      const brain = path.join(cwd, "brain");
+
+      // Seed a HERMES.md carrying the OLD doctrine (stale mnemos_orient text)
+      // under the sentinel — simulating a vault first bridged long ago.
+      await writeFile(
+        path.join(cwd, "HERMES.md"),
+        [
+          "# Project",
+          "",
+          "<!-- mnemos-bridge:hermes -->",
+          "# Mnemos - Hermes Agent Bridge",
+          "- Call `mnemos_orient` for session briefing",
+        ].join("\n"),
+        "utf8",
+      );
+
+      const result = await runBridgeHermes(cwd, {
+        scope: "project",
+        activation: "manual",
+        vault: brain,
+      });
+      expect(result.success).toBe(true);
+      expect((result.data as { mutation: string }).mutation).toBe("updated");
+
+      const content = await readFile(path.join(cwd, "HERMES.md"), "utf8");
+      expect(content).toContain("# Project");           // user content preserved
+      expect(content).toContain("mnemos_wake");          // new doctrine present
+      expect(content).not.toContain("mnemos_orient");    // stale doctrine gone
+      expect(content.match(/<!-- mnemos-bridge:hermes -->/g)).toHaveLength(1);
+    });
+  });
+
   it("uses the expected global config and plugin paths", async () => {
     await withTempHome(async (home) => {
       const paths = getHermesGlobalPaths();
@@ -593,7 +628,7 @@ describe("hermes adapter", () => {
       "keep me",
       "",
       "<!-- mnemos-bridge:hermes -->",
-      "# Mnemos - Hermes Agent Bridge",
+      "# Mnemos — Hermes Bridge",
       "bridge body",
     ].join("\n");
     expect(removeHermesInstructions(content)).toBe("# Existing project context\n\nkeep me");
@@ -649,7 +684,7 @@ describe("hermes adapter", () => {
 
       const content = await readFile(data.instructionsPath, "utf8");
       expect(content).toContain("<!-- mnemos-bridge:hermes -->");
-      expect(content).toContain("Mnemos - Hermes Agent Bridge");
+      expect(content).toContain("Mnemos — Hermes Bridge");
       expect(content).toContain("Manual activation");
     });
   });
@@ -816,7 +851,7 @@ describe("opencode adapter", () => {
     // Verify instructions
     const instructions = await readFile(data.instructionsPath, "utf8");
     expect(instructions).toContain("<!-- mnemos-bridge:opencode -->");
-    expect(instructions).toContain("Mnemos - OpenCode Bridge");
+    expect(instructions).toContain("Mnemos — OpenCode Bridge");
   });
 
   it("writes project-scope instructions to AGENTS.md", async () => {
@@ -835,7 +870,7 @@ describe("opencode adapter", () => {
 
     const content = await readFile(data.instructionsPath, "utf8");
     expect(content).toContain("<!-- mnemos-bridge:opencode -->");
-    expect(content).toContain("Mnemos - OpenCode Bridge");
+    expect(content).toContain("Mnemos — OpenCode Bridge");
     expect(content).toContain("Manual activation");
   });
 

@@ -11,6 +11,24 @@
   Dry-run is the default at both layers; the blast-radius cap (default 10, `Infinity` to
   disable) refuses over-broad queries.
 
+### Changed
+- Server instructions are now the single canonical doctrine surface. `buildInstructions`
+  gained the capture flow (mnemos_add → inbox → mnemos_promote), state-file routing
+  (mnemos_update; daily/goals feed the next wake), and the mnemos:// resource list. The
+  bridge adapter snippets (CLAUDE.md / HERMES.md / AGENTS.md) no longer duplicate the
+  session rhythm — each is a thin client shim: hook inventory plus the one boot line.
+  Re-running a bridge command now refreshes an existing managed block in place instead
+  of no-op'ing forever on the sentinel, so doctrine drift cannot freeze at first install.
+- All live `mnemos_orient` references updated to `mnemos_wake` (bridge plan instructions,
+  Cursor guidance, Hermes SKILL.md, cross-client configs). Dated audit docs and test
+  comments recording the orient→wake migration are left as historical record.
+- Hermes SKILL.md rewritten to the real MCP surface: mnemos_wake boot, memory_sql,
+  mnemos_forget (release/supersede, dry-run default), and the correct tool inventory;
+  removed dead mnemos_orient/mnemos_status/mnemos_query_important/mnemos_query_fading
+  entries.
+- docs/cross-client-configs.md: autoapprove list and verification steps updated to the
+  real tool surface.
+
 ### Fixed
 - Ranked and similar retrieval filtered forgotten statuses with the hardcoded
   `!== 'archived'` literal while indexstore/explore/engine used `isForgotten()` —

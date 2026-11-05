@@ -62,7 +62,7 @@ This writes the MCP server config to `~/.hermes/config.yaml` and installs a nati
 | Component | Location | Purpose |
 |-----------|----------|---------|
 | MCP server | `~/.hermes/config.yaml` → `mcp_servers.mnemos` | 16 tools for memory operations |
-| Lifecycle plugin | `~/.hermes/plugins/mnemos/` | Auto-orient at session start, capture at session end |
+| Lifecycle plugin | `~/.hermes/plugins/mnemos/` | Vault health at session start, capture at session end |
 
 ### Manual setup (if you prefer)
 
@@ -147,9 +147,9 @@ Never write directly to `notes/`. Capture to `inbox/` first with `mnemos_add`, t
 
 Every session follows three phases.
 
-### 1. Orient
+### 1. Wake
 
-Call `mnemos_orient` at session start. It returns:
+Call `mnemos_wake` at session start. It returns a budget-capped briefing:
 
 - today's completed and pending items
 - active goals and threads
@@ -157,7 +157,8 @@ Call `mnemos_orient` at session start. It returns:
 - vault health (orphans, fading notes, inbox queue)
 - embedding index freshness
 
-Use `mnemos_orient brief=false` for full context including identity and methodology.
+Pass `budget` (max lines, default 96) to control size. On a vault with no identity
+written yet, wake also returns a first-run onboarding script.
 
 ### 2. Work
 
@@ -207,9 +208,7 @@ mnemos_explore query="what architectural decisions led to the current caching st
 mnemos_query_similar query="authentication middleware"
 ```
 
-**`mnemos_query_important`** — Returns notes ranked by PageRank authority. The most structurally central knowledge.
-
-**`mnemos_query_fading`** — Returns notes losing vitality. These are candidates for review, update, or archiving.
+**`memory_sql`** — Read-only SQL over the retrieval database views (`v_note`, `v_link`, `v_dangling`, …). For questions the other tools cannot express — "top notes by PageRank", "notes with zero incoming links", "retrieval frequency by project".
 
 ### Capture tools
 
@@ -230,15 +229,11 @@ mnemos_promote note="redis was chosen over memcached"
 
 ### State tools
 
-**`mnemos_orient`** — Session briefing. Call at session start.
-
 **`mnemos_update`** — Write to identity, goals, methodology, daily, or reminders.
 
 ```
 mnemos_update file=goals content="## Active\n- Redis migration in progress\n- Auth rewrite blocked on token design"
 ```
-
-**`mnemos_status`** — Quick vault overview (note count, inbox size).
 
 **`mnemos_health`** — Full diagnostics (orphans, dangling links, fading notes, schema compliance).
 
@@ -250,7 +245,16 @@ mnemos_update file=goals content="## Active\n- Redis migration in progress\n- Au
 
 **`mnemos_prune`** — Analyzes the full activation topology and suggests archive candidates. Notes with low vitality, no incoming links, and no structural importance are candidates.
 
-**`mnemos_index_build`** — Rebuild the embedding index. Run when index freshness warnings appear in orient.
+**`mnemos_index_build`** — Rebuild the embedding index. Run when `mnemos_health` reports a stale index.
+
+### Forgetting
+
+**`mnemos_forget`** — Query-addressed retirement of notes. Dry-run by default; review the match list, then set `apply=true`.
+
+- `op=release` — soft-evict: status becomes `released`, files stay on disk, notes stop being recalled.
+- `op=supersede` — retire the best match and write its replacement note (pass `new_text` and `project`).
+
+`purge` (hard delete) is intentionally CLI-only — an agent must never be able to unlink records.
 
 ## Workflow Patterns
 
@@ -277,11 +281,12 @@ If you work across multiple projects, notes from all of them live in the same gr
 
 ### Updating stale knowledge
 
-When you encounter a decision or learning that is outdated:
+When a decision or learning is outdated:
 
-1. Call `mnemos_update` on the existing note to add new context
-2. If the note is superseded, change its `status` to `superseded` and add `superseded_by: "[[newer note title]]"` to frontmatter
-3. Create the newer note with `mnemos_add`
+1. Call `mnemos_query_ranked` to locate the existing note
+2. Dry-run `mnemos_forget op=supersede` with a query naming it — check the match list
+3. `apply=true` with `new_text` and `project`: the old note flips to `status: superseded`
+   and drops out of retrieval; the replacement note is written and linked
 
 Never delete notes. Archive or supersede them so link targets are preserved.
 
@@ -345,7 +350,7 @@ Keyword search (BM25) works without an index. Semantic search requires embedding
 
 The lifecycle plugin reads vault state from disk. If you edited files outside Mnemos, the data is already current — Mnemos reads markdown directly with no cache.
 
-If the embedding index is stale (orient will warn), rebuild:
+If the embedding index is stale (`mnemos_health` warns), rebuild:
 
 ```bash
 mnemos index build

@@ -131,9 +131,32 @@ async function buildInstructions(paths: VaultPaths, autoCreated = false): Promis
   const summary = stripFrontmatter(identity).slice(0, 1000);
   return (
     prefix +
-    "You have persistent memory managed by Mnemos. " +
-    "Call mnemos_orient at session start to load your daily status and active goals. " +
-    "Never start cold — always orient first.\n\n" +
+    `You have persistent memory managed by Mnemos (vault: ${paths.root}).\n\n` +
+    "GROUND RULES\n" +
+    "- Access the vault ONLY through these tools. Never read, write, move, or rename files " +
+    "under the vault directory — direct edits skip the schema, the link graph, the embedding " +
+    "index, and the learning pipeline, and corrupt the vault invisibly.\n" +
+    "- SESSION START: call mnemos_wake first (it returns your briefing: daily status, goals, " +
+    "reminders). Never start cold.\n" +
+    "- RETRIEVE BEFORE YOU RE-DERIVE: mnemos_query_ranked is the default lookup; memory_sql " +
+    "for questions ranking cannot express; mnemos_explore for multi-hop questions. Probe-proven " +
+    "facts are expensive to re-establish — they are already in the vault.\n" +
+    "- WRITING (mnemos_add → mnemos_promote): add captures to inbox/ — multi-word prose title " +
+    "(a hyphenated slug counts as one word and the add silently fails), one-sentence description " +
+    "(max 200 chars — NEVER history or changelogs), project tags, wiki-links in the body " +
+    "([[related-note]]). Promote moves it into the knowledge graph. Prefer updating an existing " +
+    "note over adding a near-duplicate; run mnemos_validate after edits when no hook does it.\n" +
+    "- STATE (mnemos_update): file=daily|goals|reminders|identity|methodology — daily and goals " +
+    "feed the next wake, so keep them current as work lands.\n" +
+    "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, " +
+    "mnemos://reminders for targeted reads without a tool call.\n" +
+    "- RETIRING (mnemos_forget): op=release soft-evicts (files kept, never recalled); " +
+    "op=supersede retires the best match and writes its replacement. Dry-run by default — " +
+    "review the match list, then apply. Never delete history.\n" +
+    "- MAPS ARE POINTERS: a project map's Current State section is the living handoff — " +
+    "overwrite semantics, never append session narrative to a map.\n" +
+    "- HOUSEKEEPING (mnemos_health, mnemos_prune, mnemos_index_build) on user instruction or notice.\n" +
+    "- The mnemos CLI is the sanctioned fallback ONLY when these tools are not attached.\n\n" +
     `Identity:\n${summary}`
   );
 }
