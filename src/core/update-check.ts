@@ -9,7 +9,7 @@ import path from "node:path";
 import https from "node:https";
 import os from "node:os";
 
-const PACKAGE_NAME = "mnemos";
+const PACKAGE_NAME = "@cheney-enterprises/mnemos";
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const REQUEST_TIMEOUT_MS = 3000; // don't block wake if npm is slow
 
@@ -166,7 +166,7 @@ export async function checkForUpdate(): Promise<UpdateInfo> {
 
     if (result.updateAvailable) {
       result.message =
-        `Mnemos v${latest} available (you have v${CURRENT_VERSION}). Run: npm update -g mnemos`;
+        `Mnemos v${latest} available (you have v${CURRENT_VERSION}). Run: npm update -g @cheney-enterprises/mnemos`;
     }
   } catch {
     // Update check is best-effort — never fail the command
@@ -194,7 +194,7 @@ export async function buildAgentNotice(info: UpdateInfo): Promise<string | null>
     `Mnemos ${info.latest} is available (installed: ${info.current}). ` +
     `What changed: https://github.com/cheney-enterprises/mnemos/releases/tag/v${info.latest} ` +
     `Ask the user at a natural pause: "By the way, Mnemos pushed an update to v${info.latest} — want me to update it, or keep using v${info.current}?" ` +
-    `If they say yes: run \`npm update -g mnemos\` and then call mnemos_update_decision with decision="accepted". ` +
+    `If they say yes: run \`npm update -g @cheney-enterprises/mnemos\` and then call mnemos_update_decision with decision="accepted". ` +
     `If they say no: call mnemos_update_decision with decision="declined". ` +
     `If they defer or don't answer, do NOT call the tool — the reminder will resurface next session.`
   );

@@ -21,7 +21,7 @@ Layer 1: Markdown files on disk                  <- git-friendly, human-readable
 
 ### Installation to Running Agent — The Full Path
 
-1. `npm install -g mnemos` — installs the `mnemos` CLI globally
+1. `npm install -g @cheney-enterprises/mnemos` — installs the `mnemos` CLI globally
 2. `mnemos init my-agent` — scaffolds a vault: notes/, self/, ops/, templates/, .mnemos marker, config
 3. Add to any MCP client config:
    ```json

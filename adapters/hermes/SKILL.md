@@ -42,7 +42,7 @@ Do not use Mnemos for ephemeral task state: current file being edited, intermedi
 Install Mnemos globally:
 
 ```bash
-npm install -g mnemos
+npm install -g @cheney-enterprises/mnemos
 mnemos --version
 ```
 
@@ -307,7 +307,7 @@ Before considering a note complete:
 Install globally:
 
 ```bash
-npm install -g mnemos
+npm install -g @cheney-enterprises/mnemos
 ```
 
 If installed but not found, check that your npm global bin directory is on PATH:

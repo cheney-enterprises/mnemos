@@ -39,7 +39,7 @@ describe("buildAgentNotice (ask-shaped, decision-aware)", () => {
     expect(notice!).toContain("0.6.1");
     expect(notice!).toContain("?");
     expect(notice!).toContain("mnemos_update_decision");
-    expect(notice!).toContain("npm update -g mnemos");
+    expect(notice!).toContain("npm update -g @cheney-enterprises/mnemos");
     expect(notice!.toLowerCase()).toContain("resurface");
   });
 

@@ -6,7 +6,9 @@ Mnemos implements human cognition as mathematical models on a knowledge graph. A
 
 Persistent memory across sessions, clients, and machines. Zero-infrastructure retrieval that [matches and in several cases strongly outperforms incumbents on benchmarks](#benchmarks) — and you own every byte of your data. Markdown on disk. Wiki-links as graph edges. Git as version control. No database lock-in, no cloud dependency, no vendor capture.
 
-**v0.7.0** · [npm](https://www.npmjs.com/package/mnemos) · [Paper](https://mnemos.com/rmh) · Apache-2.0
+**v0.8.1** · [npm](https://www.npmjs.com/package/@cheney-enterprises/mnemos) · Apache-2.0 ·
+Fork of [aayoawoyemi/Ori-Mnemos](https://github.com/aayoawoyemi/Ori-Mnemos) by Aayo Awoyemi —
+rebranded and extended; the original design and benchmark results are his.
 
 ---
 
@@ -298,7 +300,7 @@ so these are the authors' metric definitions.
 ## Quick Start
 
 ```bash
-npm install -g mnemos
+npm install -g @cheney-enterprises/mnemos
 mnemos init my-agent
 cd my-agent
 ```

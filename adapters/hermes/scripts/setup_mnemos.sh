@@ -21,7 +21,7 @@ fi
 # Install mnemos
 if ! command -v mnemos &>/dev/null; then
   echo "Installing mnemos..."
-  npm install -g mnemos
+  npm install -g @cheney-enterprises/mnemos
 else
   echo "mnemos already installed: $(mnemos --version)"
 fi
