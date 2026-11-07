@@ -15,6 +15,13 @@
 - Policy layer (`policy.gates` in mnemos.config.yaml): per-gate `allow | approval | deny` for
   purge, identity_update, protected_removal, bulk_effect, soft_removal, state_overwrite —
   enforced in the transport-neutral core so future transports inherit identical behavior.
+- **Doctrine as a module (`src/core/doctrine.ts`).** The agent-facing instruction text — ground
+  rules, PROJECT PROTOCOL (project discovery + the `<tag>…map` self-serve convention), CAPTURE
+  POLICY (what belongs in memory and what never does), and SESSION END (the persist ritual) —
+  renders from one transport-neutral module. The MCP server consumes it today; future transports
+  (HTTP sidecar, Flutter app) render the same doctrine from the same source. Promote's "no map
+  matched" warning now teaches the agent-legal fixes (create the map with a `<tag>…map` title, or
+  fix its title) instead of pointing at config the agent cannot touch.
 
 ### Added
 - `mnemos forget <op> <query>` CLI command and `mnemos_forget` MCP tool (17th tool) wire the

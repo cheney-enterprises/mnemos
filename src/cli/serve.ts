@@ -20,6 +20,7 @@ import { runInit } from "./init.js";
 import { runWake } from "./wake.js";
 import { GraphCache } from "../core/graph.js";
 import { initDB } from "../core/engine.js";
+import { renderDoctrine, renderOnboarding, stripFrontmatter, isFirstRunIdentity as isFirstRun } from "../core/doctrine.js";
 // Retrieval intelligence
 import { initQValueTables, batchUpdateQ } from "../core/qvalue.js";
 import { runReadOnlySql, describeSchema } from "../core/sqlquery.js";
@@ -73,92 +74,25 @@ async function safeReadFile(filePath: string): Promise<string> {
   }
 }
 
-function stripFrontmatter(content: string): string {
-  const match = content.match(/^---\n[\s\S]*?\n---\n([\s\S]*)$/);
-  return match ? match[1].trim() : content;
-}
+// stripFrontmatter / isFirstRun moved to core/doctrine.ts — single source of
+// truth; wake and future transports consume the same helpers.
 
-function isFirstRun(identityContent: string): boolean {
-  if (!identityContent) return true;
-  const stripped = stripFrontmatter(identityContent);
-  if (!stripped) return true;
-  // Scaffold template marker — if present, identity hasn't been filled in
-  if (stripped.includes("<!-- First session:")) return true;
-  // Strip all headers, comments, and whitespace — if nothing remains, it's empty
-  const content = stripped
-    .replace(/^#+\s.*$/gm, "")      // headers
-    .replace(/<!--[\s\S]*?-->/g, "") // comments
-    .trim();
-  return content.length === 0;
-}
-
+// Doctrine lives in core/doctrine.ts — the transport-neutral source of truth.
+// This wrapper keeps the vault glue (reading identity.md, first-run detection)
+// beside the MCP server that consumes it.
 async function buildInstructions(paths: VaultPaths, autoCreated = false): Promise<string> {
   const identity = await safeReadFile(path.join(paths.self, "identity.md"));
 
-  const prefix = autoCreated
-    ? `No vault found — created a global vault at ${getGlobalVaultPath()}.\n` +
-      "This is your default memory space. Run 'mnemos init' in any project folder " +
-      "to create a project-specific vault instead.\n\n"
-    : "";
-
   if (isFirstRun(identity)) {
-    return (
-      prefix +
-      "You have persistent memory managed by Mnemos — the Git of AI memory. Memory is sovereignty.\n\n" +
-      "This is a NEW vault. Run the onboarding flow:\n\n" +
-      "1. AGENT NAME: Ask what they want to name their agent. Default is 'Mnemos'. " +
-      "This becomes your identity — you ARE this agent.\n\n" +
-      "2. PURPOSE: Ask what this agent is for. Offer these options:\n" +
-      "   - General-purpose AI agent (grows with you across all domains — life, work, projects, learning)\n" +
-      "   - Personal knowledge management (second brain for ideas and connections)\n" +
-      "   - Research project (focused knowledge capture for a specific domain)\n" +
-      "   - Work / professional (notes tied to projects, decisions, learnings)\n" +
-      "   - Learning journal (tracking what you learn across courses and experiments)\n" +
-      "   - Custom (let them describe it)\n\n" +
-      "3. BRAIN DUMP: Say something like 'Take a moment to tell me everything about you — " +
-      "what you're working on, what you care about, your projects, your goals. " +
-      "The more you share, the more useful I become from day one.'\n\n" +
-      "4. COMMUNICATION STYLE: Ask how they want their agent to communicate — " +
-      "direct and opinionated? Formal? Casual? Supportive? Let them describe it.\n\n" +
-      "After collecting answers, use mnemos_update to write:\n" +
-      "- file=identity (name, personality, communication style, values)\n" +
-      "- file=goals (projects and threads from their brain dump)\n" +
-      "- file=methodology (session rhythm based on their purpose)\n\n" +
-      "Make the onboarding feel warm and alive — this is their agent waking up for the first time."
-    );
+    return renderOnboarding(autoCreated);
   }
 
   const summary = stripFrontmatter(identity).slice(0, 1000);
-  return (
-    prefix +
-    `You have persistent memory managed by Mnemos (vault: ${paths.root}).\n\n` +
-    "GROUND RULES\n" +
-    "- Access the vault ONLY through these tools. Never read, write, move, or rename files " +
-    "under the vault directory — direct edits skip the schema, the link graph, the embedding " +
-    "index, and the learning pipeline, and corrupt the vault invisibly.\n" +
-    "- SESSION START: call mnemos_wake first (it returns your briefing: daily status, goals, " +
-    "reminders). Never start cold.\n" +
-    "- RETRIEVE BEFORE YOU RE-DERIVE: mnemos_query_ranked is the default lookup; memory_sql " +
-    "for questions ranking cannot express; mnemos_explore for multi-hop questions. Probe-proven " +
-    "facts are expensive to re-establish — they are already in the vault.\n" +
-    "- WRITING (mnemos_add → mnemos_promote): add captures to inbox/ — multi-word prose title " +
-    "(a hyphenated slug counts as one word and the add silently fails), one-sentence description " +
-    "(max 200 chars — NEVER history or changelogs), project tags, wiki-links in the body " +
-    "([[related-note]]). Promote moves it into the knowledge graph. Prefer updating an existing " +
-    "note over adding a near-duplicate; run mnemos_validate after edits when no hook does it.\n" +
-    "- STATE (mnemos_update): file=daily|goals|reminders|identity|methodology — daily and goals " +
-    "feed the next wake, so keep them current as work lands.\n" +
-    "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, " +
-    "mnemos://reminders for targeted reads without a tool call.\n" +
-    "- RETIRING (mnemos_forget): op=release soft-evicts (files kept, never recalled); " +
-    "op=supersede retires the best match and writes its replacement. Dry-run by default — " +
-    "review the match list, then apply. Never delete history.\n" +
-    "- MAPS ARE POINTERS: a project map's Current State section is the living handoff — " +
-    "overwrite semantics, never append session narrative to a map.\n" +
-    "- HOUSEKEEPING (mnemos_health, mnemos_prune, mnemos_index_build) on user instruction or notice.\n" +
-    "- The mnemos CLI is the sanctioned fallback ONLY when these tools are not attached.\n\n" +
-    `Identity:\n${summary}`
-  );
+  return renderDoctrine({
+    vaultRoot: paths.root,
+    identitySummary: summary,
+    autoCreated,
+  });
 }
 
 // --- Updatable file routing ---

@@ -392,9 +392,11 @@ export function computePromotion(input: PromoteInput): PromoteResult {
   if (areaFellBack) {
     warnings.push(
       `No map matched ${projects.length > 0 ? `project(s) ${projects.join(", ")}` : "this note"}; ` +
-        `filed under "${defaultArea}", which is a hub and not a map. Add a ` +
-        `promote.project_map_routing entry or create the map. The note will ` +
-        `pass orphan checks without belonging to any map.`
+        `filed under "${defaultArea}", which is a hub and not a map. ` +
+        `Agent-legal fixes: (1) create the map — mnemos_add("<project> project map", type=moc) ` +
+        `with the title STARTING with the project tag (routing finds maps by "<tag>...map" slug ` +
+        `convention, no config needed), or (2) if the map exists, its title must start with the ` +
+        `project tag. Config routing (project_map_routing) is the user's to change, never the agent's.`
     );
   }
 

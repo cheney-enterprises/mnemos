@@ -1,0 +1,135 @@
+import { describe, it, expect } from "vitest";
+import {
+  stripFrontmatter,
+  isFirstRunIdentity,
+  groundRules,
+  projectProtocol,
+  capturePolicy,
+  sessionEnd,
+  renderOnboarding,
+  renderDoctrine,
+} from "../../src/core/doctrine.js";
+import { resolveAreas } from "../../src/core/promote.js";
+
+// The doctrine is the contract with every future agent. These tests pin the
+// load-bearing sentences: remove one and a cold agent loses a behavior.
+
+describe("identity helpers", () => {
+  it("stripFrontmatter removes the yaml block and keeps the body", () => {
+    const t = "---\ndescription: x\ntype: self\n---\n\n# Identity\n\nBody here.\n";
+    expect(stripFrontmatter(t)).toContain("# Identity");
+    expect(stripFrontmatter(t)).not.toContain("description: x");
+  });
+
+  it("isFirstRun: empty, frontmatter-only, and scaffold-template identities all count", () => {
+    expect(isFirstRunIdentity("")).toBe(true);
+    expect(isFirstRunIdentity("---\ndescription: x\n---\n")).toBe(true);
+    expect(isFirstRunIdentity("<!-- First session: fill this in -->")).toBe(true);
+    expect(isFirstRunIdentity("---\n---\n# Identity\n\nOri, an agent.")).toBe(false);
+  });
+});
+
+describe("ground rules", () => {
+  it("bans direct vault access with the reason", () => {
+    const g = groundRules("/v");
+    expect(g).toContain("ONLY through these tools");
+    expect(g).toContain("corrupt the vault invisibly");
+  });
+
+  it("teaches wake-first, the retrieval ladder, and the write path", () => {
+    const g = groundRules("/v");
+    expect(g).toContain("call mnemos_wake first");
+    expect(g).toContain("mnemos_query_ranked is the default lookup");
+    expect(g).toContain("memory_sql");
+    expect(g).toContain("multi-word prose title");
+    expect(g).toContain("silently fails");
+  });
+
+  it("carries the capability model: no agent delete, propose-only purge", () => {
+    const g = groundRules("/v");
+    expect(g).toContain("can only PROPOSE a hard delete");
+    expect(g).toContain("You can never delete a note yourself");
+  });
+
+  it("names the policy surface and the display-the-refusal duty", () => {
+    const g = groundRules("/v");
+    expect(g).toContain("mnemos.config.yaml gates removal-class operations");
+    expect(g).toContain("display it to the user verbatim");
+    expect(g).toContain("You cannot change policy");
+  });
+
+  it("includes mnemos://policy in the resource list", () => {
+    expect(groundRules("/v")).toContain("mnemos://policy");
+  });
+});
+
+describe("project protocol", () => {
+  it("says the agent always knows its project via wake + map", () => {
+    const p = projectProtocol();
+    expect(p).toContain("wake briefing lists active projects");
+    expect(p).toContain("your project's map is the entry point");
+  });
+
+  it("requires explicit project tags", () => {
+    expect(projectProtocol()).toContain("ALWAYS pass project explicitly");
+  });
+
+  it("teaches the self-serve new-project flow with the naming convention", () => {
+    const p = projectProtocol();
+    expect(p).toContain("type=moc");
+    expect(p).toContain("MUST start with the project tag");
+    expect(p).toContain("no config needed");
+    expect(p).toContain("mnemos_update file=goals");
+  });
+
+  it("keeps config routing out of agent hands", () => {
+    expect(projectProtocol()).toContain("the user's to change, never yours");
+  });
+});
+
+describe("capture policy", () => {
+  it("gives the capture test and the exclusion list", () => {
+    const c = capturePolicy();
+    expect(c).toContain("rediscover this expensively");
+    expect(c).toContain("DO NOT CAPTURE");
+    expect(c).toContain("ephemeral task state");
+  });
+});
+
+describe("session end", () => {
+  it("orders the persist ritual with overwrite semantics", () => {
+    const s = sessionEnd();
+    expect(s).toContain("mnemos_add");
+    expect(s).toContain("Current State");
+    expect(s).toContain("never append");
+    expect(s).toContain("file=daily");
+    expect(s).toContain("op=supersede");
+    expect(s).toContain("starts cold except for what you persisted");
+  });
+});
+
+describe("rendering", () => {
+  it("onboarding variant mentions onboarding steps and the project protocol", () => {
+    const o = renderOnboarding(false);
+    expect(o).toContain("AGENT NAME");
+    expect(o).toContain("PROJECT PROTOCOL");
+  });
+
+  it("full doctrine contains every block and the identity summary", () => {
+    const d = renderDoctrine({ vaultRoot: "/v", identitySummary: "Ori, an agent." });
+    expect(d).toContain("GROUND RULES");
+    expect(d).toContain("PROJECT PROTOCOL");
+    expect(d).toContain("CAPTURE POLICY");
+    expect(d).toContain("SESSION END");
+    expect(d).toContain("Identity:\nOri, an agent.");
+    expect(d).toContain("/v");
+  });
+});
+
+describe("promote fallback warning retarget", () => {
+  it("warns with agent-legal fixes, never config-edit instructions", () => {
+    const { areas, usedDefault } = resolveAreas(["kite"], {}, ["index"], "index");
+    expect(usedDefault).toBe(true);
+    expect(areas).toEqual(["index"]);
+  });
+});
