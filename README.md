@@ -462,7 +462,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 5 resources · 21 CLI commands · 874 tests
+17 MCP tools · 5 resources · 22 CLI commands · 1022 tests
 
 ---
 
@@ -583,7 +583,8 @@ mnemos archive [--dry-run]           # Archive stale notes
 mnemos prune [--apply] [--verbose]   # Topology analysis + archive candidates
 mnemos forget release <query> [--apply] [--max-forget <n>]   # Soft-evict matched notes (dry-run default)
 mnemos forget supersede <query> --new-text <text> [-p <proj>] [--apply]  # Retire the best match, write its replacement
-mnemos forget purge <query> [--apply]                         # Hard delete — human-only, prefer release
+mnemos forget purge --slugs <s1,s2> [--reason <r>]            # Propose hard delete — user must approve (query-addressed purge removed)
+mnemos requests [list] | approve <id> | deny <id>             # User-only surface: execute or reject pending intents
 
 # Retrieval
 mnemos explore <query>               # Recursive graph traversal (RMH)

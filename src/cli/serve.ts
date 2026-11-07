@@ -1022,30 +1022,41 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // hard-delete vault records — a human types `mnemos forget purge` in a shell.
   server.tool(
     "mnemos_forget",
-    "Query-addressed forgetting. op=release: soft-evict matched notes (status=released, files kept, never recalled). " +
-      "op=supersede: mark the single best match superseded and write a replacement note. " +
-      "Dry-run by default — set apply=true after reviewing the match list. Refuses when the query addresses more than max_forget notes (default 10). " +
-      "purge (hard delete) is intentionally CLI-only.",
+    "Removal operations. op=release: soft-evict matched notes (status=released, files kept, never recalled) — reversible. " +
+      "op=supersede: mark the single best match superseded and write a replacement note (requires new_text). " +
+      "Dry-run by default — set apply=true after reviewing the match list. Refuses when the query addresses more than max_forget notes. " +
+      "op=purge: HARD DELETE — slug-addressed only (pass slugs, never a query). This tool can only PROPOSE a purge: " +
+      "it records a pending intent and returns the command the USER must run to execute it. Never tell the user a purge happened.",
     {
-      op: z.enum(["release", "supersede"]).describe("release = soft-evict; supersede = replace with new note"),
+      op: z.enum(["release", "supersede", "purge"]).describe("release = soft-evict; supersede = replace; purge = propose hard delete (user executes)"),
       query: z.string().describe("What to forget — matched by rare-token anchor + embedding similarity"),
+      slugs: z.array(z.string()).optional().describe("purge only: exact note slugs (no matching)"),
+      reason: z.string().optional().describe("purge only: why these notes should be removed"),
       new_text: z.string().optional().describe("supersede only: the replacement content"),
       project: z.array(z.string()).optional().describe("supersede only: project tags for the replacement note"),
       apply: z.boolean().optional().describe("Actually mutate (default false = dry-run preview)"),
       max_forget: z.number().optional().describe("Blast-radius cap (default 10)"),
     },
-    async ({ op, query, new_text, project, apply, max_forget }) => {
+    async ({ op, query, slugs, reason, new_text, project, apply, max_forget }) => {
       if (op === "supersede" && !new_text?.trim()) {
         return errorResult("supersede requires new_text (the replacement content)");
+      }
+      if (op === "purge" && query) {
+        return errorResult(
+          "purge does not accept a query — hard delete is slug-addressed only. Pass slugs (exact note slugs) to propose a purge, or use release/supersede for soft removal.",
+        );
       }
       const result = await runForget({
         startDir: vaultDir,
         op,
         query,
+        slugs,
+        reason,
         newText: new_text,
         project,
         apply: apply === true,
         maxForget: max_forget,
+        actor: "mcp",
       });
       if (result.success) graphCache.invalidate();
       return textResult(result);

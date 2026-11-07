@@ -3,7 +3,7 @@ import { Command } from "commander";
 import { VERSION } from "./core/version.js";
 import { checkForUpdate } from "./core/update-check.js";
 import { disposeEmbedder } from "./core/engine.js";
-import { runForget } from "./cli/forget.js";
+import { runForget, runRequestsList, runRequestDecide } from "./cli/forget.js";
 import { readFileSync } from "node:fs";
 
 import { runInitInteractive } from "./cli/init.js";
@@ -481,14 +481,16 @@ program
 
 program
   .command("forget")
-  .description("Query-addressed forgetting: release (soft-evict), supersede (replace), purge (hard delete, CLI-only)")
+  .description("Soft removal: release (soft-evict), supersede (replace). Hard delete is slug-addressed and user-approved.")
   .argument("<op>", "release | supersede | purge")
-  .argument("<query>", "what to forget — matched by rare-token anchor + embedding similarity")
+  .argument("[query]", "release/supersede only — matched by rare-token anchor + embedding similarity")
+  .option("--slugs <slugs>", "purge only: comma-separated exact note slugs (no matching)")
+  .option("--reason <text>", "purge only: why these notes should be removed (recorded in the intent)")
   .option("--new-text <text>", "supersede only: the replacement content")
   .option("-p, --project <projects...>", "supersede only: project tags for the replacement note")
   .option("--apply", "actually mutate (default: dry-run preview)")
   .option("--max-forget <n>", "refuse if the query addresses more than N notes (default 10; Infinity disables)", "10")
-  .action(async (op, query, options: { newText?: string; project?: string[]; apply?: boolean; maxForget?: string }) => {
+  .action(async (op, query, options: { newText?: string; project?: string[]; apply?: boolean; maxForget?: string; slugs?: string; reason?: string }) => {
     if (!["release", "supersede", "purge"].includes(op)) {
       await emit({ success: false, warnings: [`unknown op "${op}" — release | supersede | purge`] });
       return;
@@ -498,12 +500,34 @@ program
       startDir: process.cwd(),
       op: op as "release" | "supersede" | "purge",
       query,
+      slugs: options.slugs?.split(",").map((s) => s.trim()).filter(Boolean),
+      reason: options.reason,
       newText: options.newText,
       project: options.project,
       apply: options.apply === true,
       maxForget: cap,
+      actor: "cli",
     });
     await emit(result, result.success ? 0 : 1);
+  });
+
+program
+  .command("requests")
+  .description("Manage pending removal/identity intents (user-only surface)")
+  .argument("[action]", "list | approve | deny")
+  .argument("[id]", "intent id (approve/deny)")
+  .action(async (action, id) => {
+    if (!action || action === "list") {
+      const result = await runRequestsList(process.cwd());
+      await emit(result);
+      return;
+    }
+    if ((action === "approve" || action === "deny") && id) {
+      const result = await runRequestDecide(process.cwd(), id, action);
+      await emit(result, result.success ? 0 : 1);
+      return;
+    }
+    await emit({ success: false, warnings: ["usage: mnemos requests [list] | approve <id> | deny <id>"] }, 1);
   });
 
 program

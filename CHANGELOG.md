@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Changed (capability model)
+- **No agent-callable delete.** The MCP surface has no unlink path: `mnemos_forget op=purge` now
+  only records a pending intent (exact slugs, echoed back verbatim) and returns the user's approve
+  command. Query-addressed purge was **removed entirely** — hard delete is slug-addressed only,
+  after a fuzzy match unlinked 6 unintended notes (2026-11-07).
+- **Approval queue:** pending intents live in `ops/requests/`, expire after 7 days, and execute
+  only via `mnemos requests approve <id>` — a user-only CLI surface, not a tool the model can call.
+  Interactive TTY confirmation on real terminals; no `--yes` bypass. Every executed purge copies
+  files to `ops/.trash/` before unlinking, and an append-only audit trail
+  (`ops/forget-audit.jsonl`) records every intent, approval, execution, and denial.
+- Policy layer (`policy.gates` in mnemos.config.yaml): per-gate `allow | approval | deny` for
+  purge, identity_update, protected_removal, bulk_effect, soft_removal, state_overwrite —
+  enforced in the transport-neutral core so future transports inherit identical behavior.
+
 ### Added
 - `mnemos forget <op> <query>` CLI command and `mnemos_forget` MCP tool (17th tool) wire the
   query-addressed forgetting engine (`src/core/forget.ts`) into the user surface:
