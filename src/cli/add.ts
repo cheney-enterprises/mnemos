@@ -11,6 +11,20 @@ import { initDB, indexNote } from "../core/engine.js";
 import { buildGraph } from "../core/graph.js";
 import { computeGraphMetrics } from "../core/importance.js";
 import { openSyncedIndex, cachedGraphMetrics } from "../core/indexstore.js";
+import { detectProjects } from "../core/classify.js";
+
+/** Config-driven keyword detection, isolated so the ask-first gate can use it. */
+function detectProjectsSilently(
+  title: string,
+  body: string,
+  config: { promote: { project_keywords: Record<string, string[]> } },
+): string[] {
+  try {
+    return detectProjects(title, body, { known_projects: [], keywords: config.promote.project_keywords });
+  } catch {
+    return [];
+  }
+}
 
 export type AddOptions = {
   startDir: string;
@@ -28,6 +42,58 @@ export type AddResult = {
   data: Record<string, unknown>;
   warnings: string[];
 };
+
+/**
+ * The project roster from the live index — what the ask-first refusal shows.
+ * Best-effort: a missing/locked db yields an empty list, never an error.
+ */
+function loadProjectRoster(dbPath: string): Array<{ project: string; notes: number }> {
+  try {
+    const db = initDB(dbPath);
+    try {
+      return db
+        .prepare(
+          "SELECT project, COUNT(*) as notes FROM note_project GROUP BY project ORDER BY notes DESC",
+        )
+        .all() as Array<{ project: string; notes: number }>;
+    } finally {
+      db.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * The ask-first contract: a note without a project must not silently file
+ * under the hub. The add refuses with the roster + the two resolutions so
+ * the agent asks the USER which project applies — an existing one, or a new
+ * one and what it should be called — then re-calls with the answer.
+ */
+export function projectAskResponse(
+  roster: Array<{ project: string; notes: number }>,
+): AddResult {
+  const rosterText = roster.length
+    ? roster.map((r) => `${r.project} (${r.notes} notes)`).join(", ")
+    : "(no projects established yet — this would be the first)";
+  return {
+    success: false,
+    data: {
+      reason: "project_required",
+      projects: roster.map((r) => ({ project: r.project, notes: Number(r.notes) })),
+      ask: "Which project should this note belong to — an existing one above, or a new one (and its name)?",
+    },
+    warnings: [
+      "PROJECT REQUIRED — this note has no project and none could be detected. Do NOT guess.",
+      `Current projects: ${rosterText}`,
+      "Ask the user: should this note belong to one of the projects above, or a NEW one? " +
+        "If a new project: ask what it should be called (lowercase, hyphenated — e.g. 'kite-telemetry').",
+      "Then re-call mnemos_add with project set to the answer. If NEW: the first note for a new " +
+        'project is its map — mnemos_add("<tag> project map", type=moc, project=["<tag>"]) — and ' +
+        "announce it via mnemos_update file=goals.",
+    ],
+  };
+}
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -192,6 +258,29 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
   const hasRealContent = !body.includes("{Content");
 
   if (autoPromote && hasRealContent) {
+    // Ask-first gate lives at the FILING boundary, not the inbox write. A
+    // project-less note may rest in inbox/ harmlessly (stubs, human CLI
+    // flows); filing it into the knowledge graph (map assignment, retrieval
+    // presence) without a project is the harmful act, so auto-promote
+    // refuses with the roster + the question for the USER.
+    const detected = detectProjectsSilently(options.title, body, config);
+    if (project.length === 0 && detected.length === 0) {
+      const dbPath = path.resolve(vaultRoot, config.engine.db_path);
+      const ask = projectAskResponse(loadProjectRoster(dbPath));
+      return {
+        success: true,
+        data: {
+          ...ask.data,
+          path: destPath,
+          autoPromoted: false,
+          askGate: true,
+        },
+        warnings: [
+          ...ask.warnings,
+          "note saved to inbox/ pending the project decision",
+        ],
+      };
+    }
     try {
       const promoteResult = await runPromote({
         startDir: options.startDir,

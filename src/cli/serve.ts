@@ -588,8 +588,10 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_add
   server.tool(
     "mnemos_add",
-    "Create a note in inbox. Always pass description and project: you know them now, and a note " +
-      "without them fails the vault schema.",
+    "Create a note in inbox. Always pass description and project: you know them now. " +
+      "If you cannot determine the project, the response asks you to — present the question " +
+      "and the project roster to the user, get an answer (existing project, or a new one and " +
+      "its name), then re-call with project set. Never guess a project.",
     {
       title: z.string().describe("Note title (prose-as-title)"),
       type: z.string().optional().describe("Note type (default: insight)"),
@@ -600,7 +602,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
           "Note body content. If omitted, creates a template stub that must be filled before promotion."
         ),
       description: z.string().optional().describe("One sentence adding context beyond the title (max 200 chars)"),
-      project: z.array(z.string()).optional().describe("Project tags that apply to this note"),
+      project: z.array(z.string()).optional().describe("Project tags that apply to this note — ask the user if unsure (the tool refuses with the roster if none given and none detectable)"),
     },
     async ({ title, type, content, description, project }) => {
       const result = await runAdd({

@@ -535,7 +535,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | `mnemos_whats_new` | Release notes for the installed version, or any version |
 | `memory_sql` | Read-only SQL over the index — anything the ranking tools cannot express |
 | `mnemos_health` | Full diagnostics |
-| `mnemos_add` | Capture to inbox |
+| `mnemos_add` | Capture to inbox. The ask-first gate: with no project tag and none detectable, it refuses to auto-file and returns the live project roster — ask the user which project (or a new one + its name), then re-call. The note waits in `inbox/`. |
 | `mnemos_promote` | Promote with classification, linking, and area assignment |
 | `mnemos_validate` | Schema validation |
 | `mnemos_query_ranked` | Full retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning |
@@ -543,6 +543,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | `mnemos_warmth` | Inspect the associative warmth field |
 | `mnemos_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection |
 | `mnemos_prune` | Activation topology analysis and archive candidates |
+| `mnemos_forget` | Removal under the capability model: `release`/`supersede` are soft (files kept, dry-run default); `purge` proposes only — records a pending intent with exact slugs and returns the user's `mnemos requests approve <id>` command. Hard deletion is never agent-executable. |
 | `mnemos_index_build` | Build/update embedding index and bootstrap co-occurrence edges |
 
 Five tools were removed in favour of `memory_sql`, which answers their

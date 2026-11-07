@@ -107,6 +107,7 @@ describe("mnemos add", () => {
       startDir: tmpDir,
       title: "test insight about memory retrieval patterns",
       type: "insight",
+      project: ["sandbox-proj"],
       content: "Semantic search finds connections that keyword search misses.",
     });
 

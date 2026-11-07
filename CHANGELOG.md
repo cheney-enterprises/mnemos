@@ -3,6 +3,11 @@
 ## [Unreleased]
 
 ### Changed (capability model)
+- **Ask-first gate for project filing.** `mnemos_add` with no project tag and no
+  detectable project no longer silently files under the hub note: it stages the
+  note in `inbox/` and returns the live project roster plus the question
+  ("existing project, or a new one — and its name?"). The AI must ask the user
+  and re-call with `project` set. Doctrine, tool description, and README updated.
 - **No agent-callable delete.** The MCP surface has no unlink path: `mnemos_forget op=purge` now
   only records a pending intent (exact slugs, echoed back verbatim) and returns the user's approve
   command. Query-addressed purge was **removed entirely** — hard delete is slug-addressed only,

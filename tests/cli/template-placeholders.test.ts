@@ -32,7 +32,7 @@ const read = (p: string) => fs.readFile(p, "utf8");
 
 describe("#38 with a pre-fix template", () => {
   it("a promoted note has no placeholder links and health reports none dangling", async () => {
-    const r = await runAdd({ startDir: vault, title: "citing is the strongest use signal", content: "Real content." });
+    const r = await runAdd({ startDir: vault, title: "citing is the strongest use signal", content: "Real content.", project: ["tmpl-test"] });
     expect(String(r.data.path)).toContain(`${path.sep}notes${path.sep}`); // really promoted
     const body = await read(r.data.path as string);
     expect(body).not.toMatch(/\[\[(related note|relevant map)\]\]/i);
@@ -47,8 +47,8 @@ describe("#38 with a pre-fix template", () => {
   });
 
   it("does not link new notes to a real note that happens to share a placeholder's name", async () => {
-    await runAdd({ startDir: vault, title: "relevant map", content: "A real map note." });
-    const r = await runAdd({ startDir: vault, title: "a note under some other map", content: "Content." });
+    await runAdd({ startDir: vault, title: "relevant map", content: "A real map note.", project: ["tmpl-test"] });
+    const r = await runAdd({ startDir: vault, title: "a note under some other map", content: "Content.", project: ["tmpl-test"] });
     // The line came from the template, not the user: stripped regardless.
     expect(await read(r.data.path as string)).not.toContain("[[relevant map]]");
   });
@@ -58,6 +58,7 @@ describe("#38 with a pre-fix template", () => {
       startDir: vault,
       title: "user plans a map",
       content: "Plan.\n\nAreas:\n- [[relevant map]]\n\nRelevant Notes:\n- [[related note]] -- write this next",
+      project: ["tmpl-test"],
     });
     expect(String(r.data.path)).toContain(`${path.sep}notes${path.sep}`);
     const body = await read(r.data.path as string);
@@ -89,7 +90,7 @@ describe("#38 with a pre-fix template", () => {
   });
 
   it("health does not call a link a placeholder when a real note has that name", async () => {
-    await runAdd({ startDir: vault, title: "relevant map", content: "A real map note." });
+    await runAdd({ startDir: vault, title: "relevant map", content: "A real map note.", project: ["tmpl-test"] });
     await fs.writeFile(
       path.join(vault, "notes", "legacy.md"),
       "---\ndescription: x\ntype: insight\nproject: []\nstatus: active\ncreated: 2026-01-01\n---\n# legacy\n\n" + OLD_FOOTER,

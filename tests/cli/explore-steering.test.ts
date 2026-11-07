@@ -32,7 +32,7 @@ beforeAll(async () => {
     ["bench press log", "insight", "Gym distractor."],
   ];
   for (const [title, type, content] of notes) {
-    await runAdd({ startDir: vaultDir, title, type, content });
+    await runAdd({ startDir: vaultDir, title, type, content, project: ["steering-test"] });
   }
   await runIndexBuild(vaultDir);
 }, 120000);

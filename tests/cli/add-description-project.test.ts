@@ -88,12 +88,14 @@ describe("mnemos add with description and project (#39)", () => {
     await setConfig("provider: null", "provider: openai");
     await setConfig("api_key_env: null", "api_key_env: MNEMOS_TEST_API_KEY");
     mockLlm();
-    const r = await runAdd({ startDir: vault, title: TITLE, content: "Real content." });
+    const r = await runAdd({ startDir: vault, title: TITLE, content: "Real content.", project: ["p39"] });
     expect((await fm(String(r.data.path))).description).toBe("LLM description must not win");
   });
 
-  it("without the fields, behaves as before", async () => {
-    const r = await runAdd({ startDir: vault, title: TITLE, content: "Real content." });
-    expect(await fm(String(r.data.path))).toMatchObject({ description: "", project: [] });
+  it("without a description (but with a project), description stays empty and the project lands", async () => {
+    const r = await runAdd({ startDir: vault, title: TITLE, content: "Real content.", project: ["p39"] });
+    const fmData = await fm(String(r.data.path));
+    expect(fmData.description).toBe("");
+    expect(fmData.project).toEqual(["p39"]);
   });
 });

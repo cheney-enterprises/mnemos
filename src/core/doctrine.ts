@@ -69,6 +69,7 @@ export function projectProtocol(): string {
     "PROJECT PROTOCOL\n" +
     "- You always know your project: the wake briefing lists active projects; your project's map is the entry point (mnemos_query_ranked \"<tag> project map\").\n" +
     "- ALWAYS pass project explicitly on mnemos_add. Never rely on keyword detection.\n" +
+    "- ASK-FIRST GATE: if you do not know the project, mnemos_add REFUSES and returns the live project roster plus the question. Do not guess: ask the USER — an existing project from the roster, or a new one and its name — then re-call with project set. The note waits safely in inbox/ until then.\n" +
     "- NEW PROJECT (self-serve, no human setup): (1) create the hub: mnemos_add(\"<tag> project map\", type=moc, project=[\"<tag>\"]) — the title MUST start with the project tag; routing finds maps by that convention, no config needed. (2) Tag every note for the project with project=[\"<tag>\"] — they auto-file under the map. (3) Announce it: mnemos_update file=goals — one line naming the project and its status, so every future wake lists it.\n" +
     "- If promote warns \"No map matched\": the map exists but is misnamed, or does not exist yet. Fix the map's title to start with the project tag (or create it). Config routing (project_map_routing) is the user's to change, never yours.\n" +
     "- Map Current State: when ending a session, update your project map's Current State to the new reality (see SESSION END).\n"

@@ -91,6 +91,7 @@ describe("auto-promote config matrix", () => {
       startDir: tmpDir,
       title: "insight with content and auto promote enabled",
       type: "insight",
+      project: ["matrix-proj"],
       content: "Real content that should trigger auto-promotion.",
     });
 
@@ -133,6 +134,7 @@ describe("auto-promote config matrix", () => {
       startDir: tmpDir,
       title: "note with llm required but no llm configured at all",
       type: "insight",
+      project: ["matrix-proj"],
       content: "Content present, but no LLM configured.",
     });
 
@@ -157,6 +159,7 @@ describe("auto-promote config matrix", () => {
       startDir: tmpDir,
       title: "promoted note should have active status set",
       type: "learning",
+      project: ["matrix-proj"],
       content: "Learning about auto-promotion metadata.",
     });
 
@@ -173,6 +176,7 @@ describe("auto-promote config matrix", () => {
       startDir: tmpDir,
       title: "note should land flat in notes directory",
       type: "insight",
+      project: ["matrix-proj"],
       content: "Verifying flat file structure.",
     });
 
@@ -193,6 +197,7 @@ describe("auto-promote config matrix", () => {
       startDir: tmpDir,
       title: "note with curly braces in actual content body",
       type: "insight",
+      project: ["matrix-proj"],
       content: 'JSON example: {"key": "value"} is valid content.',
     });
 
