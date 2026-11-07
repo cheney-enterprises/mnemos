@@ -120,7 +120,7 @@ describe("mnemos_warmth", () => {
 // ---------------------------------------------------------------------------
 
 describe("resources", () => {
-  it("lists all 5 resources", async () => {
+  it("lists all 6 resources", async () => {
     const result = await ctx.client.listResources();
     const uris = result.resources.map((r) => r.uri).sort();
 
@@ -129,6 +129,7 @@ describe("resources", () => {
       "mnemos://goals",
       "mnemos://identity",
       "mnemos://methodology",
+      "mnemos://policy",
       "mnemos://reminders",
     ]);
   });
@@ -143,6 +144,19 @@ describe("resources", () => {
     const result = await ctx.client.readResource({ uri: "mnemos://goals" });
     expect(result.contents).toHaveLength(1);
     expect(result.contents[0].mimeType).toBe("text/markdown");
+  });
+
+  it("reads the policy resource — the effective gates, not the config file", async () => {
+    const result = await ctx.client.readResource({ uri: "mnemos://policy" });
+    const text = result.contents[0].text as string;
+    // The six gates must all be present — the sheet exists so the agent can
+    // predict refusals; a missing gate is a silent capability claim.
+    for (const gate of ["purge", "identity_update", "protected_removal", "bulk_effect", "soft_removal", "state_overwrite"]) {
+      expect(text).toContain(gate);
+    }
+    // The removal law the doctrine teaches, rendered from the same source.
+    expect(text).toContain("mnemos requests approve");
+    expect(text).toContain("You cannot change policy");
   });
 
   it("resource content updates after mnemos_update", async () => {

@@ -84,7 +84,45 @@ export function loadPolicy(config: unknown): { policy: PolicyConfig; source: Pol
 
 export function policyLine(policy: PolicyConfig): string {
   const g = policy.gates;
-  return `purge=${g.purge} · identity=${g.identity_update} · protected=${g.protected_removal} · soft=${g.soft_removal}`;
+  return `purge=${g.purge} · identity=${g.identity_update} · protected=${g.protected_removal} · bulk=${g.bulk_effect} · soft=${g.soft_removal} · state=${g.state_overwrite}`;
+}
+
+/**
+ * The full policy sheet — what mnemos://policy serves and what an agent reads
+ * to PREDICT refusals instead of discovering them by trial. Configured truth,
+ * rendered transport-neutral so the MCP resource today and the HTTP/Flutter
+ * transports later serve identical text.
+ */
+export function renderPolicySheet(policy: PolicyConfig, source: PolicySource): string {
+  const g = policy.gates;
+  const origin =
+    source === "config"
+      ? "mnemos.config.yaml (policy block)"
+      : "defaults — mnemos.config.yaml has no policy block";
+  return [
+    "# Mnemos policy (effective)",
+    "",
+    `Source: ${origin}`,
+    "",
+    "Removal-class operations are gated. The AI proposes; the user executes.",
+    "",
+    "## Gates",
+    `- purge = ${g.purge} — hard delete. Slug-addressed only; the agent can only PROPOSE (an intent is recorded; the user approves).`,
+    `- identity_update = ${g.identity_update} — rewriting self/identity.md and self/methodology.md.`,
+    `- protected_removal = ${g.protected_removal} — release/supersede/archive on pinned or protected notes.`,
+    `- bulk_effect = ${g.bulk_effect} — any operation affecting more than ${policy.bulk_threshold} notes.`,
+    `- soft_removal = ${g.soft_removal} — release/supersede/archive on normal notes (dry-run by default).`,
+    `- state_overwrite = ${g.state_overwrite} — overwriting daily, goals, reminders, or a map's Current State.`,
+    "",
+    "## Removal law",
+    "- You (the agent) can never delete a note yourself and cannot approve your own proposals.",
+    "- purge proposals execute only via: mnemos requests approve <id> — a user-only CLI command, never an agent tool.",
+    `- Pending intents expire after ${policy.intent_ttl_days} days.`,
+    "- Every executed purge copies the notes to ops/.trash/ first; ops/forget-audit.jsonl records every intent, approval, and execution.",
+    "- If an action is refused, the refusal names the gate and the approve command — display it to the user verbatim.",
+    "- You cannot change policy; mnemos.config.yaml is the user's file. Re-read this resource any time you need the effective gates.",
+    "",
+  ].join("\n");
 }
 
 export type IntentKind =

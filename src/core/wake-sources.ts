@@ -44,6 +44,42 @@ export async function assembleWarmNotes(
   }
 }
 
+/**
+ * The project roster from the live derived index — the same note_project rows
+ * the ask-first gate's refusal shows, so the roster an agent files against is
+ * the roster wake advertises. Forgotten statuses (archived/superseded/released)
+ * are excluded — those notes left retrieval, so counting them would advertise
+ * projects that are effectively empty. Best-effort: a missing/locked db yields
+ * an empty list, never an error.
+ */
+export async function assembleProjects(
+  dbPath: string
+): Promise<Array<{ project: string; notes: number }>> {
+  try {
+    const { default: Database } = await import('better-sqlite3');
+    const { FORGOTTEN_STATUSES } = await import('./status.js');
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const rows = db
+        .prepare(
+          `SELECT p.project AS project, COUNT(*) AS notes
+           FROM note_project p
+           JOIN note n ON n.id = p.note_id
+           WHERE n.type != 'moc'
+             AND (n.status = '' OR LOWER(n.status) NOT IN (${[...FORGOTTEN_STATUSES].map(() => '?').join(', ')}))
+           GROUP BY p.project
+           ORDER BY notes DESC`,
+        )
+        .all(...FORGOTTEN_STATUSES) as Array<{ project: string; notes: number }>;
+      return rows.map((r) => ({ project: r.project, notes: Number(r.notes) }));
+    } finally {
+      db.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
 export function loadWakeSources(config: { wake?: { sources?: WakeSource[] } }): WakeSource[] {
   const src = config.wake?.sources;
   if (Array.isArray(src) && src.length > 0) return src;
@@ -69,6 +105,7 @@ export async function assembleWakeInputs(
   daily: string;
   activity: string[];
   warmNotes: Array<{ title: string; decayed: number }>;
+  projects: Array<{ project: string; notes: number }>;
   vaultStats: { noteCount: number; inboxCount: number };
   notices: string[];
 }> {
@@ -79,6 +116,7 @@ export async function assembleWakeInputs(
     daily: '',
     activity: [] as string[],
     warmNotes: [] as Array<{ title: string; decayed: number }>,
+    projects: [] as Array<{ project: string; notes: number }>,
     vaultStats: { noteCount: 0, inboxCount: 0 },
     notices: [] as string[]
   };
@@ -138,6 +176,7 @@ export async function assembleWakeInputs(
   // the same default; a missing/locked db degrades to an empty list.
   const resolvedDbPath = dbPath ?? path.join(vaultRoot, '.mnemos', 'embeddings.db');
   result.warmNotes = await assembleWarmNotes(resolvedDbPath, 10);
+  result.projects = await assembleProjects(resolvedDbPath);
 
   return result;
 }

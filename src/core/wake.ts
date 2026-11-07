@@ -8,6 +8,9 @@ export type WakeInputs = {
   reminders: string;
   daily: string | DailyEntry[];
   warmNotes: Array<{ title: string; decayed: number }>;
+  projects: Array<{ project: string; notes: number }>;
+  /** Compact gate line (policyLine()); the full sheet is mnemos://policy. */
+  policy?: string;
   vaultStats: {
     noteCount: number;
     inboxCount: number;
@@ -102,8 +105,10 @@ export function buildWakePayload(
     reminders_due: 6,
     daily_recent: 20,
     warm_notes: 10,
+    projects: 8,
     resurfaced: 0,
     vault_vitals: 4,
+    policy: 1,
     notices: 2,
   };
 
@@ -188,6 +193,19 @@ export function buildWakePayload(
     cap: caps.warm_notes,
   });
 
+  // Project roster — the doctrine's PROJECT PROTOCOL promises "the wake
+  // briefing lists active projects"; this section is that promise. Same rows
+  // the ask-first gate's refusal shows, so the agent files against what it
+  // was shown.
+  const projectLines = inputs.projects.map(
+    (p) => `${p.project} (${p.notes} notes)`
+  );
+  sections.push({
+    name: "projects",
+    lines: projectLines.slice(0, caps.projects),
+    cap: caps.projects,
+  });
+
   // Resurfaced (none for now)
   sections.push({ name: "resurfaced", lines: [], cap: caps.resurfaced });
 
@@ -202,6 +220,14 @@ export function buildWakePayload(
     name: "vault_vitals",
     lines: vaultLines.slice(0, caps.vault_vitals),
     cap: caps.vault_vitals,
+  });
+
+  // Policy gate line — the doctrine promises the briefing carries policy, so
+  // the agent can PREDICT refusals instead of discovering them by trial.
+  sections.push({
+    name: "policy",
+    lines: inputs.policy ? [inputs.policy] : [],
+    cap: caps.policy,
   });
 
   // Notices
@@ -221,7 +247,9 @@ export function buildWakePayload(
   // Drop sections if over budget
   const dropOrder: Array<keyof typeof caps> = [
     "notices",
+    "policy",
     "vault_vitals",
+    "projects",
     "warm_notes",
     "daily_recent",
     "reminders_due",

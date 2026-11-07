@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { loadWakeSources, assembleWakeInputs } from "../../src/core/wake-sources.js";
+import { loadWakeSources, assembleWakeInputs, assembleProjects } from "../../src/core/wake-sources.js";
 
 // Blind tests — manifest contract from design v2. Author never sees these.
 // loadWakeSources(config) -> ordered sources with defaults when config.wake?.sources missing.
@@ -56,5 +56,45 @@ describe("assembly against a real vault dir", () => {
     const acts = (inputs as { activity?: string[] }).activity ?? [];
     expect(acts.length).toBeLessThanOrEqual(10);
     if (acts.length > 0) expect(acts[acts.length - 1]).toBe("line 39");
+  });
+});
+
+describe("assembleProjects — the roster the briefing and the ask-first gate share", () => {
+  it("reads a real index: active project notes counted, maps and forgotten notes excluded", async () => {
+    const { default: Database } = await import("better-sqlite3");
+    const { initIndexStore, syncIndex } = await import("../../src/core/indexstore.js");
+    const { mkdir } = await import("node:fs/promises");
+
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-roster-"));
+    const notesDir = path.join(idxRoot, "notes");
+    await mkdir(notesDir, { recursive: true });
+    const note = (name: string, fm: string, body = "") =>
+      fs.writeFile(path.join(notesDir, `${name}.md`), `---\n${fm}\n---\n\n${body}\n`, "utf8");
+
+    await note("kite project map", "type: moc\nproject: [kite]\nstatus: active");
+    await note("kite telemetry note", "type: insight\nproject: [kite]\nstatus: active");
+    await note("kite barometer note", "type: insight\nproject: [kite]\nstatus: active");
+    await note("roust insight one", "type: insight\nproject: [roust]\nstatus: active");
+    // archived project notes left retrieval — they must not count.
+    await note("kite archived note", "type: insight\nproject: [kite]\nstatus: archived");
+    await note("roust superseded note", "type: insight\nproject: [roust]\nstatus: superseded");
+
+    const db = new Database(path.join(idxRoot, "index.db"));
+    initIndexStore(db);
+    await syncIndex(db, notesDir);
+
+    const roster = await assembleProjects(path.join(idxRoot, "index.db"));
+    expect(roster).toEqual([
+      { project: "kite", notes: 2 },
+      { project: "roust", notes: 1 },
+    ]);
+
+    db.close();
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+
+  it("missing db degrades to an empty list, never an error", async () => {
+    const roster = await assembleProjects("/nonexistent/path/index.db");
+    expect(roster).toEqual([]);
   });
 });

@@ -453,7 +453,7 @@ All updates happen in a single SQLite transaction at session end, in order: co-o
 ## The Stack
 
 ```
-Layer 6: MCP Server                    17 tools, 5 resources — any agent talks to this
+Layer 6: MCP Server                    17 tools, 6 resources — any agent talks to this
 Layer 5: Recursive Exploration         PPR graph traversal, sub-question decomposition, convergence detection
 Layer 4: Retrieval Intelligence        Q-value reranking, co-occurrence learning, stage meta-optimization
 Layer 3: Dampening Pipeline            gravity, hub, resolution — ablation-validated
@@ -462,7 +462,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 5 resources · 22 CLI commands · 1022 tests
+17 MCP tools · 6 resources · 22 CLI commands · 1022 tests
 
 ---
 
@@ -495,7 +495,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
                     │    Mnemos MCP Server  │
                     │                   │
                     │  instructions     │   identity auto-injected
-                    │  resources  (5)   │   mnemos:// endpoints
+                    │  resources  (6)   │   mnemos:// endpoints
                     │  tools    (16)    │   full memory operations
                     └─────────┬─────────┘
                               │
@@ -545,6 +545,18 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | `mnemos_prune` | Activation topology analysis and archive candidates |
 | `mnemos_forget` | Removal under the capability model: `release`/`supersede` are soft (files kept, dry-run default); `purge` proposes only — records a pending intent with exact slugs and returns the user's `mnemos requests approve <id>` command. Hard deletion is never agent-executable. |
 | `mnemos_index_build` | Build/update embedding index and bootstrap co-occurrence edges |
+
+Six resources carry the always-readable layer:
+
+| Resource | What it serves |
+|----------|----------------|
+| `mnemos://identity`, `mnemos://goals`, `mnemos://methodology` | The self layer, as written by `mnemos_update` |
+| `mnemos://daily`, `mnemos://reminders` | The ops layer, as written by `mnemos_update` |
+| `mnemos://policy` | The effective policy sheet: all six gates with their configured levels, the removal law (propose/approve split, trash, audit), and the config source. Rendered from the same `loadPolicy` the enforcement sites consume, so it cannot drift from what is actually enforced. |
+
+`mnemos_wake` carries the compact form of the last two in every briefing: the
+project roster (same `note_project` rows the ask-first gate's refusal shows)
+and a one-line policy gate summary.
 
 Five tools were removed in favour of `memory_sql`, which answers their
 questions in one statement and is 20–46× faster because it reads the index

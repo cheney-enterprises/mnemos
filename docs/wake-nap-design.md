@@ -26,9 +26,13 @@ Fixed priority order, each section gets a max share; unused share flows down (wa
   3. reminders_due (<=6 lines: only items matching today/overdue patterns)
   4. daily_recent (<=20 lines: TAIL of daily.md — most recent entries, not whole file)
   5. warm_notes (<=10 lines: top decayed-boost titles + 1-line why)
-  6. resurfaced (<=3 lines: arrival-surface slots — save-for-later rules: bounded, no debt) [v2 of wake]
-  7. vault_vitals (<=4 lines: note count, inbox count, zones summary, index health warning if any)
-  8. update/notice lines (<=2) — existing ask-shaped notice
+  6. projects (<=8 lines: active-project roster from the derived index — the
+     same note_project rows the ask-first gate's refusal shows; maps and
+     forgotten statuses excluded) [2026-11 phase 2]
+  7. resurfaced (<=3 lines: arrival-surface slots — save-for-later rules: bounded, no debt) [v2 of wake]
+  8. vault_vitals (<=4 lines: note count, inbox count, zones summary, index health warning if any)
+  9. policy (1 line: the six gates compact — full sheet at mnemos://policy) [2026-11 phase 2]
+  10. update/notice lines (<=2) — existing ask-shaped notice
 Sections that would overflow are SUMMARIZED BY TRUNCATION RULES (head/tail/pattern-match), never by LLM —
 wake must be fast, deterministic, and never spend tokens to save tokens.
 Over-budget resolution: drop from lowest priority (7 shrinks before 2 does; 1 never drops).

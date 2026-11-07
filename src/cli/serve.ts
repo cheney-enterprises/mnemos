@@ -20,6 +20,8 @@ import { runInit } from "./init.js";
 import { runWake } from "./wake.js";
 import { GraphCache } from "../core/graph.js";
 import { initDB } from "../core/engine.js";
+import { loadConfig } from "../core/config.js";
+import { loadPolicy, renderPolicySheet } from "../core/policy.js";
 import { renderDoctrine, renderOnboarding, stripFrontmatter, isFirstRunIdentity as isFirstRun } from "../core/doctrine.js";
 // Retrieval intelligence
 import { initQValueTables, batchUpdateQ } from "../core/qvalue.js";
@@ -434,6 +436,23 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
+  // The effective policy sheet — the capability model the agent reads to
+  // PREDICT refusals instead of discovering them by trial. Rendered from the
+  // same loadPolicy the enforcement sites consume, so the sheet cannot drift
+  // from what is actually enforced. The agent cannot change policy; this is a
+  // read-only window onto the user's config.
+  server.resource("policy", "mnemos://policy", async (uri) => {
+    const config = await loadConfig(paths.config);
+    const { policy, source } = loadPolicy(config);
+    return {
+      contents: [{
+        uri: uri.href,
+        mimeType: "text/markdown",
+        text: renderPolicySheet(policy, source),
+      }],
+    };
+  });
+
   // ─── #37 learning reset: offered to the agent, never forced ───
   const attachLearningResetNotice = (payload: Record<string, unknown>): void => {
     // One status check per session, whatever it finds: the check scans
@@ -472,6 +491,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   server.tool(
     "mnemos_wake",
     "Session boot: constant-size briefing, budget-capped. Call this first in a session. " +
+      "Returns the project roster and effective policy gates alongside the briefing — " +
+      "projects feeds the ask-first gate, policy predicts removal refusals. " +
       "On a vault with no identity written yet it also returns an onboarding script.",
     { budget: z.number().optional().describe("Max lines (default 96)") },
     async ({ budget }) => {

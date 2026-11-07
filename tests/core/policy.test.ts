@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   loadPolicy,
   DEFAULT_POLICY,
+  renderPolicySheet,
   proposeIntent,
   listIntents,
   getIntent,
@@ -75,6 +76,35 @@ describe("policy defaults", () => {
     const { policy } = loadPolicy({});
     expect(policyLine(policy)).toContain("purge=approval");
     expect(policyLine(policy)).toContain("soft=allow");
+    // All six gates — a compact line that omits a gate is a silent
+    // capability claim, the exact drift the policy sheet exists to prevent.
+    expect(policyLine(policy)).toContain("identity=approval");
+    expect(policyLine(policy)).toContain("protected=approval");
+    expect(policyLine(policy)).toContain("bulk=approval");
+    expect(policyLine(policy)).toContain("state=allow");
+  });
+
+  it("renderPolicySheet serves every gate, the removal law, and its source", () => {
+    const { policy, source } = loadPolicy({});
+    const sheet = renderPolicySheet(policy, source);
+    for (const gate of ["purge", "identity_update", "protected_removal", "bulk_effect", "soft_removal", "state_overwrite"]) {
+      expect(sheet).toContain(gate);
+    }
+    expect(sheet).toContain("mnemos requests approve");
+    expect(sheet).toContain("You cannot change policy");
+    expect(sheet).toContain("defaults — mnemos.config.yaml has no policy block");
+  });
+
+  it("renderPolicySheet reflects configured overrides and names the config source", () => {
+    const { policy, source } = loadPolicy({
+      policy: { gates: { purge: "deny", soft_removal: "approval" }, bulk_threshold: 12, intent_ttl_days: 3 },
+    });
+    const sheet = renderPolicySheet(policy, source);
+    expect(sheet).toContain("purge = deny");
+    expect(sheet).toContain("soft_removal = approval");
+    expect(sheet).toContain("more than 12 notes");
+    expect(sheet).toContain("expire after 3 days");
+    expect(sheet).toContain("mnemos.config.yaml (policy block)");
   });
 });
 

@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added (phase 2 — the doctrine's promises made real)
+- **Project roster in wake.** `mnemos_wake` (and `mnemos wake`) now carries the
+  active-project roster — the same `note_project` rows the ask-first gate's
+  refusal shows, so the agent files against what it was shown. Archived,
+  superseded, and released notes are excluded, and map notes (`type=moc`) do
+  not count toward a project's size. New `projects` section in the briefing
+  (cap 8, drops with the low-priority sections), plus a structured `projects`
+  array in the MCP payload.
+- **`mnemos://policy` resource.** The effective policy sheet: all six gates
+  with their configured levels, the removal law (propose/approve split,
+  trash, audit, intent expiry), and whether the values came from
+  `mnemos.config.yaml` or the defaults. Rendered by `renderPolicySheet` from
+  the same `loadPolicy` the enforcement sites consume, so the sheet cannot
+  drift from what is actually enforced.
+- **Policy line in every briefing.** `policyLine` now covers all six gates;
+  wake renders it as a one-line section so the agent can PREDICT refusals
+  instead of discovering them by trial. The full detail stays one resource
+  read away (`mnemos://policy`).
+
 ### Changed (capability model)
 - **Ask-first gate for project filing.** `mnemos_add` with no project tag and no
   detectable project no longer silently files under the hub note: it stages the

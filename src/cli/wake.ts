@@ -4,6 +4,7 @@
 import { findVaultRoot, getVaultPaths } from "../core/vault.js";
 import path from "node:path";
 import { loadConfig } from "../core/config.js";
+import { loadPolicy, policyLine } from "../core/policy.js";
 import { loadWakeSources, assembleWakeInputs } from "../core/wake-sources.js";
 import { buildWakePayload } from "../core/wake.js";
 import { parseTemporal, classifyReminder } from "../core/temporal.js";
@@ -12,6 +13,8 @@ export async function runWake(startDir: string, budgetLines: number): Promise<{
   success: boolean;
   lines: string[];
   sections: Record<string, number>;
+  projects: Array<{ project: string; notes: number }>;
+  policy: string;
 }> {
   const vaultRoot = await findVaultRoot(startDir);
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
@@ -23,6 +26,10 @@ export async function runWake(startDir: string, budgetLines: number): Promise<{
     (config as { engine?: { db_path?: string } }).engine?.db_path ?? ".mnemos/embeddings.db",
   );
   const inputs = await assembleWakeInputs(vaultRoot, sources, dbPath);
+  // The doctrine promises the briefing carries policy — the gates an agent
+  // needs to PREDICT refusals. One compact line in the briefing; the full
+  // sheet is mnemos://policy for sessions that need the detail.
+  const { policy } = loadPolicy(config);
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -45,9 +52,16 @@ export async function runWake(startDir: string, budgetLines: number): Promise<{
   const wakeInputs = {
     ...inputs,
     reminders: reminderLines.join("\n"),
-    daily: inputs.activity.map((l) => ({ date: today, lines: [l] }))
+    daily: inputs.activity.map((l) => ({ date: today, lines: [l] })),
+    policy: policyLine(policy)
   };
 
   const out = buildWakePayload(wakeInputs, budgetLines);
-  return { success: true, lines: out.lines, sections: out.sections };
+  return {
+    success: true,
+    lines: out.lines,
+    sections: out.sections,
+    projects: inputs.projects,
+    policy: policyLine(policy),
+  };
 }

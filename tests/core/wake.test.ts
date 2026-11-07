@@ -12,6 +12,7 @@ function fakeInputs(overrides: Partial<Record<string, string>> = {}) {
     reminders: "# reminders\n- [ ] due today: pay bill\n- [ ] someday: read book\n" + "- [ ] junk\n".repeat(80),
     daily: Array.from({ length: 120 }, (_, i) => `## 2026-0${(i % 6) + 1}-15\nentry ${i} line a\nentry ${i} line b`).join("\n"),
     warmNotes: Array.from({ length: 50 }, (_, i) => ({ title: `note-${i}`, decayed: 1 - i * 0.01 })),
+    projects: Array.from({ length: 12 }, (_, i) => ({ project: `proj-${i}`, notes: 20 - i })),
     vaultStats: { noteCount: 5000, inboxCount: 37, zones: { active: 10, stale: 20, fading: 5, archived: 100 } },
     notices: [],
     ...overrides,
@@ -47,9 +48,30 @@ describe("wake budget contract", () => {
   });
 
   it("empty vault: small clean payload, no crash", () => {
-    const out = buildWakePayload(fakeInputs({ identity: "", goals: "", reminders: "", daily: "" }) as never, 96);
+    const out = buildWakePayload(fakeInputs({ identity: "", goals: "", reminders: "", daily: "", projects: [] }) as never, 96);
     expect(out.lines.length).toBeGreaterThan(0);
     expect(out.lines.length).toBeLessThanOrEqual(96);
+  });
+});
+
+describe("projects section (doctrine promise: the briefing lists active projects)", () => {
+  it("renders the roster as 'tag (N notes)' lines, capped at 8", () => {
+    const out = buildWakePayload(fakeInputs() as never, 96);
+    expect(out.sections["projects"]).toBeLessThanOrEqual(8);
+    expect(out.sections["projects"]).toBeGreaterThan(0);
+    expect(out.lines).toContain("proj-0 (20 notes)");
+  });
+
+  it("drops before vault_vitals... after it", () => {
+    const out = buildWakePayload(fakeInputs() as never, 10);
+    // At a tiny budget the roster must be gone before goals (priority 2).
+    expect(out.sections["projects"] ?? 0).toBe(0);
+    expect(out.sections["active_goals"] ?? 0).toBeGreaterThan(0);
+  });
+
+  it("empty roster renders zero lines, no crash", () => {
+    const out = buildWakePayload(fakeInputs({ projects: [] }) as never, 96);
+    expect(out.sections["projects"] ?? 0).toBe(0);
   });
 });
 
