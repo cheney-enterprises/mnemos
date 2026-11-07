@@ -139,6 +139,14 @@ export type MnemosConfig = {
   vault: {
     version: string;
   };
+  /**
+   * The capability-model policy block (policy.gates), carried through raw.
+   * applyConfigDefaults builds a fixed-shape object and drops unknown keys,
+   * so this field must be explicitly preserved — the policy layer reads it
+   * via loadPolicy(config). Without this, every policy override in
+   * mnemos.config.yaml would be silently ignored.
+   */
+  policy?: unknown;
   templates: TemplateMapping;
   vitality: VitalityConfig;
   llm: LlmConfig;
@@ -286,6 +294,9 @@ const DEFAULT_CONFIG: MnemosConfig = {
 };
 
 export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
+  // Preserve the raw policy block: this builder returns a fixed-shape object
+  // and would otherwise drop the key entirely.
+  const rawPolicy = (raw as Record<string, unknown>).policy;
   const rawPromote = (raw as Record<string, unknown>).promote as
     | Partial<PromoteConfig>
     | undefined;
@@ -303,6 +314,7 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
   const rawExplore = (raw as Record<string, unknown>).explore as Partial<ExploreConfig> | undefined;
 
   return {
+    policy: rawPolicy,
     vault: {
       version: raw.vault?.version ?? DEFAULT_CONFIG.vault.version,
     },
