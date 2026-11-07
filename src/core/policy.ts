@@ -61,7 +61,14 @@ export function loadPolicy(config: unknown): { policy: PolicyConfig; source: Pol
   const policy = structuredClone(DEFAULT_POLICY);
   if (raw.gates) {
     for (const [k, v] of Object.entries(raw.gates)) {
-      if (v === "allow" || v === "approval" || v === "deny") {
+      // Only known gate names, only known levels. An unknown gate (a typo'd
+      // key like "purges") must be ignored, never fabricated onto gates —
+      // otherwise a misspelled override silently no-ops and the vault runs
+      // on defaults while the user believes they hardened it.
+      if (
+        (Object.keys(DEFAULT_POLICY.gates) as string[]).includes(k) &&
+        (v === "allow" || v === "approval" || v === "deny")
+      ) {
         policy.gates[k as GateName] = v;
       }
     }
