@@ -530,7 +530,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | Tool | What it does |
 |------|-------------|
 | `mnemos_wake` | Session boot: bounded briefing, plus onboarding on a fresh vault |
-| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders |
+| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders — or `file=map project=<tag>` to overwrite a project map's Current State section (the SESSION END ritual; replace semantics, Key Notes and frontmatter untouched). Policy gates apply; the previous version is always backed up. |
 | `mnemos_update_decision` | Record the user's answer to an update notice |
 | `mnemos_whats_new` | Release notes for the installed version, or any version |
 | `memory_sql` | Read-only SQL over the index — anything the ranking tools cannot express |

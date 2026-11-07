@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Added (phase 3 — the ritual's last gap closed)
+- **`mnemos_update file=map project=<tag>`.** Overwrites the project map's
+  `## Current State` section — the SESSION END step the doctrine always
+  demanded but no tool could perform (the agent would have had to break the
+  direct-access ban). Replace semantics, never append: the new content is
+  stamped `## Current State (<today>)` and surgically swapped in; Key Notes,
+  frontmatter, and surrounding sections survive byte-identical; a `.history`
+  backup precedes every write. Map resolution follows promote's chain —
+  `project_map_routing` config first, then the `<tag>…map` slug convention —
+  so a map that routes adds is a map the ritual finds. `section_created`
+  reports a first-ever Current State append.
+- **The write path is transport-neutral (`src/cli/update.ts`).** The MCP
+  tool is now a thin shim over `runUpdateFile`; the HTTP sidecar and Flutter
+  transports inherit identical gate, backup, and map-resolution behavior.
+- **Policy gates wired to the write path.** `identity_update` (identity,
+  methodology): `allow` writes, `approval` proposes a pending intent the user
+  executes via `mnemos requests approve` (execution implemented — an approved
+  identity intent now actually writes, with backup), `deny` refuses.
+  `state_overwrite` (daily, goals, reminders, map Current State): `allow`
+  writes, `approval`/`deny` refuse with the gate named.
+
 ### Added (phase 2 — the doctrine's promises made real)
 - **Project roster in wake.** `mnemos_wake` (and `mnemos wake`) now carries the
   active-project roster — the same `note_project` rows the ask-first gate's

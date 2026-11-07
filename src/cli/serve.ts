@@ -15,6 +15,7 @@ import { runExplore } from "./explore.js";
 import { runIndexBuild } from "./indexcmd.js";
 import { runPrune } from "./prune.js";
 import { runForget } from "./forget.js";
+import { runUpdateFile } from "./update.js";
 import { findVaultRootWithSource, getGlobalVaultPath, getVaultPaths, type VaultPaths } from "../core/vault.js";
 import { runInit } from "./init.js";
 import { runWake } from "./wake.js";
@@ -97,15 +98,7 @@ async function buildInstructions(paths: VaultPaths, autoCreated = false): Promis
   });
 }
 
-// --- Updatable file routing ---
-
-const UPDATABLE_FILES: Record<string, (p: VaultPaths) => string> = {
-  identity: (p) => path.join(p.self, "identity.md"),
-  goals: (p) => path.join(p.self, "goals.md"),
-  methodology: (p) => path.join(p.self, "methodology.md"),
-  daily: (p) => path.join(p.ops, "daily.md"),
-  reminders: (p) => path.join(p.ops, "reminders.md"),
-};
+// Updatable file routing moved to cli/update.ts (phase 3 — transport-neutral).
 
 // --- MCP Server ---
 
@@ -565,43 +558,27 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
-  // mnemos_update — write to self/ or ops/ files with auto-backup
+  // mnemos_update — write self/, ops/, or a map's Current State (phase 3).
+  // The transport-neutral engine lives in cli/update.ts; policy gates and
+  // backups are enforced there so every future transport inherits them.
   server.tool(
     "mnemos_update",
-    "Update agent files: identity, goals, methodology (self/), or daily, reminders (ops/). " +
-      "Auto-backs up previous version before writing.",
+    "Update agent files: identity, goals, methodology (self/), daily, reminders (ops/), " +
+      "or file=map to overwrite a project map's Current State section (the SESSION END ritual; " +
+      "requires project; replace semantics — Key Notes and frontmatter untouched). " +
+      "Auto-backs up the previous version before writing. Policy gates apply.",
     {
-      file: z.enum(["identity", "goals", "methodology", "daily", "reminders"])
-        .describe("Which file to update"),
-      content: z.string().describe("Full new content for the file"),
+      file: z.enum(["identity", "goals", "methodology", "daily", "reminders", "map"])
+        .describe("Which file to update; map = the project map's Current State section"),
+      content: z.string().describe("Full new content for the file; for map, the new Current State body (3-5 lines: done, next action, blocked)"),
+      project: z.string().optional().describe("file=map only: the project whose map to update (from the wake roster)"),
     },
-    async ({ file, content }) => {
-      const resolver = UPDATABLE_FILES[file];
-      if (!resolver) return errorResult(`Unknown file: ${file}`);
-      const filePath = resolver(paths);
-
-      // Auto-backup before overwrite
-      const existing = await safeReadFile(filePath);
-      if (existing) {
-        const historyDir = path.join(path.dirname(filePath), ".history");
-        await fs.mkdir(historyDir, { recursive: true });
-        const ts = new Date().toISOString().replace(/[:.]/g, "-");
-        await fs.writeFile(path.join(historyDir, `${file}-${ts}.md`), existing);
-      }
-
-      // Ensure parent directory exists
-      await fs.mkdir(path.dirname(filePath), { recursive: true });
-      await fs.writeFile(filePath, content, "utf8");
-
-      // Log update event to reward accumulator
+    async ({ file, content, project }) => {
+      const result = await runUpdateFile({ startDir: vaultDir, file, content, project });
+      if (!result.success) return errorResult(result.warnings.join(" "));
+      if (result.data.intent_proposed) return textResult({ success: true, ...result.data });
       rewardAccumulator.logUpdate(file);
-
-      return textResult({
-        success: true,
-        file: filePath,
-        backed_up: !!existing,
-        updated: new Date().toISOString(),
-      });
+      return textResult({ success: true, ...result.data });
     }
   );
 

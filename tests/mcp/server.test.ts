@@ -279,6 +279,65 @@ describe("mnemos_update", () => {
       })
     ).rejects.toThrow();
   });
+
+  it("file=map overwrites the project map's Current State section (the ritual)", async () => {
+    // A project map via the documented flow (add + promote happen in other
+    // suites; here the map is written directly to keep this test focused on
+    // the update path).
+    const mapPath = path.join(ctx.vaultDir, "notes", "test-project-map.md");
+    await fs.writeFile(
+      mapPath,
+      [
+        "---",
+        'description: "Map of the test project"',
+        "type: moc",
+        "project: [test-project]",
+        "status: active",
+        "created: 2026-11-08",
+        "---",
+        "",
+        "# Test Project Map",
+        "",
+        "## Key Notes",
+        "- [[test-note-one]] — the anchor note",
+        "",
+        "## Current State (2026-11-01)",
+        "- done: old state",
+      ].join("\n"),
+      "utf8",
+    );
+
+    const { parsed } = await callTool(ctx.client, "mnemos_update", {
+      file: "map",
+      project: "test-project",
+      content: "- done: ritual performable\n- next: cold-agent suite",
+    });
+    const data = parsed as { success: boolean; map: string; section_created: boolean };
+    expect(data.success).toBe(true);
+    expect(data.map).toBe("test-project-map");
+    expect(data.section_created).toBe(false);
+
+    const written = await fs.readFile(mapPath, "utf8");
+    expect(written).toContain("## Current State (");
+    expect(written).toContain("- done: ritual performable");
+    expect(written).not.toContain("old state");
+    expect(written).toContain("- [[test-note-one]] — the anchor note");
+    expect(written).toContain("type: moc");
+    // A backup exists — overwrite is reversible
+    const historyDir = path.join(ctx.vaultDir, "notes", ".history");
+    const backups = await fs.readdir(historyDir);
+    expect(backups.some((f) => f.startsWith("test-project-map-"))).toBe(true);
+  });
+
+  it("file=map without project is refused with the roster pointer", async () => {
+    const { parsed } = await callTool(ctx.client, "mnemos_update", {
+      file: "map",
+      content: "- done: x",
+    });
+    const data = parsed as { success: boolean; error: string };
+    expect(data.success).toBe(false);
+    expect(data.error).toContain("requires project");
+  });
 });
 
 // ---------------------------------------------------------------------------

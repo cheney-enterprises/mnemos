@@ -326,8 +326,50 @@ export async function runRequestDecide(
     const exec = await executeApprovedPurge(vaultRoot, intent);
     result = { ...result, ...exec, trashed_in: path.join("ops", ".trash") };
   }
-  // identity_update execution lands with Phase 3 (mnemos_update file=map /
-  // self rewrite path); the approval record is already durable.
+  if (intent.kind === "identity_update") {
+    const exec = await executeApprovedIdentityUpdate(vaultRoot, intent);
+    result = { ...result, ...exec };
+  }
 
   return { success: true, data: result, warnings: [] };
+}
+
+/**
+ * Execute an approved identity_update intent: write the proposed content to
+ * the self/ file, backing up the previous version first. Called only from the
+ * user-side approve path — the proposing surface (runUpdateFile at
+ * identity_update=approval) never writes.
+ */
+export async function executeApprovedIdentityUpdate(
+  vaultRoot: string,
+  intent: RemovalIntent,
+): Promise<{ written: string; backed_up: boolean }> {
+  const paths = getVaultPaths(vaultRoot);
+  const file =
+    intent.selfFile === "methodology"
+      ? path.join(paths.self, "methodology.md")
+      : path.join(paths.self, "identity.md");
+  const label = intent.selfFile === "methodology" ? "methodology" : "identity";
+
+  const existing = await safeReadFileForIdentity(file);
+  if (existing) {
+    const historyDir = path.join(paths.self, ".history");
+    await fs.mkdir(historyDir, { recursive: true });
+    const ts = new Date().toISOString().replace(/[:.]/g, "-");
+    await fs.writeFile(path.join(historyDir, `${label}-${ts}.md`), existing);
+  }
+
+  await fs.mkdir(paths.self, { recursive: true });
+  await fs.writeFile(file, intent.content ?? "", "utf8");
+  await audit(vaultRoot, { event: "identity_update_executed", by: "user", file: label });
+
+  return { written: file, backed_up: !!existing };
+}
+
+async function safeReadFileForIdentity(filePath: string): Promise<string> {
+  try {
+    return await fs.readFile(filePath, "utf8");
+  } catch {
+    return "";
+  }
 }

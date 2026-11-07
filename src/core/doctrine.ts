@@ -55,6 +55,7 @@ export function groundRules(vaultRoot: string): string {
     "- RETRIEVE BEFORE YOU RE-DERIVE: mnemos_query_ranked is the default lookup; memory_sql for questions ranking cannot express; mnemos_explore for multi-hop questions. Probe-proven facts are expensive to re-establish — they are already in the vault.\n" +
     "- WRITING (mnemos_add → mnemos_promote): add captures to inbox/ — multi-word prose title (a hyphenated slug counts as one word and the add silently fails), one-sentence description (max 200 chars — NEVER history or changelogs), project tags, wiki-links in the body ([[related-note]]). Promote moves it into the knowledge graph. Prefer updating an existing note over adding a near-duplicate; run mnemos_validate after edits when no hook does it.\n" +
     "- STATE (mnemos_update): file=daily|goals|reminders|identity|methodology — daily and goals feed the next wake, so keep them current as work lands.\n" +
+    "- MAP UPDATE (mnemos_update file=map project=\"<tag>\"): overwrites the project map's Current State section — this is how the SESSION END map step is performed. Replace semantics: pass the new 3-5 lines (done / next action / blocked); Key Notes and frontmatter are untouched.\n" +
     "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, mnemos://reminders for targeted reads; mnemos://policy for the full policy sheet (the briefing carries only the one-line gate summary).\n" +
     "- REMOVAL (mnemos_forget): op=release soft-evicts (files kept, never recalled — reversible); op=supersede retires the best match and writes its replacement. Dry-run by default — review the match list, then apply. op=purge can only PROPOSE a hard delete: it records a pending intent and returns the command the USER must run. You can never delete a note yourself — that is the design.\n" +
     "- MAPS ARE POINTERS: a project map's Current State section is the living handoff — overwrite semantics, never append session narrative to a map.\n" +
@@ -72,7 +73,7 @@ export function projectProtocol(): string {
     "- ASK-FIRST GATE: if you do not know the project, mnemos_add REFUSES and returns the live project roster plus the question. Do not guess: ask the USER — an existing project from the roster, or a new one and its name — then re-call with project set. The note waits safely in inbox/ until then.\n" +
     "- NEW PROJECT (self-serve, no human setup): (1) create the hub: mnemos_add(\"<tag> project map\", type=moc, project=[\"<tag>\"]) — the title MUST start with the project tag; routing finds maps by that convention, no config needed. (2) Tag every note for the project with project=[\"<tag>\"] — they auto-file under the map. (3) Announce it: mnemos_update file=goals — one line naming the project and its status, so every future wake lists it.\n" +
     "- If promote warns \"No map matched\": the map exists but is misnamed, or does not exist yet. Fix the map's title to start with the project tag (or create it). Config routing (project_map_routing) is the user's to change, never yours.\n" +
-    "- Map Current State: when ending a session, update your project map's Current State to the new reality (see SESSION END).\n"
+    "- Map Current State: when ending a session, update your project map's Current State with mnemos_update file=map project=\"<tag>\" (see SESSION END).\n"
   );
 }
 
@@ -89,7 +90,7 @@ export function capturePolicy(): string {
 export function sessionEnd(): string {
   return (
     "SESSION END\n" +
-    "- Before the session ends (context is about to die): (1) durable residue → mnemos_add (typed, tagged, wiki-linked); (2) update your project map's Current State — overwrite semantics: what is done, the next action, what is blocked (3–5 lines + links, never append); (3) mnemos_update file=daily (what happened today) and file=goals (current threads).\n" +
+    "- Before the session ends (context is about to die): (1) durable residue → mnemos_add (typed, tagged, wiki-linked); (2) mnemos_update file=map project=\"<tag>\" with the new Current State — overwrite semantics: what is done, the next action, what is blocked (3–5 lines + links, never append); (3) mnemos_update file=daily (what happened today) and file=goals (current threads).\n" +
     "- Superseded snapshots: when a new full snapshot replaces an old one, retire the old via mnemos_forget op=supersede (dry-run first, then apply) — the old note flips to superseded and drops out of retrieval automatically.\n" +
     "- Do not skip this. The next session starts cold except for what you persisted.\n"
   );

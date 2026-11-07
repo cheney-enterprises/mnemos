@@ -26,6 +26,14 @@ export async function createMcpTestContext(): Promise<McpTestContext> {
   // Create temp vault
   const vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-mcp-test-"));
   await runInit({ targetDir: vaultDir });
+  // The capability-model gates default safe (identity_update=approval), but
+  // the MCP integration suite exercises the write path directly; seed the
+  // policy a user who trusts the local agent would set.
+  await fs.writeFile(
+    path.join(vaultDir, "mnemos.config.yaml"),
+    "promote:\n  auto: true\npolicy:\n  gates:\n    identity_update: allow\n",
+    "utf8",
+  );
 
   // Find the built dist/index.js
   const distIndex = path.resolve(

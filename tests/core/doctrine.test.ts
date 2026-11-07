@@ -61,6 +61,13 @@ describe("ground rules", () => {
   it("includes mnemos://policy in the resource list", () => {
     expect(groundRules("/v")).toContain("mnemos://policy");
   });
+
+  it("lists file=map in the STATE tools and the session-end ritual", () => {
+    const g = groundRules("/v");
+    expect(g).toContain("MAP UPDATE (mnemos_update file=map");
+    expect(g).toContain("Replace semantics");
+    expect(sessionEnd()).toContain("file=map");
+  });
 });
 
 describe("project protocol", () => {
@@ -68,6 +75,14 @@ describe("project protocol", () => {
     const p = projectProtocol();
     expect(p).toContain("wake briefing lists active projects");
     expect(p).toContain("your project's map is the entry point");
+  });
+
+  it("teaches the map Current State update as a performable tool call", () => {
+    const p = projectProtocol();
+    // The ritual step must name its tool and parameter — an instruction the
+    // agent cannot execute through the surface is a doctrine bug (the
+    // pre-phase-3 failure: the step existed, no tool could perform it).
+    expect(p).toContain("mnemos_update file=map project=");
   });
 
   it("requires explicit project tags", () => {
