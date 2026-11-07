@@ -16,12 +16,12 @@ beforeEach(async () => {
   await fs.writeFile(path.join(tmp, "self", "identity.md"), "# id\nName: TestBot. Tester.\n");
   await fs.writeFile(path.join(tmp, "self", "goals.md"), "- goal one\n- goal two\n");
   await fs.writeFile(path.join(tmp, "ops", "reminders.md"), "- [ ] 2026-04-06: old thing\n");
-  await fs.writeFile(path.join(tmp, "ops", "today.md"), Array.from({length: 40}, (_, i) => `line ${i}`).join("\n"));
+  await fs.writeFile(path.join(tmp, "ops", "daily.md"), Array.from({length: 40}, (_, i) => `line ${i}`).join("\n"));
 });
 afterEach(async () => { await fs.rm(tmp, { recursive: true, force: true }); });
 
 describe("manifest defaults", () => {
-  it("no config -> scaffold defaults including today.md tail as activity", () => {
+  it("no config -> scaffold defaults with daily.md tail as activity", () => {
     const sources = loadWakeSources({});
     const roles = sources.map((s) => s.role);
     expect(roles).toContain("identity");
@@ -29,7 +29,10 @@ describe("manifest defaults", () => {
     expect(roles).toContain("due");
     expect(roles).toContain("activity");
     const activity = sources.find((s) => s.role === "activity")!;
-    expect(activity.path).toContain("today.md");
+    // The default activity source is ops/daily.md — the file
+    // `mnemos_update file=daily` writes and every scaffold ships. The old
+    // default (ops/today.md) matched no file any code path creates.
+    expect(activity.path).toContain("daily.md");
     expect(activity.mode).toBe("tail");
   });
 

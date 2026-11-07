@@ -11,6 +11,39 @@ export type WakeSource = {
   mode: 'head' | 'tail' | 'fovea' | 'due-scan';
 };
 
+/**
+ * Populate the wake's warm_notes section from the vitality layer.
+ *
+ * This was dead code in the default path: warmNotes was initialized empty and
+ * no manifest entry or switch branch ever filled it, so the briefing never
+ * carried the "what memory is currently alive" signal the design promises.
+ * The data already exists — boosts are the activation layer's own record of
+ * what was recently retrieved/written, Ebbinghaus-decayed at read time — so
+ * warm notes come from there rather than from a manifest source. Best-effort:
+ * any failure (no index yet, locked db) yields an empty list, never an error.
+ */
+export async function assembleWarmNotes(
+  dbPath: string,
+  cap: number
+): Promise<Array<{ title: string; decayed: number }>> {
+  try {
+    const { default: Database } = await import('better-sqlite3');
+    const { loadBoosts } = await import('./activation.js');
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const boosts = loadBoosts(db);
+      return [...boosts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, cap)
+        .map(([title, decayed]) => ({ title, decayed }));
+    } finally {
+      db.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
 export function loadWakeSources(config: { wake?: { sources?: WakeSource[] } }): WakeSource[] {
   const src = config.wake?.sources;
   if (Array.isArray(src) && src.length > 0) return src;
@@ -18,13 +51,17 @@ export function loadWakeSources(config: { wake?: { sources?: WakeSource[] } }): 
     { path: 'self/identity.md', role: 'identity', cap: 1, mode: 'head' },
     { path: 'self/goals.md', role: 'goals', cap: 8, mode: 'head' },
     { path: 'ops/reminders.md', role: 'due', cap: 6, mode: 'due-scan' },
-    { path: 'ops/today.md', role: 'activity', cap: 10, mode: 'tail' }
+    // Default activity source is daily.md — the file `mnemos_update file=daily`
+    // writes and every vault scaffold ships. today.md was never created by any
+    // code path, so the default manifest silently read a nonexistent file.
+    { path: 'ops/daily.md', role: 'activity', cap: 10, mode: 'tail' }
   ];
 }
 
 export async function assembleWakeInputs(
   vaultRoot: string,
-  sources: WakeSource[]
+  sources: WakeSource[],
+  dbPath?: string
 ): Promise<{
   identity: string;
   goals: string;
@@ -55,6 +92,11 @@ export async function assembleWakeInputs(
     } catch {
       content = '';
     }
+
+    // Every source file carries YAML frontmatter; the role emitters scan raw
+    // lines, so the delimiter block must be stripped before anything else or
+    // `---` lines leak into the briefing as identity/goals content.
+    content = content.replace(/^---\n[\s\S]*?\n---\n?/, '').trimStart();
 
     switch (src.role) {
       case 'identity':
@@ -90,6 +132,12 @@ export async function assembleWakeInputs(
   const inboxDir = path.join(vaultRoot, 'inbox');
   result.vaultStats.noteCount = await countMd(notesDir);
   result.vaultStats.inboxCount = await countMd(inboxDir);
+
+  // Warm notes come from the vitality layer, not a manifest file. The index
+  // path is config-owned (engine.db_path) — resolve as the engine does, with
+  // the same default; a missing/locked db degrades to an empty list.
+  const resolvedDbPath = dbPath ?? path.join(vaultRoot, '.mnemos', 'embeddings.db');
+  result.warmNotes = await assembleWarmNotes(resolvedDbPath, 10);
 
   return result;
 }

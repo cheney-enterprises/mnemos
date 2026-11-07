@@ -139,7 +139,10 @@ export function buildWakePayload(
   // Active goals
   const activeGoals = inputs.goals
     .split("\n")
-    .filter((g) => g.trim().startsWith("-") || g.trim().startsWith("*"))
+    // Accept bullets AND numbered items — goals.md in the wild uses
+    // `0. **CURRENT TRACK** ...` style, which the bullet-only filter dropped
+    // entirely (5 of 6 real goals invisible in a 49-note vault).
+    .filter((g) => /^[-*]|\d+[.)]/.test(g.trim()))
     .map((g) => g.trim());
   sections.push({
     name: "active_goals",

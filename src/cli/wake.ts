@@ -2,6 +2,7 @@
  * mnemos wake — bounded session boot runner (manifest -> engine).
  */
 import { findVaultRoot, getVaultPaths } from "../core/vault.js";
+import path from "node:path";
 import { loadConfig } from "../core/config.js";
 import { loadWakeSources, assembleWakeInputs } from "../core/wake-sources.js";
 import { buildWakePayload } from "../core/wake.js";
@@ -15,7 +16,13 @@ export async function runWake(startDir: string, budgetLines: number): Promise<{
   const vaultRoot = await findVaultRoot(startDir);
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
   const sources = loadWakeSources(config as never);
-  const inputs = await assembleWakeInputs(vaultRoot, sources);
+  // db_path is config-owned (engine.db_path); resolve it the same way the
+  // engine does so warm notes read the actual live index.
+  const dbPath = path.resolve(
+    vaultRoot,
+    (config as { engine?: { db_path?: string } }).engine?.db_path ?? ".mnemos/embeddings.db",
+  );
+  const inputs = await assembleWakeInputs(vaultRoot, sources, dbPath);
 
   const today = new Date().toISOString().slice(0, 10);
 
