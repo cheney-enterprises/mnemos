@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Fixed — the doctrine taught one syntax and the CLI punished it (Eric hit this)
+- **Eric ran `mnemos wake project=mnemos` because the instructions said
+  "Re-call mnemos_wake with project=<tag>" — and got the unscoped dump.**
+  Root cause: the doctrine teaches MCP argument syntax (`project=<tag>` —
+  correct for the tool surface), but on the CLI that text is a bare
+  positional, which commander stashed and wake ran unscoped. Two fixes:
+  (1) the CLI wake now ACCEPTS the doctrine syntax as an alias —
+  `mnemos wake project=mnemos` scopes correctly, so the taught form works
+  on every surface and the two conventions can never diverge again;
+  (2) genuine strays (`mnemos wake nonsense`) are refused with both forms
+  named. The CLI help and the choice prompt now name their own surface's
+  form explicitly (`--project <tag>` on the CLI, `project=<tag>` on MCP).
+
 ### Fixed — scoped wake still carried the global dump; bare `project=<tag>` was silently ignored
 - **The scoped wake layered project context ON TOP of the global dump
   instead of replacing it.** `wake --project mnemos` returned the mnemos

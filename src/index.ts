@@ -89,7 +89,7 @@ program
 program
   .command("wake")
   .description(
-    "Session boot. With project=<tag>: global context + that project's scoped context (map Current State, its daily lines, its recent notes) in ONE payload. " +
+    "Session boot. With --project <tag>: global context + that project's scoped context (map Current State, its daily lines, its recent notes) in ONE payload. " +
       "Without a project: global-only + a project_choice_required prompt the agent relays to the USER (config wake.project_default can name a default; empty = forced choice). " +
       "Run from inside a vault (or set MNEMOS_VAULT)."
   )
@@ -97,15 +97,21 @@ program
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
   .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
   .action(async (options: { budget: string; project?: string; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
-    // A bare positional ('mnemos wake project=mnemos', 'mnemos wake mnemos')
-    // must be a syntax error, not silently ignored: commander stashes it in
-    // cmd.args, the wake ran unscoped, and the user believed they had scoped
-    // (Eric hit exactly this with 'project=mnemos'). Refuse loudly.
+    // Doctrine syntax alias. The MCP tool takes named arguments (project="<tag>"),
+    // and the doctrine teaches that convention — but bare text on the CLI is a
+    // positional. Accept the doctrine form here so the two surfaces can never
+    // disagree about how to scope a wake (Eric was TOLD 'Re-call
+    // mnemos_wake with project=<tag>', typed it, and got the unscoped dump).
     const strays = [...(cmd?.remainingArgs ?? []), ...(cmd?.args ?? [])].filter((a) => typeof a === "string" && a.length > 0);
-    if (strays.length > 0) {
+    for (const stray of strays) {
+      const alias = stray.match(/^project=(\S+)$/);
+      if (alias) {
+        options.project = alias[1];
+        continue;
+      }
       console.error(
-        `Error: 'mnemos wake' takes no positional argument (got ${strays.map((a) => `"${a}"`).join(", ")}). ` +
-          "Use --project <tag> to scope: mnemos wake --project mnemos",
+        `Error: 'mnemos wake' takes no positional argument (got "${stray}"). ` +
+          "Scope with --project <tag> (CLI) or project=<tag> (MCP): mnemos wake --project mnemos",
       );
       process.exit(1);
     }
@@ -133,6 +139,7 @@ program
       if (result.project_choice_required) {
         const c = result.project_choice_required;
         console.log(`\n## PROJECT CHOICE REQUIRED\n${c.question}`);
+        console.log("CLI: mnemos wake --project <tag>");
         console.log("Roster: " + c.projects.map((p) => `${p.project} (${p.notes})`).join(", ") + (c.default_hint ? `\nDefault configured: ${c.default_hint}` : ""));
       }
     }
