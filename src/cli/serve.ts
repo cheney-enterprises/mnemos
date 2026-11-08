@@ -483,13 +483,17 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
   server.tool(
     "mnemos_wake",
-    "Session boot: constant-size briefing, budget-capped. Call this first in a session. " +
-      "Returns the project roster and effective policy gates alongside the briefing — " +
-      "projects feeds the ask-first gate, policy predicts removal refusals. " +
-      "On a vault with no identity written yet it also returns an onboarding script.",
-    { budget: z.number().optional().describe("Max lines (default 96)") },
-    async ({ budget }) => {
-      const payload: Record<string, unknown> = await runWake(vaultDir, budget ?? 96);
+    "Session boot, budget-capped. Two steps: (1) call with NO project — get identity, the " +
+      "project roster, and policy; (2) call again with project=<tag> — get that project's map " +
+      "Current State, its daily lines, and its recent notes. The roster feeds the ask-first " +
+      "gate; policy predicts removal refusals. On a vault with no identity yet it returns an " +
+      "onboarding script instead.",
+    {
+      budget: z.number().optional().describe("Max lines (default 96)"),
+      project: z.string().optional().describe("Second call: the project tag whose scoped context to load (from the roster the first call returned)"),
+    },
+    async ({ budget, project }) => {
+      const payload: Record<string, unknown> = await runWake(vaultDir, budget ?? 96, project);
       attachLearningResetNotice(payload);
       await attachWhatsNew(payload);
 

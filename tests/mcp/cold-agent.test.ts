@@ -225,3 +225,35 @@ describe("cold agent: policy invariants", () => {
     }
   });
 });
+
+describe("cold agent: scoped wake (the two-step boot)", () => {
+  it("global wake carries the menu, scoped wake carries only that project's context", async () => {
+    // Global step: no project — roster present, no projectWake.
+    const g = await callTool(ctx.client, "mnemos_wake", {});
+    const gd = text(g.parsed) as Record<string, unknown>;
+    expect(Array.isArray(gd.projects)).toBe(true);
+    expect(gd.projectWake).toBeUndefined();
+
+    // Scoped step: the kite-telemetry map's Current State rides along.
+    const r = await callTool(ctx.client, "mnemos_wake", { project: "kite-telemetry" });
+    const rd = text(r.parsed) as {
+      projectWake: { project: string; map: string | null; currentState: string[]; recentNotes: string[] };
+    };
+    expect(rd.projectWake).toBeDefined();
+    expect(rd.projectWake.project).toBe("kite-telemetry");
+    // promote slugified the filename; the map slug, not the spaced title
+    expect(rd.projectWake.map).toBe("kite-telemetry-project-map");
+    // Recent notes must be kite's, never another project's map
+    for (const slug of rd.projectWake.recentNotes) {
+      expect(slug).not.toBe("roust-project-map");
+    }
+  });
+
+  it("an unknown project gets a warning + the roster, not an error", async () => {
+    const x = await callTool(ctx.client, "mnemos_wake", { project: "ghost-project" });
+    const xd = text(x.parsed) as { projectWake: { warning: string } };
+    expect(xd.projectWake).toBeDefined();
+    expect(xd.projectWake.warning).toContain("no project");
+    expect(xd.projectWake.warning).toContain("mnemos_add");
+  });
+});

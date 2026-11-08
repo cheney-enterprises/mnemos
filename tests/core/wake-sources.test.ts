@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { loadWakeSources, assembleWakeInputs, assembleProjects } from "../../src/core/wake-sources.js";
+import { loadWakeSources, assembleWakeInputs, assembleProjects, assembleProjectWake } from "../../src/core/wake-sources.js";
 
 // Blind tests — manifest contract from design v2. Author never sees these.
 // loadWakeSources(config) -> ordered sources with defaults when config.wake?.sources missing.
@@ -99,5 +99,82 @@ describe("assembleProjects — the roster the briefing and the ask-first gate sh
   it("missing db degrades to an empty list, never an error", async () => {
     const roster = await assembleProjects("/nonexistent/path/index.db");
     expect(roster).toEqual([]);
+  });
+});
+
+describe("assembleProjectWake — the scoped context layer", () => {
+  it("resolves the map, extracts Current State, scopes daily and notes to the project", async () => {
+    const { default: Database } = await import("better-sqlite3");
+    const { initIndexStore, syncIndex } = await import("../../src/core/indexstore.js");
+    const { mkdir, writeFile } = await import("node:fs/promises");
+
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-pwake-"));
+    const notesDir = path.join(idxRoot, "notes");
+    await mkdir(notesDir, { recursive: true });
+    await mkdir(path.join(idxRoot, "ops"), { recursive: true });
+    await fs.writeFile(path.join(idxRoot, "ops", "daily.md"), [
+      "- 2026-11-08: kite line about telemetry and barometers",
+      "- 2026-11-08: roust line about alarms and snooze",
+      "- 2026-11-08: another kite budget line",
+    ].join("\n"), "utf8");
+    const note = (name: string, fm: string, body = "") =>
+      writeFile(path.join(notesDir, `${name}.md`), `---\n${fm}\n---\n\n${body}\n`, "utf8");
+
+    await note("kite project map", "type: moc\nproject: [kite]\nstatus: active", [
+      "# Kite Map",
+      "",
+      "## Key Notes",
+      "- [[ktelemetry]]",
+      "",
+      "## Current State (2026-11-08)",
+      "- done: scoped wake designed",
+      "- next: land it",
+      "",
+      "## Recent Additions",
+    ].join("\n"));
+    await note("ktelemetry", "type: insight\nproject: [kite]\nstatus: active");
+    await note("roust-alarm-note", "type: insight\nproject: [roust]\nstatus: active");
+
+    const db = new Database(path.join(idxRoot, "index.db"));
+    initIndexStore(db);
+    await syncIndex(db, notesDir);
+
+    const pw = await assembleProjectWake(idxRoot, path.join(idxRoot, "index.db"), "kite", {});
+    expect(pw.map).toBe("kite project map");
+    expect(pw.currentState).toContain("- done: scoped wake designed");
+    expect(pw.currentState).toContain("- next: land it");
+    // Daily lines scoped by tag-in-line (current shared-file convention)
+    expect(pw.daily.length).toBe(2);
+    expect(pw.daily.every((l) => l.includes("kite"))).toBe(true);
+    // Recent notes: only kite's, not roust's
+    expect(pw.recentNotes).toContain("ktelemetry");
+    expect(pw.recentNotes).toContain("kite project map");
+    expect(pw.recentNotes).not.toContain("roust-alarm-note");
+
+    db.close();
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+
+  it("config routing resolves the map (same chain as the ritual)", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-pwake2-"));
+    await mkdir(path.join(idxRoot, "notes"), { recursive: true });
+    await writeFile(
+      path.join(idxRoot, "notes", "custom-map-name.md"),
+      "---\ntype: moc\nproject: [zx]\nstatus: active\n---\n\n# Zx\n\n## Current State\n- routed via config\n",
+      "utf8",
+    );
+    const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "zx", { zx: "custom-map-name" });
+    expect(pw.map).toBe("custom-map-name");
+    expect(pw.currentState).toContain("- routed via config");
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+
+  it("a project with no map degrades to empty fields, not an error", async () => {
+    const pw = await assembleProjectWake("/nonexistent/root", "/nonexistent/db", "ghost", {});
+    expect(pw.map).toBeNull();
+    expect(pw.currentState).toEqual([]);
+    expect(pw.daily).toEqual([]);
+    expect(pw.recentNotes).toEqual([]);
   });
 });

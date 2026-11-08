@@ -82,6 +82,133 @@ export async function assembleProjects(
   }
 }
 
+export interface ProjectWake {
+  /** The map note's slug (or null when the project has no map). */
+  map: string | null;
+  /** Map Current State lines — the living handoff (overwritten every session). */
+  currentState: string[];
+  /** This project's daily-log lines, newest first. */
+  daily: string[];
+  /** Recent notes belonging to this project, by last activity. */
+  recentNotes: string[];
+}
+
+function extractCurrentStateLines(mapBody: string): string[] {
+  const lines = mapBody.split('\n');
+  const start = lines.findIndex((l) => /^##\s+.*current state.*$/i.test(l));
+  if (start === -1) return [];
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) {
+    if (/^##\s/.test(lines[i])) {
+      end = i;
+      break;
+    }
+  }
+  return lines
+    .slice(start + 1, end)
+    .filter((l) => l.trim() !== '');
+}
+
+/**
+ * Project-scoped wake context: everything an agent working ON a project
+ * needs, and nothing from the other projects. Reads the project map's
+ * Current State (the handoff), the project's daily lines, and its recent
+ * notes — all best-effort, degrading to empty on any failure.
+ *
+ * This is the fix for the global-dump briefing: goals.md and daily.md are
+ * SHARED files across projects, so a global wake's project sections were a
+ * lottery of whatever file order put first. Identity, the roster menu, and
+ * policy stay global; project detail comes only through this, scoped.
+ */
+export async function assembleProjectWake(
+  vaultRoot: string,
+  dbPath: string,
+  project: string,
+  mapRouting: Record<string, string>,
+): Promise<ProjectWake> {
+  const wake: ProjectWake = {
+    map: null,
+    currentState: [],
+    daily: [],
+    recentNotes: [],
+  };
+
+  // Resolve the map the same way the ritual does (config routing, then the
+  // <tag>…map convention) — one routing truth for add, update, and wake.
+  const notesDir = path.join(vaultRoot, 'notes');
+  let titles: string[] = [];
+  try {
+    titles = (await fsp.readdir(notesDir))
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => f.slice(0, -3));
+  } catch {
+    return wake;
+  }
+  const routing = mapRouting[project];
+  const routingHit = routing && titles.includes(routing) ? routing : undefined;
+  const { slugify } = await import('./slug.js');
+  const conventionHit = routingHit
+    ? undefined
+    : titles.find(
+        (t) => /(^|[-\s])map$/i.test(t.trim()) && slugify(t).includes(slugify(project)),
+      );
+  const mapTitle = routingHit ?? conventionHit;
+  wake.map = mapTitle ?? null;
+
+  if (mapTitle) {
+    try {
+      const { readFrontmatterFile } = await import('./frontmatter.js');
+      const parsed = await readFrontmatterFile(path.join(notesDir, `${mapTitle}.md`));
+      wake.currentState = extractCurrentStateLines(parsed.body);
+    } catch {
+      // map unreadable — the roster still names it, the agent can query it.
+    }
+  }
+
+  // Project-scoped reads from the live index. A missing/locked db degrades
+  // to empty (same contract as the roster).
+  try {
+    const { default: Database } = await import('better-sqlite3');
+    const { FORGOTTEN_STATUSES } = await import('./status.js');
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const ph = [...FORGOTTEN_STATUSES].map(() => '?').join(', ');
+      // Daily lines: the project tag in the line text is the current
+      // convention (daily.md is shared; lines carry their project in prose).
+      const daily = fsp
+        .readFile(path.join(vaultRoot, 'ops', 'daily.md'), 'utf8')
+        .then((content) =>
+          content
+            .split(/\r?\n/)
+            .filter((l) => l.includes(project))
+            .slice(-12),
+        )
+        .catch(() => [] as string[]);
+      // note_access may be empty; LEFT JOIN keeps the rows.
+      const recent = db
+        .prepare(
+          `SELECT n.slug AS slug
+           FROM note_project p
+           JOIN note n ON n.id = p.note_id
+           LEFT JOIN note_access na ON na.slug = n.slug
+           WHERE p.project = ?
+             AND (n.status = '' OR LOWER(n.status) NOT IN (${ph}))
+           ORDER BY COALESCE(na.last_accessed, n.indexed_at) DESC
+           LIMIT 10`,
+        )
+        .all(project, ...FORGOTTEN_STATUSES) as Array<{ slug: string }>;
+      wake.daily = await daily;
+      wake.recentNotes = recent.map((r) => r.slug);
+    } finally {
+      db.close();
+    }
+  } catch {
+    // empty already
+  }
+
+  return wake;
+}
+
 export function loadWakeSources(config: { wake?: { sources?: WakeSource[] } }): WakeSource[] {
   const src = config.wake?.sources;
   if (Array.isArray(src) && src.length > 0) return src;

@@ -5,16 +5,29 @@ import { findVaultRoot, getVaultPaths } from "../core/vault.js";
 import path from "node:path";
 import { loadConfig } from "../core/config.js";
 import { loadPolicy, policyLine } from "../core/policy.js";
-import { loadWakeSources, assembleWakeInputs } from "../core/wake-sources.js";
+import { loadWakeSources, assembleWakeInputs, assembleProjectWake } from "../core/wake-sources.js";
 import { buildWakePayload } from "../core/wake.js";
 import { parseTemporal, classifyReminder } from "../core/temporal.js";
 
-export async function runWake(startDir: string, budgetLines: number): Promise<{
+export async function runWake(
+  startDir: string,
+  budgetLines: number,
+  project?: string,
+): Promise<{
   success: boolean;
   lines: string[];
   sections: Record<string, number>;
   projects: Array<{ project: string; notes: number }>;
   policy: string;
+  /** Present when a project was resolved: the scoped context layer. */
+  projectWake?: {
+    project: string;
+    map: string | null;
+    currentState: string[];
+    daily: string[];
+    recentNotes: string[];
+    warning?: string;
+  };
 }> {
   const vaultRoot = await findVaultRoot(startDir);
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
@@ -57,11 +70,42 @@ export async function runWake(startDir: string, budgetLines: number): Promise<{
   };
 
   const out = buildWakePayload(wakeInputs, budgetLines);
-  return {
+  const result: Awaited<ReturnType<typeof runWake>> = {
     success: true,
     lines: out.lines,
     sections: out.sections,
     projects: inputs.projects,
     policy: policyLine(policy),
   };
+
+  // The scoped layer: when a project is named, its map Current State, daily
+  // lines, and recent notes ride along — everything an agent working ON that
+  // project needs, nothing from the others. An unknown project is reported,
+  // not fatal: the roster in the same payload is the correction.
+  if (project?.trim()) {
+    const tag = project.trim();
+    const known = inputs.projects.some((p) => p.project === tag);
+    if (known) {
+      const pw = await assembleProjectWake(
+        vaultRoot,
+        dbPath,
+        tag,
+        config.promote.project_map_routing,
+      );
+      result.projectWake = { project: tag, ...pw };
+    } else {
+      result.projectWake = {
+        project: tag,
+        map: null,
+        currentState: [],
+        daily: [],
+        recentNotes: [],
+        warning:
+          `no project "${tag}" in this vault — the roster lists the live ones. ` +
+          "If this is a new project, create its map: mnemos_add(\"<tag> project map\", type=moc, project=[\"<tag>\"])",
+      };
+    }
+  }
+
+  return result;
 }

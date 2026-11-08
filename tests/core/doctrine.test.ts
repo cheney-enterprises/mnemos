@@ -38,7 +38,10 @@ describe("ground rules", () => {
 
   it("teaches wake-first, the retrieval ladder, and the write path", () => {
     const g = groundRules("/v");
-    expect(g).toContain("call mnemos_wake first");
+    expect(g).toContain("call mnemos_wake TWICE");
+    expect(g).toContain("First with no project");
+    expect(g).toContain("Then with project=");
+    expect(g).toContain("with project=");
     expect(g).toContain("mnemos_query_ranked is the default lookup");
     expect(g).toContain("memory_sql");
     expect(g).toContain("multi-word prose title");
