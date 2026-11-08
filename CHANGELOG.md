@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Fixed — scoped wake still carried the global dump; bare `project=<tag>` was silently ignored
+- **The scoped wake layered project context ON TOP of the global dump
+  instead of replacing it.** `wake --project mnemos` returned the mnemos
+  scoped layer *plus* the Flutter goals, the shared daily tail, and mixed
+  warm notes — the pollution was still there, now wearing a scope. When a
+  project is named, the shared-file sections (goals, daily, warm notes,
+  activity) are suppressed from the global part — a scoped wake's global
+  half carries only true-global content (identity, roster, policy,
+  vitals); the project's own goals/daily/warm come through the scoped
+  layer. Bare wake keeps the full global sections (it is the menu).
+- **`mnemos wake project=mnemos` was silently ignored.** Commander stashed
+  the bare positional in cmd.args; wake ran unscoped and the user believed
+  they had scoped. Now refused loudly: "'mnemos wake' takes no positional
+  argument — use --project <tag>".
+
 ### Fixed — the CLI `mnemos wake` never exposed the scoped-wake contract
 - **`mnemos wake --help` showed only `--budget`.** The scoped wake and the
   forced-choice design were built into the MCP tool and the engine — but

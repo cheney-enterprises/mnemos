@@ -96,7 +96,19 @@ program
   .option("--budget <n>", "max lines (default 96)", "96")
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
   .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
-  .action(async (options: { budget: string; project?: string; json?: boolean }) => {
+  .action(async (options: { budget: string; project?: string; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
+    // A bare positional ('mnemos wake project=mnemos', 'mnemos wake mnemos')
+    // must be a syntax error, not silently ignored: commander stashes it in
+    // cmd.args, the wake ran unscoped, and the user believed they had scoped
+    // (Eric hit exactly this with 'project=mnemos'). Refuse loudly.
+    const strays = [...(cmd?.remainingArgs ?? []), ...(cmd?.args ?? [])].filter((a) => typeof a === "string" && a.length > 0);
+    if (strays.length > 0) {
+      console.error(
+        `Error: 'mnemos wake' takes no positional argument (got ${strays.map((a) => `"${a}"`).join(", ")}). ` +
+          "Use --project <tag> to scope: mnemos wake --project mnemos",
+      );
+      process.exit(1);
+    }
     const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project);
     if (options.json === true) {
       console.log(JSON.stringify(result, null, 2));

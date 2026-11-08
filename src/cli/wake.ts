@@ -73,10 +73,21 @@ export async function runWake(
       const ageDays = (Date.parse(today) - Date.parse(t.capturedAt)) / 86400000;
       return ageDays <= 30;
     });
+  const chosen = project?.trim();
+  // When a project is named, the shared-file sections (goals from
+  // self/goals.md, daily from ops/daily.md, warm notes — all cross-project
+  // by construction) must NOT feed the global briefing: they were the exact
+  // global-dump pollution Eric flagged. A scoped wake's global part carries
+  // only true-global content; the project's own goals/daily/warm come from
+  // its map Current State + its daily lines + its notes via projectWake.
+  const scoped = chosen && chosen.length > 0;
+  const globalInputs = scoped
+    ? { ...inputs, goals: "", daily: [], warmNotes: [], activity: [] }
+    : inputs;
   const wakeInputs = {
-    ...inputs,
+    ...globalInputs,
     reminders: reminderLines.join("\n"),
-    daily: inputs.activity.map((l) => ({ date: today, lines: [l] })),
+    daily: (globalInputs.activity ?? []).map((l) => ({ date: today, lines: [l] })),
     policy: policyLine(policy)
   };
 
@@ -89,37 +100,36 @@ export async function runWake(
     policy: policyLine(policy),
   };
 
-  // Project resolution — the wake contract (Eric's design):
+  // Project resolution — the wake contract (Eric's design). NOTE: the
+  // config default applies to the MCP path the same way as the CLI arg —
+  // a bare MCP wake with a configured default resolves to that project and
+  // therefore also gets the scoped (shared-file-suppressed) briefing.
   //   project given        -> global context + that project's context, ONE payload.
   //   no project, default  -> same, using config wake.project_default.
   //   no project, no default -> menu + a project_choice the agent relays to
   //                             the user. The agent never works unscoped.
-  const tag = project?.trim();
-  const chosen = tag && tag.length > 0
-    ? tag
-    : (config.wake.project_default || "").trim();
-
-  if (chosen) {
-    const known = inputs.projects.some((p) => p.project === chosen);
+  const effective = chosen || (config.wake.project_default || "").trim();
+  if (effective) {
+    const known = inputs.projects.some((p) => p.project === effective);
     if (known) {
       const pw = await assembleProjectWake(
         vaultRoot,
         dbPath,
-        chosen,
+        effective,
         config.promote.project_map_routing,
       );
-      result.projectWake = { project: chosen, ...pw };
+      result.projectWake = { project: effective, ...pw };
     } else {
       // A named project that does not exist (or a default pointing at
       // nothing yet): report, name the fix, keep the roster as correction.
       result.projectWake = {
-        project: chosen,
+        project: effective,
         map: null,
         currentState: [],
         daily: [],
         recentNotes: [],
         warning:
-          `no project "${chosen}" in this vault — the roster lists the live ones. ` +
+          `no project "${effective}" in this vault — the roster lists the live ones. ` +
           'If this is a new project, create its map: mnemos_add("<tag> project map", type=moc, project=["<tag>"])',
       };
     }
