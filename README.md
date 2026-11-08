@@ -464,7 +464,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 6 resources · 22 CLI commands · 1122 tests
+17 MCP tools · 6 resources · 22 CLI commands · 1128 tests
 
 ---
 
@@ -540,10 +540,10 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | `mnemos_add` | Capture to inbox. The ask-first gate: with no project tag and none detectable, it refuses to auto-file and returns the live project roster — ask the user which project (or a new one + its name), then re-call. The note waits in `inbox/`. |
 | `mnemos_promote` | Promote with classification, linking, and area assignment |
 | `mnemos_validate` | Schema validation |
-| `mnemos_query_ranked` | Full retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning |
-| `mnemos_query_similar` | Semantic search (vector only, faster) |
-| `mnemos_warmth` | Inspect the associative warmth field |
-| `mnemos_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection |
+| `mnemos_query_ranked` | Full retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning. `project=<tag>` hard-scopes to one project (results name the other projects); omit to search the whole vault — cross-project learning is the unscoped default. |
+| `mnemos_query_similar` | Semantic search (vector only, faster). Same project-scoping contract as ranked. |
+| `mnemos_warmth` | Inspect the associative warmth field. `project=<tag>` scopes the field to one project. |
+| `mnemos_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection. `project=<tag>` scopes the ANSWER set (traversal stays global). |
 | `mnemos_prune` | Activation topology analysis and archive candidates |
 | `mnemos_forget` | Removal under the capability model: `release`/`supersede` are soft (files kept, dry-run default); `purge` proposes only — records a pending intent with exact slugs and returns the user's `mnemos requests approve <id>` command. Hard deletion is never agent-executable — approvals are refused from any non-interactive process AND from any process running under an agent runtime (a forged PTY does not pass; the process tree is checked and the refusal audited with the ancestry chain). |
 | `mnemos_index_build` | Build/update embedding index and bootstrap co-occurrence edges |

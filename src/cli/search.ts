@@ -2,6 +2,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import type Database from "better-sqlite3";
 import { findVaultRoot, getVaultPaths, listNoteTitles } from "../core/vault.js";
+import { projectMemberSlugs } from "../core/wake-sources.js";
 import { buildGraph, type LinkGraph } from "../core/graph.js";
 import { loadConfig } from "../core/config.js";
 import { classifyIntent } from "../core/intent.js";
@@ -82,6 +83,10 @@ type WarmthQueryResult = {
     context: string;
     results: WarmthSignal[];
     count: number;
+    project_scope?: {
+      project: string;
+      others: Array<{ project: string; notes: number }>;
+    };
   };
   warnings: string[];
 };
@@ -95,6 +100,14 @@ export type SearchResult = {
     count: number;
     warmth?: WarmthDebug;
     stages_skipped?: string[];
+    /** Present when the query was project-scoped: hard-filtered to the
+     * project's notes, with the other projects named so the agent knows
+     * the scope is a choice, not the whole world. */
+    project_scope?: {
+      project: string;
+      /** Other live projects NOT searched. */
+      others: Array<{ project: string; notes: number }>;
+    };
   };
   warnings: string[];
 };
@@ -195,6 +208,7 @@ export async function runQueryRanked(
   externalDb?: Database.Database,
   sessionId?: string,
   stageTracker?: StageTracker,
+  project?: string,
 ): Promise<SearchResult> {
   const warnings: string[] = [];
 
@@ -662,6 +676,43 @@ export async function runQueryRanked(
     }
   }
 
+  // 11.5 Project scope (Eric's design): a named project hard-filters the
+  // answer set to that project's notes. Unscoped queries see the whole
+  // vault — cross-project learning stays the DEFAULT (no all_projects
+  // flag; dropping the filter IS the wide net). The response names the
+  // other projects so the agent knows the scope was a choice, not the
+  // world. Resolution follows the same chain as the ritual (routing,
+  // then the <tag>…map convention); a known-tag miss or an unknown tag
+  // degrades to unscoped with a warning — never a silent empty answer.
+  let projectScope: SearchResult["data"]["project_scope"] | undefined;
+  if (project?.trim()) {
+    const tag = project.trim();
+    const dbPath = path.resolve(vaultRoot, config.engine.db_path);
+    const members = await projectMemberSlugs(dbPath, tag);
+    if (members.size > 0) {
+      const before = ranked.length;
+      const scopedRanked = ranked.filter((n) => members.has(n.title));
+      // PPR graph injection happens before this filter; scoped results
+      // shrink the set, so keep candidate_multiplier honest by re-checking
+      // limit after the filter.
+      ranked.length = 0;
+      ranked.push(...scopedRanked);
+      // Other live projects, for the notice.
+      const allProjects = await import("../core/wake-sources.js").then((m) => m.assembleProjects(dbPath));
+      projectScope = {
+        project: tag,
+        others: allProjects.filter((p) => p.project !== tag),
+      };
+      if (before > 0 && ranked.length === 0) {
+        warnings.push(`No ${tag} notes matched this query — 0 of ${before} candidates were in scope.`);
+      }
+    } else {
+      warnings.push(
+        `project "${tag}" has no notes in the index (unknown tag, or the map was just created — run mnemos index build). Query ran UNSCOPED.`,
+      );
+    }
+  }
+
   // 12. Filter forgotten (archived/superseded/released) before trimming —
   // ensures full result count. This site used the `archived` literal while
   // indexstore/explore/engine all used isForgotten — exactly the drift
@@ -681,11 +732,18 @@ export async function runQueryRanked(
   );
   const auditEntries = buildWarmthAuditEntries(filtered, resultLimit);
 
-  // 13. Trim to limit, then inject exploration
+  // 13. Trim to limit, then inject exploration. The exploration pool must
+  // respect the project scope: injectExploration picks from allNotes, so an
+  // unscoped pool would resurrect exactly the cross-project contamination
+  // the filter above removed (observed: a flutter note in a roust-scoped
+  // answer via an exploration slot).
+  const explorationPool = projectScope
+    ? ranked.map((n) => n.title)
+    : allTitles;
   const trimmed = filtered.slice(0, resultLimit);
   const withExploration = injectExploration(
     trimmed,
-    allTitles,
+    explorationPool,
     config.retrieval.exploration_budget,
   );
 
@@ -816,6 +874,7 @@ export async function runQueryRanked(
       count: withExploration.length,
       warmth: config.warmth.shadow_compare_enabled ? warmthDebug : undefined,
       stages_skipped: stagesSkipped.length > 0 ? stagesSkipped : undefined,
+      project_scope: projectScope,
     },
     warnings,
   };
@@ -826,6 +885,7 @@ export async function runQueryWarmth(
   context: string,
   limit?: number,
   linkGraph?: LinkGraph,
+  project?: string,
 ): Promise<WarmthQueryResult> {
   const warnings: string[] = [];
 
@@ -881,7 +941,7 @@ export async function runQueryWarmth(
     spaceWeights: { type: 0, community: 0 },
     splitWeights: { title: 0 },
   });
-  const results = await warmthService.scan(
+  let results = await warmthService.scan(
     context,
     storedVectors,
     graph,
@@ -891,12 +951,27 @@ export async function runQueryWarmth(
   );
   mainDb.close();
 
+  // Project scope — same contract as ranked/similar (hard filter + notice).
+  let projectScope: WarmthQueryResult["data"]["project_scope"] | undefined;
+  if (project?.trim()) {
+    const tag = project.trim();
+    const members = await projectMemberSlugs(dbPath, tag);
+    if (members.size > 0) {
+      results = results.filter((r) => members.has(r.title));
+      const allProjects = await import("../core/wake-sources.js").then((m) => m.assembleProjects(dbPath));
+      projectScope = { project: tag, others: allProjects.filter((p) => p.project !== tag) };
+    } else {
+      warnings.push(`project "${tag}" has no notes in the index — warmth ran UNSCOPED.`);
+    }
+  }
+
   return {
     success: true,
     data: {
       context,
       results,
       count: results.length,
+      project_scope: projectScope,
     },
     warnings,
   };
@@ -939,6 +1014,7 @@ export async function runQuerySimilar(
   limit?: number,
   excludeArchived?: boolean,
   linkGraph?: LinkGraph,
+  project?: string,
 ): Promise<SearchResult> {
   const warnings: string[] = [];
 
@@ -1010,14 +1086,31 @@ export async function runQuerySimilar(
     config: config.engine,
   });
 
+  // 5.5 Project scope — same contract as ranked (hard filter + notice).
+  let projectScope: SearchResult["data"]["project_scope"] | undefined;
+  let pool = compositeResults;
+  if (project?.trim()) {
+    const tag = project.trim();
+    const dbPath2 = path.resolve(vaultRoot, config.engine.db_path);
+    const members = await projectMemberSlugs(dbPath2, tag);
+    if (members.size > 0) {
+      pool = compositeResults.filter((n) => members.has(n.title));
+      const allProjects = await import("../core/wake-sources.js").then((m) => m.assembleProjects(dbPath2));
+      projectScope = { project: tag, others: allProjects.filter((p) => p.project !== tag) };
+      if (pool.length === 0) warnings.push(`No ${tag} notes matched this query — the scoped answer is empty.`);
+    } else {
+      warnings.push(`project "${tag}" has no notes in the index — query ran UNSCOPED.`);
+    }
+  }
+
   // 6. Filter forgotten (archived/superseded/released) before trimming —
   // same drift fix as the ranked path above.
   const filtered = excludeArchived !== false
-    ? compositeResults.filter(note => {
+    ? pool.filter(note => {
         const fm = noteIndex.frontmatter.get(note.title);
         return !isForgotten(fm?.status);
       })
-    : compositeResults;
+    : pool;
   const results = filtered.slice(0, resultLimit);
 
   return {
@@ -1027,6 +1120,7 @@ export async function runQuerySimilar(
       intent: classified.intent,
       results,
       count: results.length,
+      project_scope: projectScope,
     },
     warnings,
   };

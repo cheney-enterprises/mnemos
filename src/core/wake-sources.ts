@@ -82,6 +82,45 @@ export async function assembleProjects(
   }
 }
 
+/**
+ * The note slugs belonging to a project — the membership set the scoped
+ * read paths (ranked/similar/explore/warmth) hard-filter against. Includes
+ * the project's map (a map is a member by definition; the convention match
+ * and routing resolve it for wake, and here the note_project row is the
+ * truth since promote tags the map too). Forgotten statuses are excluded —
+ * they left retrieval. Empty on any failure (missing/locked db), never an
+ * error: callers degrade to unscoped and say so.
+ */
+export async function projectMemberSlugs(
+  dbPath: string,
+  project: string,
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  try {
+    const { default: Database } = await import('better-sqlite3');
+    const { FORGOTTEN_STATUSES } = await import('./status.js');
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const ph = [...FORGOTTEN_STATUSES].map(() => '?').join(', ');
+      const rows = db
+        .prepare(
+          `SELECT n.slug AS slug
+           FROM note_project p
+           JOIN note n ON n.id = p.note_id
+           WHERE p.project = ?
+             AND (n.status = '' OR LOWER(n.status) NOT IN (${ph}))`,
+        )
+        .all(project, ...FORGOTTEN_STATUSES) as Array<{ slug: string }>;
+      for (const r of rows) out.add(r.slug);
+    } finally {
+      db.close();
+    }
+  } catch {
+    // empty set — callers must treat empty as "unknown", not "no members"
+  }
+  return out;
+}
+
 export interface ProjectWake {
   /** The map note's slug (or null when the project has no map). */
   map: string | null;

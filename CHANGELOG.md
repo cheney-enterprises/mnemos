@@ -2,6 +2,23 @@
 
 ## [Unreleased]
 
+### Changed — scoped retrieval: the read paths learn the project contract
+- **`project=<tag>` on the four read paths** (`mnemos_query_ranked`,
+  `mnemos_query_similar`, `mnemos_explore`, `mnemos_warmth`): hard-filters
+  the answer set to that project's notes. Unscoped queries see the whole
+  vault — cross-project learning stays the DEFAULT, deliberately not
+  behind a flag (Eric's call: dropping the filter IS the wide net).
+  Scoped results carry `project_scope` naming the other live projects, so
+  the agent knows the scope was a choice, not the world.
+- **Explore scopes the answer set, not the traversal** — the graph stays
+  honest (wiki-links still cross projects); only the returned notes are
+  filtered.
+- **One leak found and closed in testing:** the exploration-injection slot
+  pulled from ALL vault notes, resurrecting cross-project contamination
+  after the filter removed it. The pool now respects the scope.
+- An unknown tag degrades to UNSCOPED with a warning — never a silent
+  empty answer.
+
 ### Fixed — the doctrine taught one syntax and the CLI punished it (Eric hit this)
 - **Eric ran `mnemos wake project=mnemos` because the instructions said
   "Re-call mnemos_wake with project=<tag>" — and got the unscoped dump.**

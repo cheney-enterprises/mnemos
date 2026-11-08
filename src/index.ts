@@ -209,7 +209,8 @@ program
   .argument("[note]", "note title for backlinks, query text for ranked/similar, or query filter for warmth-audit")
   .option("--limit <n>", "max results", "10")
   .option("--threshold <n>", "vitality threshold for fading", "0.3")
-  .action(async (kind: string, note: string | undefined, options: { limit?: string; threshold?: string }) => {
+  .option("--project <tag>", "hard-filter ranked/similar results to one project's notes (omit = whole vault; scoped results name the other projects)")
+  .action(async (kind: string, note: string | undefined, options: { limit?: string; threshold?: string; project?: string }) => {
     let result;
     switch (kind) {
       case "orphans":
@@ -231,13 +232,13 @@ program
         if (!note) {
           throw new Error("ranked requires a query text");
         }
-        result = await runQueryRanked(process.cwd(), note, options.limit ? parseInt(options.limit, 10) : undefined);
+        result = await runQueryRanked(process.cwd(), note, options.limit ? parseInt(options.limit, 10) : undefined, undefined, undefined, undefined, undefined, undefined, options.project);
         break;
       case "similar":
         if (!note) {
           throw new Error("similar requires a query text");
         }
-        result = await runQuerySimilar(process.cwd(), note, options.limit ? parseInt(options.limit, 10) : undefined);
+        result = await runQuerySimilar(process.cwd(), note, options.limit ? parseInt(options.limit, 10) : undefined, undefined, undefined, options.project);
         break;
       case "important":
         result = await runQueryImportant(process.cwd(), options.limit ? parseInt(options.limit, 10) : undefined);
@@ -635,7 +636,8 @@ program
   .option("--depth <n>", "1=shallow, 2=standard, 3=deep (default 2)")
   .option("--no-recursive", "disable recursive sub-question decomposition")
   .option("--include-archived", "include archived notes")
-  .action(async (query: string, options: { limit?: string; depth?: string; recursive?: boolean; includeArchived?: boolean }) => {
+  .option("--project <tag>", "filter RESULTS to one project's notes (traversal stays global; results name the other projects)")
+  .action(async (query: string, options: { limit?: string; depth?: string; recursive?: boolean; includeArchived?: boolean; project?: string }) => {
     const result = await runExplore(
       process.cwd(),
       query,
@@ -644,6 +646,7 @@ program
         depth: options.depth ? parseInt(options.depth, 10) : undefined,
         recursive: options.recursive,
         excludeArchived: options.includeArchived ? false : true,
+        project: options.project,
       },
     );
     await emit(result);

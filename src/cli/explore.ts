@@ -7,6 +7,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import type Database from "better-sqlite3";
 import { findVaultRoot, getVaultPaths, listNoteTitles } from "../core/vault.js";
+import { projectMemberSlugs } from "../core/wake-sources.js";
 import { openSyncedIndex, cachedGraphMetrics } from "../core/indexstore.js";
 import { buildGraph, type LinkGraph } from "../core/graph.js";
 import { loadConfig } from "../core/config.js";
@@ -52,6 +53,9 @@ export interface ExploreOptions {
   includeContent?: boolean;
   excludeArchived?: boolean;
   recursive?: boolean;
+  /** Hard-filter RESULTS to one project (traversal stays global — the graph
+   * is honest; only the answer set is scoped). Unset = whole vault. */
+  project?: string;
 }
 
 export type ExploreSearchResult = {
@@ -63,6 +67,10 @@ export type ExploreSearchResult = {
     paths: ExplorePath[];
     count: number;
     seed_count: number;
+    project_scope?: {
+      project: string;
+      others: Array<{ project: string; notes: number }>;
+    };
     ppr_alpha: number;
     depth: number;
     ppr_iterations: number;
@@ -410,15 +418,38 @@ export async function runExplore(
 
   const elapsed = Date.now() - startTime;
 
+  // Project scope — filter-results-only (traversal already ran globally so
+  // the graph stayed honest; the ANSWER set is scoped). Same contract as
+  // ranked/similar/warmth: hard filter + the other-projects notice.
+  let projectScope: ExploreSearchResult["data"]["project_scope"] | undefined;
+  let finalResults = output.results;
+  if (options.project?.trim()) {
+    const tag = options.project.trim();
+    const config = await loadConfig(getVaultPaths(vaultRoot).config);
+    const dbPath = path.resolve(vaultRoot, config.engine.db_path);
+    const members = await projectMemberSlugs(dbPath, tag);
+    if (members.size > 0) {
+      finalResults = output.results.filter((r) => members.has(r.title));
+      const allProjects = await import("../core/wake-sources.js").then((m) => m.assembleProjects(dbPath));
+      projectScope = { project: tag, others: allProjects.filter((p) => p.project !== tag) };
+      if (finalResults.length === 0) {
+        warnings.push(`No ${tag} notes in the exploration results — the graph crossed out of scope everywhere. Re-run unscoped if you want the wide net.`);
+      }
+    } else {
+      warnings.push(`project "${tag}" has no notes in the index — explore ran UNSCOPED.`);
+    }
+  }
+
   return {
     success: true,
     data: {
       query,
       intent: classified.intent,
-      results: output.results,
+      results: finalResults,
       paths: output.paths,
-      count: output.results.length,
+      count: finalResults.length,
       seed_count: flatResults.length,
+      project_scope: projectScope,
       ppr_alpha: exploreConfig.ppr_alpha,
       depth,
       ppr_iterations: exploreConfig.ppr_iterations,

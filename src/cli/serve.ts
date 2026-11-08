@@ -726,13 +726,15 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     "mnemos_query_ranked",
     "Full ranked retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning. " +
       "4 base signals (composite + keyword + graph + warmth) fused via RRF, then Phase B Q-value reranking. " +
-      "Excludes archived notes by default. Triggers spreading activation.",
+      "Excludes archived notes by default. Triggers spreading activation. " +
+      "Pass project to hard-scope to one project (results then name the other projects); omit to search the whole vault.",
     {
       query: z.string().describe("Natural language search query"),
       limit: z.number().optional().describe("Max results (default 10)"),
       include_archived: z.boolean().optional().describe("Include archived notes (default: false)"),
+      project: z.string().optional().describe("Hard-filter results to one project's notes (from the wake roster). Omit to search the whole vault — cross-project learning is the unscoped default. Scoped results name the other projects so you know the scope was a choice."),
     },
-    async ({ query, limit, include_archived }) => {
+    async ({ query, limit, include_archived, project }) => {
       const result = await runQueryRanked(
         vaultDir,
         query,
@@ -742,6 +744,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         intelligenceDb ?? undefined,
         sessionId,
         sessionStageTracker,
+        project,
       );
 
       // #37 reset question and what's new, for sessions that skip wake.
@@ -816,7 +819,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     "Deep memory exploration via PPR graph traversal. Propagates through wiki-links " +
       "at exploration-tuned parameters (α=0.45), returns ranked notes with content snippets. " +
       "Use for multi-hop questions, connection discovery, and deep recall. " +
-      "Heavier than mnemos_query_ranked but finds notes flat retrieval misses.",
+      "Heavier than mnemos_query_ranked but finds notes flat retrieval misses. " +
+      "Pass project to scope the ANSWER set (traversal crosses the whole graph; results are filtered + the other projects are named); omit to explore the whole vault.",
     {
       query: z.string().describe("Natural language query to explore"),
       limit: z.number().optional().describe("Max notes to return (default 15, max 30)"),
@@ -826,12 +830,14 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       recursive: z.boolean().optional().describe(
         "Enable recursive sub-question decomposition via LLM (requires llm config, default true)"
       ),
+      project: z.string().optional().describe("Filter RESULTS to one project's notes (traversal stays global — the graph is honest; the answer set is scoped). Omit = whole vault."),
     },
-    async ({ query, limit, depth, include_content, include_archived, recursive }) => {
+    async ({ query, limit, depth, include_content, include_archived, recursive, project }) => {
       const result = await runExplore(
         vaultDir,
         query,
         {
+          project,
           limit: limit ?? undefined,
           depth: depth ?? undefined,
           includeContent: include_content ?? undefined,
@@ -896,17 +902,20 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_warmth
   server.tool(
     "mnemos_warmth",
-    "Associative warmth field for the current context. Returns low-token note titles, scores, and sources showing what memory is resonating before and alongside retrieval.",
+    "Associative warmth field for the current context. Returns low-token note titles, scores, and sources showing what memory is resonating before and alongside retrieval. " +
+      "Pass project to scope the field to one project (the field names the others); omit to feel the whole vault.",
     {
       context: z.string().describe("Current conversation text or retrieval context"),
       limit: z.number().optional().describe("Max warmth signals to return (default 20)"),
+      project: z.string().optional().describe("Hard-filter the field to one project's notes. Omit = whole vault."),
     },
-    async ({ context, limit }) => {
+    async ({ context, limit, project }) => {
       const result = await runQueryWarmth(
         vaultDir,
         context,
         limit,
         await graphCache.get(paths.notes),
+        project,
       );
       return textResult(result);
     }
@@ -915,19 +924,22 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_query_similar
   server.tool(
     "mnemos_query_similar",
-    "Composite vector search only (semantic + metadata, no keyword/graph). Faster but single-signal. Excludes archived notes by default.",
+    "Composite vector search only (semantic + metadata, no keyword/graph). Faster but single-signal. Excludes archived notes by default. " +
+      "Pass project to hard-scope to one project (results name the other projects); omit to search the whole vault.",
     {
       query: z.string().describe("Natural language search query"),
       limit: z.number().optional().describe("Max results (default 10)"),
       include_archived: z.boolean().optional().describe("Include archived notes (default: false)"),
+      project: z.string().optional().describe("Hard-filter results to one project's notes. Omit = whole vault."),
     },
-    async ({ query, limit, include_archived }) => {
+    async ({ query, limit, include_archived, project }) => {
       const result = await runQuerySimilar(
         vaultDir,
         query,
         limit,
         include_archived ? false : true,
         await graphCache.get(paths.notes),
+        project,
       );
       return textResult(result);
     }
