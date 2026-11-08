@@ -54,10 +54,29 @@ program
   .description(
     "Mnemos - markdown-native cognitive harness for persistent agent memory"
   )
-  .version(VERSION);
+  .version(VERSION)
+  .addHelpText(
+    "after",
+    `
+
+Vault resolution (where your memory is found):
+  1. MNEMOS_VAULT env var                  explicit - wins over everything
+  2. walk up from the current directory    a dir with a .mnemos marker or mnemos.config.yaml
+  3. mnemos serve --mcp only: falls back to the global vault (~/.mnemos-memory)
+
+The vault IS a directory - cd into it and every command works:
+  cd ~/ori-memory-vault && mnemos wake
+
+MCP note: agents connect through the registered server (its config carries
+--vault), so MCP sessions always know the vault. The CLI only knows it if
+you stand inside it or set MNEMOS_VAULT.
+
+Docs: https://github.com/cheney-enterprises/mnemos#readme`
+  );
 
 program
   .command("init")
+  .description("Scaffold a new vault (notes/, self/, ops/, templates/, mnemos.config.yaml)")
   .argument("[dir]", "target directory", ".")
   .option("--json", "output JSON only (skip interactive)")
   .action(async (dir: string, options: { json?: boolean }) => {
@@ -69,6 +88,7 @@ program
 
 program
   .command("wake")
+  .description("Session-boot briefing: identity, goals, due reminders, project roster, policy gates. Run from inside a vault (or set MNEMOS_VAULT)")
   .option("--budget <n>", "max lines", "96")
   .action(async (options) => {
     const result = await runWake(process.cwd(), parseInt(options.budget, 10));
@@ -77,6 +97,7 @@ program
 
 program
   .command("status")
+  .description("Vault overview: note counts, index state")
   .action(async () => {
     const result = await runStatus(process.cwd());
     await emit(result);
@@ -84,6 +105,7 @@ program
 
 program
   .command("health")
+  .description("Full diagnostics: orphans, dangling links, schema violations, index health")
   .action(async () => {
     const result = await runHealth(process.cwd());
     await emit(result);
@@ -132,6 +154,7 @@ program
 
 program
   .command("query")
+  .description("Vault queries: orphans, dangling, backlinks, cross-project, ranked, similar, important, fading, warmth-audit (see also: memory_sql over MCP)")
   .argument("<kind>", "orphans | dangling | backlinks | cross-project | ranked | similar | important | fading | warmth-audit")
   .argument("[note]", "note title for backlinks, query text for ranked/similar, or query filter for warmth-audit")
   .option("--limit <n>", "max results", "10")
@@ -187,6 +210,7 @@ program
 
 program
   .command("validate")
+  .description("Schema-validate one note (frontmatter, types, description limits)")
   .argument("<note>", "path to note")
   .action(async (note: string) => {
     const result = await runValidate({ notePath: note });
@@ -195,6 +219,7 @@ program
 
 program
   .command("add")
+  .description("Capture a note to inbox (auto-promotes when configured; a note without a project is staged, not filed - the ask-first gate returns the roster)")
   .argument("<title>", "note title")
   .option("-t, --type <type>", "note type", "insight")
   .option("-c, --content <content>", "note body content (replaces template placeholder)")
@@ -218,6 +243,7 @@ program
 
 program
   .command("promote")
+  .description("Promote inbox note(s) into the knowledge graph: classification, links, project routing")
   .argument("[note]", "inbox note filename or slug")
   .option("--all", "promote all inbox notes")
   .option("--dry-run", "preview without making changes")
@@ -256,6 +282,7 @@ program
 
 program
   .command("archive")
+  .description("Archive notes (status flip, still on disk) - see also: mnemos forget")
   .option("--dry-run", "preview without making changes")
   .action(async (options: { dryRun?: boolean }) => {
     const result = await runArchive({
@@ -267,6 +294,7 @@ program
 
 program
   .command("bridge")
+  .description("Register the mnemos MCP server for a client: claude-code | cursor | codex | hermes | opencode | ori | generic")
   .argument("<target>", "claude-code | cursor | codex | hermes | opencode | ori | generic | status")
   .option("--global", "legacy shorthand for --scope global")
   .option("--scope <scope>", "install scope: project | global")
@@ -426,6 +454,7 @@ program
 
 program
   .command("serve")
+  .description("Run the MCP server (agents talk to the vault through this); --mcp for stdio JSON-RPC")
   .option("--mcp", "run MCP server")
   .option("--vault <path>", "explicit vault root path")
   .action(async (options: { mcp?: boolean; vault?: string }) => {
@@ -437,6 +466,7 @@ program
 
 program
   .command("index")
+  .description("Build/repair the derived index and embeddings (index build [--force])")
   .argument("<action>", "build | status | export-learned | import-learned")
   .option("--force", "rebuild all embeddings")
   .option("--file <path>", "export/import path (default ops/mnemos-learned.ndjson)")
@@ -465,6 +495,7 @@ program
 
 program
   .command("graph")
+  .description("Graph analysis over the knowledge graph (communities, metrics)")
   .argument("<action>", "metrics | communities")
   .action(async (action: string) => {
     let result;
@@ -534,6 +565,7 @@ program
 
 program
   .command("prune")
+  .description("Activation topology analysis; archive candidates (dry-run by default)")
   .option("--apply", "actually archive candidates (default: dry-run)")
   .option("--verbose", "show full activation topology")
   .action(async (options: { apply?: boolean; verbose?: boolean }) => {
@@ -547,6 +579,7 @@ program
 
 program
   .command("explore")
+  .description("Multi-hop graph exploration (PPR traversal, sub-question decomposition)")
   .argument("<query>", "natural language query to explore")
   .option("--limit <n>", "max notes to return (default 15)")
   .option("--depth <n>", "1=shallow, 2=standard, 3=deep (default 2)")

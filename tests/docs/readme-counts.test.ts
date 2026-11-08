@@ -27,6 +27,33 @@ const toolCount = new Set(serve.match(/mnemos_[a-z_]+/g) ?? []).size;
 const resourceCount = (serve.match(/server\.resource\(/g) ?? []).length;
 const commandCount = (index.match(/^\s*\.command\(/gm) ?? []).length;
 
+// --help is a product surface: an undocumented command invites exactly the
+// trial-and-error that burned Eric (bare `mnemos wake` from ~ → "No .mnemos
+// marker found" with no hint that the vault is elsewhere or that
+// MNEMOS_VAULT exists). These pins keep the help honest as commands change.
+describe("CLI --help carries the vault contract and no bare commands", () => {
+  it("every registered command has a description", () => {
+    const commands = [...index.matchAll(/\.command\("([a-z-]+)[^"]*"/g)].map((m) => m[1]);
+    expect(commands.length).toBe(commandCount);
+    for (const m of index.matchAll(/\.command\("([a-z-]+)[^"]*"/g)) {
+      const c = m[1];
+      // Window from the matched .command( line itself — command names may
+      // carry argument hints ("whats-new [version]"), so build the window
+      // from the match, never from a reconstructed bare-name anchor.
+      const after = index.slice(m.index ?? 0, (m.index ?? 0) + 400);
+      expect(after, `command '${c}' has no .description()`).toMatch(/\.description\(/);
+    }
+  });
+
+  it("top-level help documents vault resolution (env, walk, global fallback)", () => {
+    // The after-help text lives in src/index.ts; pin its load-bearing lines.
+    expect(index).toContain("Vault resolution");
+    expect(index).toContain("MNEMOS_VAULT");
+    expect(index).toContain("cd into it and every command works");
+    expect(index).toContain("~/.mnemos-memory");
+  });
+});
+
 describe("README advertises the surface that exists", () => {
   it("states the registered MCP tool count everywhere it appears", () => {
     const claims = [...readme.matchAll(/(\d+)\s+(?:MCP\s+)?tools/g)].map((m) => Number(m[1]));

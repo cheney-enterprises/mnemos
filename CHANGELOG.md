@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Changed — CLI help finally explains itself
+- **Every CLI command now carries a `--help` description** (wake, status,
+  health, add, promote, archive, bridge, serve, index, graph, query,
+  validate, prune, explore, init — previously fifteen bare names).
+- **Top-level `mnemos --help` documents the vault-resolution contract:**
+  `MNEMOS_VAULT` env wins, then the upward directory walk, then (serve
+  --mcp only) the global-vault fallback — plus the fact that `cd`-ing into
+  the vault makes every command work, and why MCP sessions always know the
+  vault while the CLI does not. This is the exact gap Eric hit standing in
+  `~` (`mnemos wake` → "No .mnemos marker found" with zero hints).
+- **Two new docs tests** pin it: no command may ship bare, and the
+  vault-resolution block may not lose its load-bearing lines.
+
 ### Fixed — layer 2: agent-forged PTY approvals (2026-11-08 demonstration)
 - **The TTY gate alone was bypassable — demonstrated, then closed.** An agent
   wrapped `mnemos requests approve` in `script` (a real PTY), answered its
