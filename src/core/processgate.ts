@@ -91,34 +91,45 @@ interface PidRow {
   command: string;
 }
 
+/**
+ * Per-process memo for ancestor rows. The walk asks about the same pids
+ * repeatedly (every decision in one process shares the top of the chain),
+ * and on Windows each miss costs a powershell cold-start. Pid reuse could
+ * in principle change a row, but within one process lifetime the reuse risk
+ * for the handful of ancestors we walk is negligible; the cache is capped
+ * defensively.
+ */
+const ancestorCache = new Map<string, PidRow | null>();
+const ANCESTOR_CACHE_MAX = 256;
+
 function readAncestorRow(pid: string): PidRow | null {
+  if (ancestorCache.has(pid)) return ancestorCache.get(pid) ?? null;
+  const row = readAncestorRowUncached(pid);
+  if (ancestorCache.size >= ANCESTOR_CACHE_MAX) ancestorCache.clear();
+  ancestorCache.set(pid, row);
+  return row;
+}
+
+function readAncestorRowUncached(pid: string): PidRow | null {
   if (process.platform === "win32") {
     // PowerShell: Get-CimInstance Win32_Process for the parent PID; `ps`
     // does not exist on Windows and wmic is deprecated/absent on current
-    // runners.
+    // runners. ONE invocation per ancestor: powershell cold-start costs
+    // seconds on CI runners, and two spawns per link made every decision
+    // blow the 30s test timeout (8 policy tests timed out on windows-latest).
     try {
       const out = execFileSync(
         "powershell",
         ["-NoProfile", "-Command",
-         `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object -First 1).ParentProcessId`],
-        { encoding: "utf8", timeout: 10000 },
+         `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object -First 1; "$($p.ParentProcessId)|$($p.CommandLine)"`],
+        { encoding: "utf8", timeout: 20000 },
       );
-      const ppid = out.trim();
+      const line = out.trim();
+      const sep = line.indexOf("|");
+      if (sep === -1) return null;
+      const ppid = line.slice(0, sep).trim();
+      const command = line.slice(sep + 1).trim();
       if (!/^\d+$/.test(ppid) || ppid === "0") return null;
-      // Image name for the chain; full command line is best-effort (may be
-      // denied for protected processes — an empty command degrades the
-      // pattern match, recorded honestly in the chain, never fabricated).
-      let command = "";
-      try {
-        command = execFileSync(
-          "powershell",
-          ["-NoProfile", "-Command",
-           `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object -First 1).CommandLine`],
-          { encoding: "utf8", timeout: 10000 },
-        ).trim();
-      } catch {
-        command = "";
-      }
       if (!command) return { pid, ppid, command: "(image-unavailable)" };
       return { pid, ppid, command };
     } catch {
