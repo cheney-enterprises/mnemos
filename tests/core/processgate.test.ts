@@ -2,13 +2,19 @@ import { describe, it, expect } from "vitest";
 import { inspectAncestry, ancestryVerdict } from "../../src/core/processgate.js";
 import { execFileSync } from "node:child_process";
 
+// Windows has no `ps`; the ancestry walk there goes through PowerShell and
+// runner images differ. These tests pin POSIX behavior; the Windows walk is
+// exercised indirectly by the gate's tests (refusals work under both walks).
+const isPosix = process.platform !== "win32";
+const posixIt = isPosix ? it : it.skip;
+
 // The second user-only-gate layer: a TTY is forgeable (script/PTY —
 // demonstrated 2026-11-08: agent wrapped the CLI, answered its own prompt,
 // deleted the note), but the process tree is set by the kernel. An approval
 // executed under the agent's runtime carries that runtime in the PPID chain.
 
 describe("inspectAncestry", () => {
-  it("walks the real process tree to completion and classifies it honestly", () => {
+  posixIt("walks the real process tree to completion and classifies it honestly", () => {
     // Environment-independent: CI runners and dev machines differ in what is
     // above this process, so the pin is on the WALK (completes, real images)
     // and on the verdict logic — not on the developer's specific harness.
@@ -23,12 +29,11 @@ describe("inspectAncestry", () => {
     expect(ancestryVerdict(f) === "unknown").toBe(!f.agentAncestor && !f.complete);
   });
 
-  it("a detached process re-parented to init has a clean chain", async () => {
+  posixIt("a detached process re-parented to init has a clean chain", async () => {
     // nohup + shell exit re-parents the child to launchd — the same shape as
     // a daemonized (chain-forging) process, and coincidentally the same
     // terminal-state shape as a genuine detached session.
-    const shell = process.platform === "win32" ? undefined : "/bin/sh";
-    const pid = execFileSync(shell!, ["-c", "nohup sleep 30 >/dev/null 2>&1 & echo $!"], {
+    const pid = execFileSync("/bin/sh", ["-c", "nohup sleep 30 >/dev/null 2>&1 & echo $!"], {
       encoding: "utf8",
     }).trim().split("\n").pop()!.trim();
     try {
@@ -40,7 +45,7 @@ describe("inspectAncestry", () => {
     }
   });
 
-  it("a nonexistent pid yields an incomplete walk, not a false clean", () => {
+  posixIt("a nonexistent pid yields an incomplete walk, not a false clean", () => {
     const f = inspectAncestry(999_999_999);
     expect(f.complete).toBe(false);
     // No agent found AND no chain walked — the caller must treat incomplete
@@ -49,7 +54,7 @@ describe("inspectAncestry", () => {
     expect(f.chain.length).toBe(0);
   });
 
-  it("walks are bounded — a cycle cannot hang the gate", () => {
+  posixIt("walks are bounded — a cycle cannot hang the gate", () => {
     // The 64-guard is internal; this only verifies termination within a sane
     // time and a complete=false on synthetic absurdity is not reachable
     // without a real cycle, so just prove the call returns quickly.

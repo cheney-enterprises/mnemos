@@ -92,6 +92,39 @@ interface PidRow {
 }
 
 function readAncestorRow(pid: string): PidRow | null {
+  if (process.platform === "win32") {
+    // PowerShell: Get-CimInstance Win32_Process for the parent PID; `ps`
+    // does not exist on Windows and wmic is deprecated/absent on current
+    // runners.
+    try {
+      const out = execFileSync(
+        "powershell",
+        ["-NoProfile", "-Command",
+         `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object -First 1).ParentProcessId`],
+        { encoding: "utf8", timeout: 10000 },
+      );
+      const ppid = out.trim();
+      if (!/^\d+$/.test(ppid) || ppid === "0") return null;
+      // Image name for the chain; full command line is best-effort (may be
+      // denied for protected processes — an empty command degrades the
+      // pattern match, recorded honestly in the chain, never fabricated).
+      let command = "";
+      try {
+        command = execFileSync(
+          "powershell",
+          ["-NoProfile", "-Command",
+           `(Get-CimInstance Win32_Process -Filter "ProcessId=${pid}" | Select-Object -First 1).CommandLine`],
+          { encoding: "utf8", timeout: 10000 },
+        ).trim();
+      } catch {
+        command = "";
+      }
+      if (!command) return { pid, ppid, command: "(image-unavailable)" };
+      return { pid, ppid, command };
+    } catch {
+      return null;
+    }
+  }
   try {
     const out = execFileSync("ps", ["-o", "pid=,ppid=,command=", "-p", pid], {
       encoding: "utf8",
@@ -117,6 +150,11 @@ function imageOf(command: string): string {
   const first = command.trim().split(/\s+/)[0] ?? "";
   const base = first.split("/").pop() ?? first;
   return base.toLowerCase();
+}
+
+/** The sentinel image appended when the walk reaches the root on this platform. */
+function rootImage(): string {
+  return process.platform === "win32" ? "system-idle-process" : "launchd/init";
 }
 
 /** True when the command line itself (not just the image) names an agent runtime. */
@@ -168,7 +206,7 @@ export function inspectAncestry(startPid?: number): AncestryFinding {
     if (row.ppid === current) break; // kernel idle reclaim loop guard
     current = row.ppid;
     if (current === "0") {
-      chain.push("launchd/init");
+      chain.push(rootImage());
       break;
     }
   }
