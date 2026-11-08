@@ -84,8 +84,11 @@ describe("assembleProjects — the roster the briefing and the ask-first gate sh
     await syncIndex(db, notesDir);
 
     const roster = await assembleProjects(path.join(idxRoot, "index.db"));
+    // The map counts (a map-only project is the documented first step and the
+    // gate's roster includes it — the two rosters must agree); forgotten
+    // statuses do not.
     expect(roster).toEqual([
-      { project: "kite", notes: 2 },
+      { project: "kite", notes: 3 },
       { project: "roust", notes: 1 },
     ]);
 

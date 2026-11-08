@@ -963,7 +963,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       "it records a pending intent and returns the command the USER must run to execute it. Never tell the user a purge happened.",
     {
       op: z.enum(["release", "supersede", "purge"]).describe("release = soft-evict; supersede = replace; purge = propose hard delete (user executes)"),
-      query: z.string().describe("What to forget — matched by rare-token anchor + embedding similarity"),
+      query: z.string().optional().describe("release/supersede: what to forget — matched by rare-token anchor + embedding similarity"),
       slugs: z.array(z.string()).optional().describe("purge only: exact note slugs (no matching)"),
       reason: z.string().optional().describe("purge only: why these notes should be removed"),
       new_text: z.string().optional().describe("supersede only: the replacement content"),
@@ -972,6 +972,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       max_forget: z.number().optional().describe("Blast-radius cap (default 10)"),
     },
     async ({ op, query, slugs, reason, new_text, project, apply, max_forget }) => {
+      if ((op === "release" || op === "supersede") && !query?.trim()) {
+        return errorResult("release/supersede require query (what to forget)");
+      }
       if (op === "supersede" && !new_text?.trim()) {
         return errorResult("supersede requires new_text (the replacement content)");
       }

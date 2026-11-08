@@ -47,10 +47,13 @@ export async function assembleWarmNotes(
 /**
  * The project roster from the live derived index — the same note_project rows
  * the ask-first gate's refusal shows, so the roster an agent files against is
- * the roster wake advertises. Forgotten statuses (archived/superseded/released)
- * are excluded — those notes left retrieval, so counting them would advertise
- * projects that are effectively empty. Best-effort: a missing/locked db yields
- * an empty list, never an error.
+ * the roster wake advertises. The map counts: a project whose only note is its
+ * map is exactly the documented first step (create the map, then fill it), and
+ * the gate's roster includes it — excluding maps here made wake's roster
+ * disagree with the gate's (the cold-agent suite caught the drift). Forgotten
+ * statuses (archived/superseded/released) are excluded — those notes left
+ * retrieval, so counting them would advertise projects that are effectively
+ * empty. Best-effort: a missing/locked db yields an empty list, never an error.
  */
 export async function assembleProjects(
   dbPath: string
@@ -65,8 +68,7 @@ export async function assembleProjects(
           `SELECT p.project AS project, COUNT(*) AS notes
            FROM note_project p
            JOIN note n ON n.id = p.note_id
-           WHERE n.type != 'moc'
-             AND (n.status = '' OR LOWER(n.status) NOT IN (${[...FORGOTTEN_STATUSES].map(() => '?').join(', ')}))
+           WHERE n.status = '' OR LOWER(n.status) NOT IN (${[...FORGOTTEN_STATUSES].map(() => '?').join(', ')})
            GROUP BY p.project
            ORDER BY notes DESC`,
         )

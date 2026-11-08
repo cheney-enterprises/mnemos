@@ -2,6 +2,42 @@
 
 ## [Unreleased]
 
+### Fixed (phase 5 — the cold-agent suite caught two real bugs)
+- **Promoted notes were invisible to memory_sql and wake's roster until the
+  next sync.** `mnemos_add`'s embed-on-write synced the derived index while
+  the note still lived in `inbox/`; promote then moved the file, and nothing
+  re-synced. The promoted note was absent from `note`/`note_project` for the
+  whole session — memory_sql (readonly, never syncs) and wake's project
+  roster (direct reads) both answered without it. `runAdd` now re-syncs the
+  derived index after a successful auto-promote (best-effort, same contract
+  as embed-on-write).
+- **`type=moc` was silently reclassified to `insight` on auto-promote.**
+  add passed description and project as explicit promote overrides but not
+  type, so promote fell back to classification and downgraded maps. The map
+  convention (routing, wake rosters, the ritual) keys on `type=moc`; a
+  downgraded map still resolved by title luck but its type lied in the
+  index. The agent's explicit type now reaches promote as an override.
+- **`mnemos_forget op=purge` over MCP required a `query` argument** (the zod
+  schema demanded the string even though purge is slug-addressed only).
+  `query` is optional now; release/supersede refuse a missing query with a
+  clear message.
+- **Two roster contract fixes from the cold-agent run:** the ask-first
+  gate's response shape is `{success, data: {askGate, projects, ask}}` over
+  the wire; and the doctrine instructions on a first-run vault carry the
+  onboarding flow (the full doctrine lands after identity is written).
+
+### Added (phase 5 — cold-agent contract suite)
+- **`tests/mcp/cold-agent.test.ts`.** The doctrine's promised lifecycle,
+  executed by a brand-new agent over a real MCP server with tool surfaces
+  ONLY: boot (wake/onboarding), project self-serve (ask-first gate → roster
+  agreement between wake and the gate), capture → file → retrieve, the
+  SESSION END ritual (map Current State + daily + goals through
+  `file=map`), and the policy invariants (purge proposes and returns the
+  user command; nothing deleted; identity proposes on a default-gate vault
+  and the resource never changes). This suite is the regression wall for
+  every future transport: if a Flutter-era sidecar breaks the ritual or the
+  capability model, this suite's HTTP twin fails the same way.
+
 ### Added (phase 4 — one-command Ori wiring)
 - **`mnemos bridge ori`.** Registers the mnemos MCP server in `~/.ori/mcp.json` —
   the Ori harness gets the full 17-tool surface with one command. Global-only

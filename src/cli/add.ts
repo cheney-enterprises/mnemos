@@ -286,8 +286,13 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
         startDir: options.startDir,
         noteName: filename,
         // Passed as explicit overrides so a configured LLM cannot replace them.
+        // type included: the inbox note's frontmatter type is the agent's
+        // explicit choice (type=moc for maps is load-bearing — routing,
+        // wake rosters, and the ritual resolve on it). Without this, promote
+        // reclassified moc → insight and the map convention silently broke.
         description: description || undefined,
         project: project.length > 0 ? project : undefined,
+        type: options.type,
       });
       if (promoteResult.success && promoteResult.data.promoted.length > 0) {
         const promoted = promoteResult.data.promoted[0];
@@ -295,6 +300,26 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
           ...promoted.warnings,
           ...promoted.changes.map((c) => `auto-promote: ${c}`)
         );
+        // Re-sync the derived index AFTER the move. The embed-on-write pass
+        // above synced notes/ while the note still lived in inbox/, so the
+        // promoted note was absent from note/note_project until some later
+        // query path synced — invisible to memory_sql (readonly, never syncs)
+        // and to wake's project roster (direct reads) for the whole session.
+        // Same best-effort contract as embed-on-write: a failure must never
+        // lose the write.
+        try {
+          const dbPath = path.resolve(vaultRoot, config.engine.db_path);
+          const db = initDB(dbPath);
+          try {
+            const titlesAfter = await listNoteTitles(paths.notes);
+            const opened = await openSyncedIndex(db, paths.notes, titlesAfter.length);
+            if (opened.reason) warnings.push(opened.reason);
+          } finally {
+            db.close();
+          }
+        } catch (err) {
+          warnings.push(`post-promote index sync failed (note saved, run \`mnemos index build\`): ${String(err)}`);
+        }
         return {
           success: true,
           data: { path: promoted.to, autoPromoted: true },
