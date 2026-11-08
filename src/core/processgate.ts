@@ -70,6 +70,21 @@ export interface AncestryFinding {
   complete: boolean;
 }
 
+/**
+ * The gate's decision for the current process, computed once:
+ *   - agent_tree: an agent runtime is among the ancestors (forged or not).
+ *   - clean_tree: walk completed to the root with no agent found.
+ *   - unknown: the walk could not complete (sandboxed runner, ps denied,
+ *     exotic init) — the caller treats unknown as NOT clean and layers its
+ *     other gates (TTY + injected confirm) accordingly. Never assume.
+ */
+export type AncestryVerdict = "agent_tree" | "clean_tree" | "unknown";
+
+export function ancestryVerdict(finding: AncestryFinding): AncestryVerdict {
+  if (finding.agentAncestor) return "agent_tree";
+  return finding.complete ? "clean_tree" : "unknown";
+}
+
 interface PidRow {
   pid: string;
   ppid: string;
