@@ -186,3 +186,36 @@ describe("runUpdateFile — map backup", () => {
     expect(readFileSync(join(historyDir, backups[0]), "utf8")).toContain("- done: old");
   });
 });
+
+describe("per-project state files (structural scoping)", () => {
+  it("file=daily|goals with project lands in ops/<tag>/", async () => {
+    const r = await runUpdateFile({
+      startDir: vault,
+      file: "goals",
+      project: "roust",
+      content: "- roust goal one\n- roust goal two",
+    });
+    expect(r.success).toBe(true);
+    expect(r.data.scoped).toBe(true);
+    expect(String(r.data.path)).toContain(join("ops", "roust", "goals.md"));
+    expect(readFileSync(join(vault, "ops", "roust", "goals.md"), "utf8")).toContain("roust goal one");
+
+    const d = await runUpdateFile({ startDir: vault, file: "daily", project: "roust", content: "day line" });
+    expect(String(d.data.path)).toContain(join("ops", "roust", "daily.md"));
+  });
+
+  it("bare daily/goals writes stay global (doctrine meaning unchanged)", async () => {
+    const r = await runUpdateFile({ startDir: vault, file: "goals", content: "# global goals" });
+    expect(r.success).toBe(true);
+    expect(String(r.data.path)).toContain(join("self", "goals.md"));
+    expect(readFileSync(join(vault, "self", "goals.md"), "utf8")).toBe("# global goals");
+  });
+
+  it("identity ignores project (one self-model)", async () => {
+    writeFileSync(join(vault, "mnemos.config.yaml"), "promote:\n  auto: false\npolicy:\n  gates:\n    identity_update: allow\n", "utf8");
+    const r = await runUpdateFile({ startDir: vault, file: "identity", project: "roust", content: "# Self" });
+    expect(r.success).toBe(true);
+    expect(readFileSync(join(vault, "self", "identity.md"), "utf8")).toBe("# Self");
+    expect(existsSync(join(vault, "ops", "roust"))).toBe(false);
+  });
+});

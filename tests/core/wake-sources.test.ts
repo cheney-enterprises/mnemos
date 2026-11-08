@@ -196,3 +196,60 @@ describe("wake.project_default config contract", () => {
     await fsp.rm(dir, { recursive: true, force: true });
   });
 });
+
+describe("scoped wake: substituted sections (goals/daily/warm)", () => {
+  it("per-project files win when present; scoped wake shows THIS project's goals", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-subst-"));
+    await mkdir(path.join(idxRoot, "ops", "roust"), { recursive: true });
+    await mkdir(path.join(idxRoot, "self"), { recursive: true });
+    await writeFile(path.join(idxRoot, "ops", "roust", "goals.md"), "- roust goal a\n- roust goal b\n", "utf8");
+    await writeFile(path.join(idxRoot, "self", "goals.md"), "- flutter performance track\n- other project goal mentioning roust\n", "utf8");
+
+    const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
+    const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "roust", {});
+    expect(pw.goalsFromFile).toBe(true);
+    expect(pw.goals).toEqual(["- roust goal a", "- roust goal b"]);
+
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+
+  it("legacy fallback: no per-project file -> tag-filtered shared goals", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-subst2-"));
+    await mkdir(path.join(idxRoot, "self"), { recursive: true });
+    await writeFile(path.join(idxRoot, "self", "goals.md"), "- flutter performance track\n- roust device verification\n", "utf8");
+
+    const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
+    const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "roust", {});
+    expect(pw.goalsFromFile).toBe(false);
+    expect(pw.goals).toEqual(["- roust device verification"]);
+
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+
+  it("warm notes: boosts intersected with membership, sorted by decay", async () => {
+    const { default: Database } = await import("better-sqlite3");
+    const { initIndexStore, syncIndex } = await import("../../src/core/indexstore.js");
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-warm-"));
+    const notesDir = path.join(idxRoot, "notes");
+    await mkdir(notesDir, { recursive: true });
+    const note = (name: string, fm: string) =>
+      writeFile(path.join(notesDir, `${name}.md`), `---\n${fm}\n---\n\nbody\n`, "utf8");
+    await note("kite warm note", "type: insight\nproject: [kite]\nstatus: active");
+    await note("roust warm note", "type: insight\nproject: [roust]\nstatus: active");
+    const { initDB } = await import("../../src/core/engine.js");
+    const db = initDB(path.join(idxRoot, "index.db"));
+    initIndexStore(db);
+    await syncIndex(db, notesDir);
+    // Seed boosts for both (the boosts table belongs to the engine schema).
+    db.prepare("INSERT OR REPLACE INTO boosts (title, boost, updated) VALUES (?, ?, ?)").run("kite warm note", 0.9, new Date().toISOString());
+    db.prepare("INSERT OR REPLACE INTO boosts (title, boost, updated) VALUES (?, ?, ?)").run("roust warm note", 0.5, new Date().toISOString());
+    const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
+    const pw = await assembleProjectWake(idxRoot, path.join(idxRoot, "index.db"), "roust", {});
+    expect(pw.warmNotes.map((w) => w.title)).toEqual(["roust warm note"]);
+    db.close();
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+});

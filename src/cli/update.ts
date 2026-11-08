@@ -30,6 +30,17 @@ export const UPDATABLE_FILES: Record<Exclude<UpdatableFile, "map">, (p: VaultPat
   reminders: (p) => path.join(p.ops, "reminders.md"),
 };
 
+/**
+ * Per-project state files: when `project` is given with file=daily|goals,
+ * the write lands in ops/<tag>/<file>.md — the structural scoping the
+ * scoped wake reads FIRST. Bare writes stay global (the doctrine's
+ * unscoped meaning is unchanged). Omitting for identity/methodology:
+ * the self-model is one agent, not per-project.
+ */
+function perProjectStatePath(project: string, file: "daily" | "goals", paths: VaultPaths): string {
+  return path.join(paths.ops, project, `${file}.md`);
+}
+
 /** The gates each file's overwrite passes through. */
 export function gateForFile(file: UpdatableFile): "identity_update" | "state_overwrite" {
   return file === "identity" || file === "methodology" ? "identity_update" : "state_overwrite";
@@ -160,7 +171,35 @@ async function runUpdateFileInner(options: UpdateFileOptions): Promise<UpdateFil
     return writeSelfFileWithPolicy(vaultRoot, filePath, options.file, options.content, gate, "agent");
   }
 
-  // daily / goals / reminders — state_overwrite gate.
+  // daily / goals — per-project files when project is given (structural
+  // scoping; the scoped wake reads these first). reminders stays global:
+  // time-based items span projects by nature. identity/methodology never
+  // project (the self-model is one agent).
+  if ((options.file === "daily" || options.file === "goals") && options.project?.trim()) {
+    const pTag = options.project.trim();
+    const filePath = perProjectStatePath(pTag, options.file, paths);
+    const existing = await safeReadFile(filePath);
+    await backupBeforeOverwrite(filePath, options.file, existing);
+    await fs.mkdir(path.dirname(filePath), { recursive: true });
+    await fs.writeFile(filePath, options.content, "utf8");
+    await audit(vaultRoot, { event: "project_state_written", project: pTag, file: options.file });
+    return {
+      success: true,
+      data: {
+        file: options.file,
+        project: pTag,
+        path: filePath,
+        scoped: true,
+        backed_up: !!existing,
+        updated: new Date().toISOString(),
+      },
+      warnings: [
+        `written to ops/${pTag}/${options.file}.md (per-project state; the scoped wake reads this file first)`,
+      ],
+    };
+  }
+
+  // daily / goals / reminders — state_overwrite gate (global files).
   if (gate === "deny") {
     throw new PolicyError("state_overwrite", "deny",
       `policy: state_overwrite=deny — writing ${options.file} is disabled on this vault. Ask the user to write it or change policy.`);

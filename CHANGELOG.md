@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Changed — per-project state: wake's sections become project sets (Eric's design)
+- **Every wake section now has a global AND a per-project form.**
+  `active_goals`, `daily_recent`, `warm_notes` — the three sections fed by
+  shared files — are substituted (not suppressed) in a scoped wake:
+  - **goals**: `ops/<tag>/goals.md` when present; legacy fallback is
+    tag-filtered lines from the shared `self/goals.md` (no data migration
+    forced — new writes go per-project, old vaults keep working).
+  - **daily**: `ops/<tag>/daily.md` when present; fallback tag-filtered
+    shared `ops/daily.md`.
+  - **warm notes**: no new storage — the global boost table intersected
+    with the project's membership set. Warmth is a query.
+- **The write path creates them:** `mnemos_update file=daily|goals
+  project=<tag>` lands in `ops/<tag>/` (backed up like every write; bare
+  writes stay global — the doctrine's unscoped meaning unchanged;
+  identity/methodology are never per-project — one self-model).
+- The substitution happens in the wake budget ladder itself, so caps and
+  drop order keep working: `active_goals` shows THIS project's goals, not
+  zero, not everyone's.
+
 ### Changed — scoped retrieval: the read paths learn the project contract
 - **`project=<tag>` on the four read paths** (`mnemos_query_ranked`,
   `mnemos_query_similar`, `mnemos_explore`, `mnemos_warmth`): hard-filters

@@ -74,20 +74,34 @@ export async function runWake(
       return ageDays <= 30;
     });
   const chosen = project?.trim();
-  // When a project is named, the shared-file sections (goals from
-  // self/goals.md, daily from ops/daily.md, warm notes — all cross-project
-  // by construction) must NOT feed the global briefing: they were the exact
-  // global-dump pollution Eric flagged. A scoped wake's global part carries
-  // only true-global content; the project's own goals/daily/warm come from
-  // its map Current State + its daily lines + its notes via projectWake.
   const scoped = chosen && chosen.length > 0;
+  // When a project is named, the shared-file sections are SUBSTITUTED, not
+  // suppressed: active_goals, daily_recent, and warm_notes come from the
+  // project's own data (ops/<tag>/goals.md with legacy fallback, per-project
+  // daily lines, boosts ∩ membership). The scoped wake shows this project's
+  // goals — not zero goals, not every project's. The global half keeps only
+  // true-global content (identity, roster, policy, vitals).
+  let projectData: Awaited<ReturnType<typeof assembleProjectWake>> | undefined;
+  if (scoped) {
+    projectData = await assembleProjectWake(
+      vaultRoot,
+      dbPath,
+      chosen as string,
+      config.promote.project_map_routing,
+    );
+  }
   const globalInputs = scoped
     ? { ...inputs, goals: "", daily: [], warmNotes: [], activity: [] }
     : inputs;
   const wakeInputs = {
     ...globalInputs,
+    goals: scoped && projectData ? projectData.goals.join("\n") : globalInputs.goals,
+    warmNotes: scoped && projectData ? projectData.warmNotes : globalInputs.warmNotes,
     reminders: reminderLines.join("\n"),
-    daily: (globalInputs.activity ?? []).map((l) => ({ date: today, lines: [l] })),
+    daily:
+      scoped && projectData
+        ? [{ date: today, lines: projectData.daily }]
+        : (globalInputs.activity ?? []).map((l) => ({ date: today, lines: [l] })),
     policy: policyLine(policy)
   };
 
@@ -112,12 +126,12 @@ export async function runWake(
   if (effective) {
     const known = inputs.projects.some((p) => p.project === effective);
     if (known) {
-      const pw = await assembleProjectWake(
+      const pw = projectData ?? (await assembleProjectWake(
         vaultRoot,
         dbPath,
         effective,
         config.promote.project_map_routing,
-      );
+      ));
       result.projectWake = { project: effective, ...pw };
     } else {
       // A named project that does not exist (or a default pointing at

@@ -130,6 +130,21 @@ export interface ProjectWake {
   daily: string[];
   /** Recent notes belonging to this project, by last activity. */
   recentNotes: string[];
+  /**
+   * This project's goals — from ops/<tag>/goals.md when the per-project
+   * file exists, else text-filtered from the shared self/goals.md
+   * (legacy fallback). Feeds the scoped wake's active_goals section.
+   */
+  goals: string[];
+  /** Whether the per-project goals file existed (false = legacy fallback). */
+  goalsFromFile: boolean;
+  /**
+   * Warm notes scoped to the project: the global boost table intersected
+   * with the project's membership set. No new storage — warmth is a query.
+   */
+  warmNotes: Array<{ title: string; decayed: number }>;
+  /** The live membership set (the truth all of the above was cut from). */
+  members: Set<string>;
 }
 
 function extractCurrentStateLines(mapBody: string): string[] {
@@ -170,6 +185,10 @@ export async function assembleProjectWake(
     currentState: [],
     daily: [],
     recentNotes: [],
+    goals: [],
+    goalsFromFile: false,
+    warmNotes: [],
+    members: new Set(),
   };
 
   // Resolve the map the same way the ritual does (config routing, then the
@@ -181,7 +200,8 @@ export async function assembleProjectWake(
       .filter((f) => f.endsWith('.md'))
       .map((f) => f.slice(0, -3));
   } catch {
-    return wake;
+    // No notes dir: map stays null, but the per-project state files
+    // (goals/daily) below are still real — never early-return over them.
   }
   const routing = mapRouting[project];
   const routingHit = routing && titles.includes(routing) ? routing : undefined;
@@ -204,25 +224,70 @@ export async function assembleProjectWake(
     }
   }
 
-  // Project-scoped reads from the live index. A missing/locked db degrades
+  // --- Per-project goals: ops/<tag>/goals.md when it exists (the structural
+  // design), else text-filtered from the shared self/goals.md (legacy
+  // fallback — no data migration forced). The section, not a suppression:
+  // the scoped wake's active_goals feeds from HERE.
+  const projectGoalsPath = path.join(vaultRoot, 'ops', project, 'goals.md');
+  try {
+    const goalsContent = await fsp.readFile(projectGoalsPath, 'utf8');
+    wake.goalsFromFile = true;
+    wake.goals = goalsContent
+      .split(/\r?\n/)
+      .filter((g) => /^[-*]|\d+[.)]/.test(g.trim()))
+      .slice(0, 8);
+  } catch {
+    // No per-project file: legacy fallback — tag-filtered shared goals.
+    try {
+      const shared = await fsp.readFile(path.join(vaultRoot, 'self', 'goals.md'), 'utf8');
+      wake.goals = shared
+        .split(/\r?\n/)
+        .filter((g) => /^[-*]|\d+[.)]/.test(g.trim()))
+        .filter((g) => g.includes(project))
+        .slice(0, 8);
+    } catch {
+      // no shared file either — empty
+    }
+  }
+
+  // --- Project-scoped reads from the live index. A missing/locked db degrades
   // to empty (same contract as the roster).
   try {
     const { default: Database } = await import('better-sqlite3');
     const { FORGOTTEN_STATUSES } = await import('./status.js');
+    const { loadBoosts } = await import('./activation.js');
     const db = new Database(dbPath, { readonly: true });
     try {
       const ph = [...FORGOTTEN_STATUSES].map(() => '?').join(', ');
-      // Daily lines: the project tag in the line text is the current
-      // convention (daily.md is shared; lines carry their project in prose).
-      const daily = fsp
-        .readFile(path.join(vaultRoot, 'ops', 'daily.md'), 'utf8')
-        .then((content) =>
-          content
-            .split(/\r?\n/)
-            .filter((l) => l.includes(project))
-            .slice(-12),
+      // Daily lines: prefer the per-project file (ops/<tag>/daily.md); fall
+      // back to tag-filtered lines from the shared ops/daily.md.
+      const projectDailyPath = path.join(vaultRoot, 'ops', project, 'daily.md');
+      let dailyLines: string[];
+      try {
+        const content = await fsp.readFile(projectDailyPath, 'utf8');
+        dailyLines = content.split(/\r?\n/).filter((l) => l.trim() !== '').slice(-12);
+      } catch {
+        dailyLines = (await fsp
+          .readFile(path.join(vaultRoot, 'ops', 'daily.md'), 'utf8')
+          .then((content) =>
+            content
+              .split(/\r?\n/)
+              .filter((l) => l.includes(project))
+              .slice(-12),
+          )
+          .catch(() => [] as string[]));
+      }
+      // Membership — the truth everything above and below is cut from.
+      const memberRows = db
+        .prepare(
+          `SELECT n.slug AS slug
+           FROM note_project p
+           JOIN note n ON n.id = p.note_id
+           WHERE p.project = ?
+             AND (n.status = '' OR LOWER(n.status) NOT IN (${ph}))`,
         )
-        .catch(() => [] as string[]);
+        .all(project, ...FORGOTTEN_STATUSES) as Array<{ slug: string }>;
+      wake.members = new Set(memberRows.map((r) => r.slug));
       // note_access may be empty; LEFT JOIN keeps the rows.
       const recent = db
         .prepare(
@@ -236,8 +301,16 @@ export async function assembleProjectWake(
            LIMIT 10`,
         )
         .all(project, ...FORGOTTEN_STATUSES) as Array<{ slug: string }>;
-      wake.daily = await daily;
+      wake.daily = dailyLines;
       wake.recentNotes = recent.map((r) => r.slug);
+      // Warm notes: the global boost table intersected with membership —
+      // no new storage, warmth is a query.
+      const boosts = loadBoosts(db);
+      wake.warmNotes = [...boosts.entries()]
+        .filter(([title]) => wake.members.has(title))
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([title, decayed]) => ({ title, decayed }));
     } finally {
       db.close();
     }

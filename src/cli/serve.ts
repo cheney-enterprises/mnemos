@@ -575,7 +575,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       file: z.enum(["identity", "goals", "methodology", "daily", "reminders", "map"])
         .describe("Which file to update; map = the project map's Current State section"),
       content: z.string().describe("Full new content for the file; for map, the new Current State body (3-5 lines: done, next action, blocked)"),
-      project: z.string().optional().describe("file=map only: the project whose map to update (from the wake roster)"),
+      project: z.string().optional().describe("file=map: the project whose map to update (from the wake roster). file=daily|goals: land the write in the project's own ops/<tag>/ state files (the scoped wake reads these first). Ignored for identity/methodology/reminders."),
     },
     async ({ file, content, project }) => {
       const result = await runUpdateFile({ startDir: vaultDir, file, content, project });
