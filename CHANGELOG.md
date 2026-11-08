@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Added (phase 4 — one-command Ori wiring)
+- **`mnemos bridge ori`.** Registers the mnemos MCP server in `~/.ori/mcp.json` —
+  the Ori harness gets the full 17-tool surface with one command. Global-only
+  by design: Ori is a single-user harness with its own session lifecycle, so
+  the adapter writes the global config and installs no hooks. Preserves
+  unrelated servers in the file; re-bridge updates in place; `--uninstall`
+  removes only the `mnemos` entry. `mnemos bridge status` reports the Ori
+  install. Follows the user's actual wiring (server name `mnemos`,
+  `--vault <path>` args).
+
 ### Added (phase 3 — the ritual's last gap closed)
 - **`mnemos_update file=map project=<tag>`.** Overwrites the project map's
   `## Current State` section — the SESSION END step the doctrine always

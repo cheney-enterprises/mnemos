@@ -2,7 +2,7 @@ import os from "node:os";
 import path from "node:path";
 import { getGlobalVaultPath, isVaultRoot } from "./vault.js";
 
-export type BridgeTarget = "claude-code" | "cursor" | "codex" | "hermes" | "generic" | "opencode";
+export type BridgeTarget = "claude-code" | "cursor" | "codex" | "hermes" | "generic" | "opencode" | "ori";
 export type BridgeScope = "project" | "global";
 export type BridgeActivation = "auto" | "manual";
 export type VaultResolutionSource = "explicit" | "project" | "global-default" | "none";
@@ -220,6 +220,16 @@ export function getCodexGlobalPaths() {
     homeDir,
     codexDir,
     configPath: path.join(codexDir, "config.toml"),
+  };
+}
+
+export function getOriGlobalPaths() {
+  const homeDir = os.homedir();
+  const oriDir = path.join(homeDir, ".ori");
+  return {
+    homeDir,
+    oriDir,
+    mcpPath: path.join(oriDir, "mcp.json"),
   };
 }
 

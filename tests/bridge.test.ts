@@ -28,6 +28,7 @@ import {
   runBridgeCodex,
   runBridgeCursor,
   runBridgeHermes,
+  runBridgeOri,
   runBridgeOpenCode,
   runBridgeStatus,
 } from "../src/cli/bridge.js";
@@ -940,5 +941,94 @@ describe("opencode adapter", () => {
     expect(opencode.active?.scope).toBe("project");
     expect(opencode.active?.resolvedVault).toBe(brain);
     expect(opencode.active?.activation).toBe("auto");
+  });
+});
+
+describe("ori adapter", () => {
+  it("installs MCP config at ~/.ori/mcp.json with the resolved vault", async () => {
+    await withTempHome(async (home) => {
+      const cwd = await makeTempDir();
+      const brain = path.join(cwd, "brain");
+
+      const result = await runBridgeOri({ vault: brain });
+      expect(result.success).toBe(true);
+      const data = result.data as { mutation: string; mcpPath: string; scope: string };
+      expect(data.mutation).toBe("installed");
+      expect(data.mcpPath).toBe(path.join(home, ".ori", "mcp.json"));
+      expect(data.scope).toBe("global");
+
+      const config = JSON.parse(await readFile(data.mcpPath, "utf8"));
+      expect(config.mcpServers.mnemos.command).toBe("mnemos");
+      expect(config.mcpServers.mnemos.args).toEqual(["serve", "--mcp", "--vault", brain]);
+    });
+  });
+
+  it("defaults to the global vault when no --vault is passed (no project scope)", async () => {
+    await withTempHome(async (home) => {
+      const result = await runBridgeOri({});
+      const data = result.data as { resolvedVault: string | null };
+      expect(data.resolvedVault).toBe(path.join(home, ".mnemos-memory"));
+      expect((result.data as { scope: string }).scope).toBe("global");
+    });
+  });
+
+  it("preserves unrelated MCP servers on install and uninstall", async () => {
+    await withTempHome(async () => {
+      const cwd = await makeTempDir();
+      const brain = path.join(cwd, "brain");
+      const mcpPath = path.join((await import("node:os")).homedir(), ".ori", "mcp.json");
+      await mkdir(path.dirname(mcpPath), { recursive: true });
+      await writeFile(
+        mcpPath,
+        JSON.stringify({ mcpServers: { "other-server": { command: "uvx", args: ["other"] } } }, null, 2),
+        "utf8",
+      );
+
+      await runBridgeOri({ vault: brain });
+      const afterInstall = JSON.parse(await readFile(mcpPath, "utf8"));
+      expect(afterInstall.mcpServers["other-server"]).toBeDefined();
+      expect(afterInstall.mcpServers.mnemos).toBeDefined();
+
+      const removed = await runBridgeOri({ uninstall: true, vault: brain });
+      expect((removed.data as { mutation: string }).mutation).toBe("uninstalled");
+      const afterRemove = JSON.parse(await readFile(mcpPath, "utf8"));
+      expect(afterRemove.mcpServers["other-server"]).toBeDefined();
+      expect(afterRemove.mcpServers.mnemos).toBeUndefined();
+    });
+  });
+
+  it("re-bridge updates in place rather than duplicating", async () => {
+    await withTempHome(async () => {
+      const cwd = await makeTempDir();
+      await runBridgeOri({ vault: path.join(cwd, "brain-v1") });
+      const second = await runBridgeOri({ vault: path.join(cwd, "brain-v2") });
+      expect((second.data as { mutation: string }).mutation).toBe("updated");
+
+      const mcpPath = path.join((await import("node:os")).homedir(), ".ori", "mcp.json");
+      const config = JSON.parse(await readFile(mcpPath, "utf8"));
+      const vaultArg = config.mcpServers.mnemos.args[config.mcpServers.mnemos.args.indexOf("--vault") + 1];
+      expect(vaultArg).toBe(path.join(cwd, "brain-v2"));
+    });
+  });
+
+  it("reports the Ori install in bridge status", async () => {
+    await withTempHome(async () => {
+      const cwd = await makeTempDir();
+      const brain = path.join(cwd, "brain");
+
+      const result = await runBridgeStatus(cwd);
+      const ori = (result.data as { clients: { ori: { installed: boolean } } }).clients.ori;
+      expect(ori.installed).toBe(false);
+
+      await runBridgeOri({ vault: brain });
+
+      const after = await runBridgeStatus(cwd);
+      const oriAfter = (after.data as {
+        clients: { ori: { installed: boolean; resolvedVault: string | null; configPaths: string[] } };
+      }).clients.ori;
+      expect(oriAfter.installed).toBe(true);
+      expect(oriAfter.resolvedVault).toBe(brain);
+      expect(oriAfter.configPaths[0]).toContain(".ori");
+    });
   });
 });

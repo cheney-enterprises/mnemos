@@ -22,7 +22,7 @@ import { runSql } from "./cli/sqlcmd.js";
 import { runAdd } from "./cli/add.js";
 import { runPromote } from "./cli/promote.js";
 import { runArchive } from "./cli/archive.js";
-import { runBridgeClaudeCode, runBridgeClaudeCodeGlobal, runBridgeCodex, runBridgeCursor, runBridgeGeneric, runBridgeHermes, runBridgeOpenCode, runBridgeStatus } from "./cli/bridge.js";
+import { runBridgeClaudeCode, runBridgeClaudeCodeGlobal, runBridgeCodex, runBridgeCursor, runBridgeGeneric, runBridgeHermes, runBridgeOpenCode, runBridgeOri, runBridgeStatus } from "./cli/bridge.js";
 import { runServeMcp } from "./cli/serve.js";
 import { runQueryRanked, runQuerySimilar, runQueryWarmthAudit } from "./cli/search.js";
 import { runWake } from "./cli/wake.js";
@@ -267,7 +267,7 @@ program
 
 program
   .command("bridge")
-  .argument("<target>", "claude-code | cursor | codex | hermes | generic | status")
+  .argument("<target>", "claude-code | cursor | codex | hermes | opencode | ori | generic | status")
   .option("--global", "legacy shorthand for --scope global")
   .option("--scope <scope>", "install scope: project | global")
   .option("--activation <activation>", "activation mode: auto | manual")
@@ -278,7 +278,7 @@ program
     target: string,
     options: { global?: boolean; scope?: string; activation?: string; vault?: string; uninstall?: boolean; json?: boolean }
   ) => {
-    if (target !== "claude-code" && target !== "cursor" && target !== "codex" && target !== "hermes" && target !== "generic" && target !== "opencode" && target !== "status") {
+    if (target !== "claude-code" && target !== "cursor" && target !== "codex" && target !== "hermes" && target !== "generic" && target !== "opencode" && target !== "ori" && target !== "status") {
       throw new Error(`Unknown bridge target: ${target}`);
     }
 
@@ -370,9 +370,11 @@ program
         ? await runBridgeHermes(process.cwd(), request)
       : target === "opencode"
         ? await runBridgeOpenCode(process.cwd(), request)
+      : target === "ori"
+        ? await runBridgeOri(request)
       : await runBridgeGeneric(process.cwd(), request);
 
-    if ((target === "generic" || target === "cursor" || target === "codex" || target === "hermes" || target === "opencode") && !options.json) {
+    if ((target === "generic" || target === "cursor" || target === "codex" || target === "hermes" || target === "opencode" || target === "ori") && !options.json) {
       const data = result.data as {
         client: string;
         operation?: string;

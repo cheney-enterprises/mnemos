@@ -15,6 +15,7 @@ import {
   getCursorProjectPaths,
   getHermesGlobalPaths,
   getHermesProjectPaths,
+  getOriGlobalPaths,
   getOpenCodeGlobalPaths,
   getOpenCodeProjectPaths,
   resolveBridgePlan,
@@ -152,7 +153,7 @@ type BridgeMutationKind = "installed" | "updated" | "uninstalled" | "noop";
 type BridgeInstallStatus = {
   installed: boolean;
   scope: "project" | "global";
-  client: "claude-code" | "cursor" | "codex" | "hermes" | "opencode";
+  client: "claude-code" | "cursor" | "codex" | "hermes" | "opencode" | "ori";
   configPaths: string[];
   mcpPath?: string;
   configPath?: string;
@@ -551,7 +552,7 @@ async function inspectCodexInstall(): Promise<BridgeInstallStatus> {
 }
 
 export async function runBridgeStatus(startDir: string) {
-  const [claudeProject, claudeGlobal, cursorProject, cursorGlobal, codexGlobal, hermesGlobal, opencodeProject, opencodeGlobal] = await Promise.all([
+  const [claudeProject, claudeGlobal, cursorProject, cursorGlobal, codexGlobal, hermesGlobal, opencodeProject, opencodeGlobal, oriGlobal] = await Promise.all([
     inspectClaudeInstall(startDir, "project"),
     inspectClaudeInstall(startDir, "global"),
     inspectCursorInstall(startDir, "project"),
@@ -560,6 +561,7 @@ export async function runBridgeStatus(startDir: string) {
     inspectHermesInstall(),
     inspectOpenCodeInstall(startDir, "project"),
     inspectOpenCodeInstall(startDir, "global"),
+    inspectOriInstall(),
   ]);
 
   return {
@@ -583,6 +585,7 @@ export async function runBridgeStatus(startDir: string) {
           global: opencodeGlobal,
           active: opencodeProject.installed ? opencodeProject : opencodeGlobal.installed ? opencodeGlobal : null,
         },
+        ori: oriGlobal,
       },
       precedence: "project-over-global",
       instructions: [
@@ -591,6 +594,7 @@ export async function runBridgeStatus(startDir: string) {
         "Codex stores MCP servers in ~/.codex/config.toml only.",
         "Hermes stores MCP servers in ~/.hermes/config.yaml. Auto activation installs a native plugin at ~/.hermes/plugins/mnemos/.",
         "OpenCode uses .opencode/plugins/lifecycle.js for lifecycle hooks (onboarding, capture, validate).",
+        "Ori stores MCP servers in ~/.ori/mcp.json. Global only — the harness is single-user and carries its own session lifecycle.",
       ],
       warnings: [],
     },
@@ -1000,6 +1004,70 @@ export async function runBridgeHermes(startDir: string, request: Omit<BridgeRequ
       configPath: globalPaths.configPath,
       pluginDir: globalPaths.pluginDir,
       instructionsPath: plan.scope === "project" ? projectPaths.instructionsPath : undefined,
+    },
+    warnings,
+  };
+}
+
+// ── Ori adapter ────────────────────────────────────────────────────────────────
+// Ori is a single-user harness: one global mcp.json, no project scope, no
+// hook wiring (the harness carries its own lifecycle). MCP-only, like Cursor.
+
+async function inspectOriInstall(): Promise<BridgeInstallStatus> {
+  const paths = getOriGlobalPaths();
+  const existing = await readJsonFile<McpShape>(paths.mcpPath);
+  const hasMcp = Boolean(existing?.mcpServers?.[MNEMOS_MCP_SENTINEL]);
+  const details = hasMcp
+    ? [`MCP config present at ${paths.mcpPath}.`]
+    : ["No Mnemos-managed Ori MCP config detected."];
+
+  return {
+    installed: hasMcp,
+    client: "ori",
+    scope: "global",
+    configPaths: [paths.mcpPath],
+    mcpPath: paths.mcpPath,
+    activation: hasMcp ? "unknown" : null,
+    resolvedVault: extractVaultFromMcpConfig(existing),
+    details,
+  };
+}
+
+export async function runBridgeOri(request: Omit<BridgeRequest, "target" | "startDir"> = {}) {
+  const startDir = process.cwd();
+  // Ori has no project scope: force global so resolveBridgePlan picks the
+  // global default vault when no --vault is passed.
+  const plan = await resolveBridgePlan({ ...request, target: "ori", startDir, scope: "global" });
+  const paths = getOriGlobalPaths();
+
+  await fs.mkdir(path.dirname(paths.mcpPath), { recursive: true });
+  const mcpMutation = await mergeIntoMcpFile(paths.mcpPath, plan, request.uninstall === true);
+
+  const warnings = [...plan.warnings];
+  const instructions = [...plan.instructions];
+  instructions.push(
+    request.uninstall
+      ? `Removed Mnemos MCP config from ${paths.mcpPath}.`
+      : `Ori MCP config written to ${paths.mcpPath}.`,
+  );
+  if (!request.uninstall) {
+    instructions.push(
+      "Ori manages its own session lifecycle — no hooks installed. Restart Ori sessions (or run /mcp) to pick up the server.",
+    );
+  }
+
+  return {
+    success: true,
+    data: {
+      ...buildGenericInstallOutput({
+        ...plan,
+        instructions,
+        warnings,
+      }),
+      client: "ori",
+      operation: request.uninstall ? "uninstall" : "install",
+      mutation: mcpMutation,
+      mcpPath: paths.mcpPath,
     },
     warnings,
   };

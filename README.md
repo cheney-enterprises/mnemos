@@ -312,10 +312,12 @@ Connect to your agent:
 mnemos bridge claude-code --vault ~/brain                 # hooks + MCP + CLAUDE.md
 mnemos bridge hermes --vault ~/brain                      # native plugin + MCP + HERMES.md
 mnemos bridge opencode --vault ~/brain                    # plugin + MCP + AGENTS.md
+mnemos bridge ori --vault ~/brain                         # ~/.ori/mcp.json (global only)
 
 # MCP-only adapters — tools available, no lifecycle automation
 mnemos bridge cursor --vault ~/brain                      # .cursor/mcp.json
 mnemos bridge codex --vault ~/brain                       # ~/.codex/config.toml
+mnemos bridge ori --vault ~/brain                         # ~/.ori/mcp.json
 
 # Any MCP client
 mnemos bridge generic --vault ~/brain                     # prints config for manual setup
