@@ -219,3 +219,12 @@ describe("per-project state files (structural scoping)", () => {
     expect(existsSync(join(vault, "ops", "roust"))).toBe(false);
   });
 });
+
+describe("per-project reminders", () => {
+  it("file=reminders with project lands in ops/<tag>/reminders.md", async () => {
+    const r = await runUpdateFile({ startDir: vault, file: "reminders", project: "roust", content: "- [ ] 2026-11-09: check" });
+    expect(r.success).toBe(true);
+    expect(String(r.data.path)).toContain(join("ops", "roust", "reminders.md"));
+    expect(readFileSync(join(vault, "ops", "roust", "reminders.md"), "utf8")).toContain("check");
+  });
+});

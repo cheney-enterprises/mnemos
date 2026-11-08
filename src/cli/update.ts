@@ -37,7 +37,7 @@ export const UPDATABLE_FILES: Record<Exclude<UpdatableFile, "map">, (p: VaultPat
  * unscoped meaning is unchanged). Omitting for identity/methodology:
  * the self-model is one agent, not per-project.
  */
-function perProjectStatePath(project: string, file: "daily" | "goals", paths: VaultPaths): string {
+function perProjectStatePath(project: string, file: "daily" | "goals" | "reminders", paths: VaultPaths): string {
   return path.join(paths.ops, project, `${file}.md`);
 }
 
@@ -171,11 +171,12 @@ async function runUpdateFileInner(options: UpdateFileOptions): Promise<UpdateFil
     return writeSelfFileWithPolicy(vaultRoot, filePath, options.file, options.content, gate, "agent");
   }
 
-  // daily / goals — per-project files when project is given (structural
-  // scoping; the scoped wake reads these first). reminders stays global:
-  // time-based items span projects by nature. identity/methodology never
-  // project (the self-model is one agent).
-  if ((options.file === "daily" || options.file === "goals") && options.project?.trim()) {
+  // daily / goals / reminders — per-project files when project is given
+  // (structural scoping; the scoped wake reads these first). Reminders in a
+  // project file are that project's time-based items; untagged/global items
+  // stay in the shared ops/reminders.md. identity/methodology never project
+  // (the self-model is one agent).
+  if ((options.file === "daily" || options.file === "goals" || options.file === "reminders") && options.project?.trim()) {
     const pTag = options.project.trim();
     const filePath = perProjectStatePath(pTag, options.file, paths);
     const existing = await safeReadFile(filePath);

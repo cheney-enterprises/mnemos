@@ -253,3 +253,35 @@ describe("scoped wake: substituted sections (goals/daily/warm)", () => {
     await fs.rm(idxRoot, { recursive: true, force: true });
   });
 });
+
+describe("per-project reminders (global + project sets, Eric's design)", () => {
+  it("ops/<tag>/reminders.md wins when present; scoped wake reads it as the authority", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-prem-"));
+    await mkdir(path.join(idxRoot, "ops", "roust"), { recursive: true });
+    await writeFile(path.join(idxRoot, "ops", "roust", "reminders.md"), "- [ ] 2026-11-08: roust-only follow up\n", "utf8");
+    await mkdir(path.join(idxRoot, "ops"), { recursive: true });
+    await writeFile(path.join(idxRoot, "ops", "reminders.md"), "- flutter release check\n", "utf8");
+
+    const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
+    const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "roust", {});
+    expect(pw.remindersFromFile).toBe(true);
+    expect(pw.reminders).toEqual(["- [ ] 2026-11-08: roust-only follow up"]);
+
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+
+  it("legacy fallback: no per-project file -> lines mentioning the tag in the shared file", async () => {
+    const { mkdir, writeFile } = await import("node:fs/promises");
+    const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-prem2-"));
+    await mkdir(path.join(idxRoot, "ops"), { recursive: true });
+    await writeFile(path.join(idxRoot, "ops", "reminders.md"), "- flutter release check\n- roust device verdict follow up\n", "utf8");
+
+    const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
+    const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "roust", {});
+    expect(pw.remindersFromFile).toBe(false);
+    expect(pw.reminders).toEqual(["- roust device verdict follow up"]);
+
+    await fs.rm(idxRoot, { recursive: true, force: true });
+  });
+});

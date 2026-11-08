@@ -143,6 +143,14 @@ export interface ProjectWake {
    * with the project's membership set. No new storage — warmth is a query.
    */
   warmNotes: Array<{ title: string; decayed: number }>;
+  /**
+   * This project's reminders — from ops/<tag>/reminders.md when present,
+   * else lines mentioning the tag in the shared file (legacy fallback).
+   * Same temporal filtering as the global layer happens in the caller.
+   */
+  reminders: string[];
+  /** Whether the per-project reminders file existed (false = fallback). */
+  remindersFromFile: boolean;
   /** The live membership set (the truth all of the above was cut from). */
   members: Set<string>;
 }
@@ -188,6 +196,8 @@ export async function assembleProjectWake(
     goals: [],
     goalsFromFile: false,
     warmNotes: [],
+    reminders: [],
+    remindersFromFile: false,
     members: new Set(),
   };
 
@@ -247,6 +257,27 @@ export async function assembleProjectWake(
         .slice(0, 8);
     } catch {
       // no shared file either — empty
+    }
+  }
+
+  // --- Per-project reminders: ops/<tag>/reminders.md when present; legacy
+  // fallback = lines mentioning the tag in the shared file. A FILE concern —
+  // it must not live inside the db try-catch (a missing index would starve
+  // it; found by the contract test with dbPath=/nonexistent/db).
+  const projectRemindersPath = path.join(vaultRoot, 'ops', project, 'reminders.md');
+  try {
+    const content = await fsp.readFile(projectRemindersPath, 'utf8');
+    wake.remindersFromFile = true;
+    wake.reminders = content.split(/\r?\n/).filter((l) => l.trim().startsWith('-'));
+  } catch {
+    try {
+      const shared = await fsp.readFile(path.join(vaultRoot, 'ops', 'reminders.md'), 'utf8');
+      wake.reminders = shared
+        .split(/\r?\n/)
+        .filter((l) => l.trim().startsWith('-'))
+        .filter((l) => l.includes(project));
+    } catch {
+      // neither exists — empty
     }
   }
 

@@ -464,7 +464,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 6 resources · 22 CLI commands · 1134 tests
+17 MCP tools · 6 resources · 22 CLI commands · 1137 tests
 
 ---
 
@@ -531,8 +531,8 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 
 | Tool | What it does |
 |------|-------------|
-| `mnemos_wake` | Session boot: `project=<tag>` → global context + that project's scoped context in ONE payload — map Current State, the project's OWN goals/daily (ops/<tag>/ when present, tag-filtered shared files otherwise), warm notes scoped to its membership, recent notes. Without a project → global-only + a `project_choice_required` prompt the agent relays to the user (config `wake.project_default` can name a default; empty default = forced choice). Onboarding on a fresh vault. |
-| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders — `file=map project=<tag>` overwrites a project map's Current State (the SESSION END ritual); `file=daily|goals project=<tag>` lands in the project's OWN `ops/<tag>/` state files (the scoped wake reads these first); bare writes stay global. Policy gates apply; the previous version is always backed up. |
+| `mnemos_wake` | Session boot: `project=<tag>` → global context + that project's scoped context in ONE payload — map Current State, the project's OWN goals/daily/reminders (`ops/<tag>/` when present, tag-filtered shared files otherwise), warm notes scoped to its membership, recent notes. Without a project → global-only + a `project_choice_required` prompt the agent relays to the user (config `wake.project_default` can name a default; empty default = forced choice). Onboarding on a fresh vault. |
+| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders — `file=map project=<tag>` overwrites a project map's Current State (the SESSION END ritual); `file=daily|goals|reminders project=<tag>` lands in the project's OWN `ops/<tag>/` state files (the scoped wake reads these first); bare writes stay global. Policy gates apply; the previous version is always backed up. |
 | `mnemos_update_decision` | Record the user's answer to an update notice |
 | `mnemos_whats_new` | Release notes for the installed version, or any version |
 | `memory_sql` | Read-only SQL over the index — anything the ranking tools cannot express |

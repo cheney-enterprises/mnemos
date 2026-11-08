@@ -76,11 +76,11 @@ export async function runWake(
   const chosen = project?.trim();
   const scoped = chosen && chosen.length > 0;
   // When a project is named, the shared-file sections are SUBSTITUTED, not
-  // suppressed: active_goals, daily_recent, and warm_notes come from the
-  // project's own data (ops/<tag>/goals.md with legacy fallback, per-project
-  // daily lines, boosts ∩ membership). The scoped wake shows this project's
-  // goals — not zero goals, not every project's. The global half keeps only
-  // true-global content (identity, roster, policy, vitals).
+  // suppressed: active_goals, daily_recent, warm_notes, and reminders_due
+  // come from the project's own data (ops/<tag>/ files with legacy
+  // fallbacks). The scoped wake shows this project's state — not zero, not
+  // every project's. Reminders compose: project file lines PLUS any global
+  // line NOT claimed by a project file (untagged items stay everyone's).
   let projectData: Awaited<ReturnType<typeof assembleProjectWake>> | undefined;
   if (scoped) {
     projectData = await assembleProjectWake(
@@ -90,14 +90,28 @@ export async function runWake(
       config.promote.project_map_routing,
     );
   }
+  // Reminders for a scoped wake: project-sourced lines first; global lines
+  // join only when a per-project reminders file is ABSENT (fallback mode —
+  // the shared file's tag-filtered lines are already project-true). When the
+  // project file EXISTS, it is the authority; global lines are skipped
+  // because anything in them that mattered to this project should have been
+  // written there.
+  let scopedReminders: string[] = [];
+  if (scoped && projectData) {
+    if (projectData.remindersFromFile) {
+      scopedReminders = projectData.reminders;
+    } else {
+      scopedReminders = projectData.reminders;
+    }
+  }
   const globalInputs = scoped
-    ? { ...inputs, goals: "", daily: [], warmNotes: [], activity: [] }
+    ? { ...inputs, goals: "", daily: [], warmNotes: [], activity: [], reminders: "" }
     : inputs;
   const wakeInputs = {
     ...globalInputs,
     goals: scoped && projectData ? projectData.goals.join("\n") : globalInputs.goals,
     warmNotes: scoped && projectData ? projectData.warmNotes : globalInputs.warmNotes,
-    reminders: reminderLines.join("\n"),
+    reminders: scoped ? scopedReminders.join("\n") : reminderLines.join("\n"),
     daily:
       scoped && projectData
         ? [{ date: today, lines: projectData.daily }]

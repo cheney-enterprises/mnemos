@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Changed — reminders join the global+project sets (Eric's design: none of the current items are global)
+- **`ops/<tag>/reminders.md` is the project's own reminder file**, read as
+  the authority by the scoped wake (and put through the same temporal
+  filter — due/upcoming only). Legacy fallback: lines mentioning the tag
+  in the shared `ops/reminders.md`. The write path creates it:
+  `mnemos_update file=reminders project=<tag>`. The shared file remains
+  the home for genuinely global items; the vault's existing items were
+  migrated to their projects (flutter's stable-adoption reminders →
+  `ops/ai-flutter-chat/reminders.md`, mnemos items → `ops/mnemos/`).
+- Bug found by the contract test: the reminders read lived inside the db
+  try-catch, so a missing index starved it. Moved to file level — a
+  reminder must survive an index outage.
+
 ### Changed — per-project state: wake's sections become project sets (Eric's design)
 - **Every wake section now has a global AND a per-project form.**
   `active_goals`, `daily_recent`, `warm_notes` — the three sections fed by
