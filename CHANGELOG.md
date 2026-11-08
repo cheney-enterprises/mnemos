@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Changed — scoped wake: global menu, per-project context (Eric's design correction)
+- **Wake was a global dump; the briefing is now two-layered.** Eric spotted
+  the architectural flaw: a shared `goals.md` and a shared `daily.md` meant
+  every project's context bled into every other project's briefing — a
+  roust session got Flutter goals and mnemos-session daily lines (including
+  this repo's own work polluting the app vaults). The design is now what it
+  should always have been:
+  - **Global wake (`mnemos_wake` with no project):** identity, the project
+    roster, policy gates, global reminders. The menu — not the meal.
+  - **Scoped wake (`mnemos_wake` with `project=<tag>`):** that project's
+    map Current State (the handoff), its daily lines, its recent notes.
+    Everything an agent working ON the project needs; nothing from the
+    others. The map resolves through the same routing chain as the ritual
+    (config routing, then the `<tag>…map` convention).
+  - An unknown project returns a warning naming the roster and the
+    map-creation flow, not an error.
+- Doctrine teaches the two-step boot (call twice: menu, then scope);
+  MCP tool description matches. Cold-agent suite pins the contract:
+  global wake carries no projectWake, scoped wake carries only that
+  project's map and notes.
+
 ### Fixed — `mnemos sql --help` was unreachable
 - The sql argv guard (which protects leading `--` SQL comments from
   commander) spliced `--` before `--help` too, turning the help flag into
