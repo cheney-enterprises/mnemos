@@ -2,6 +2,16 @@
 
 ## [Unreleased]
 
+### Fixed — the CLI `mnemos wake` never exposed the scoped-wake contract
+- **`mnemos wake --help` showed only `--budget`.** The scoped wake and the
+  forced-choice design were built into the MCP tool and the engine — but
+  the CLI command still called `runWake(cwd, budget)` with no project
+  plumbing and printed only the global briefing lines. `--project <tag>`
+  added (one call, global + scoped); `--json` added (the full
+  projectWake/project_choice_required payloads for scripts); human output
+  renders the scoped sections and the project-choice prompt. `--help` now
+  teaches the whole contract.
+
 ### Changed — forced project choice on wake (Eric's design, refined)
 - **`mnemos_wake` alone no longer carries project context at all.** No
   project arg and no configured default → the payload is global-only

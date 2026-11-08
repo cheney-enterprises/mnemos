@@ -88,11 +88,42 @@ program
 
 program
   .command("wake")
-  .description("Session-boot briefing: identity, goals, due reminders, project roster, policy gates. Run from inside a vault (or set MNEMOS_VAULT)")
-  .option("--budget <n>", "max lines", "96")
-  .action(async (options) => {
-    const result = await runWake(process.cwd(), parseInt(options.budget, 10));
-    console.log(result.lines.join("\n"));
+  .description(
+    "Session boot. With project=<tag>: global context + that project's scoped context (map Current State, its daily lines, its recent notes) in ONE payload. " +
+      "Without a project: global-only + a project_choice_required prompt the agent relays to the USER (config wake.project_default can name a default; empty = forced choice). " +
+      "Run from inside a vault (or set MNEMOS_VAULT)."
+  )
+  .option("--budget <n>", "max lines (default 96)", "96")
+  .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
+  .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
+  .action(async (options: { budget: string; project?: string; json?: boolean }) => {
+    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project);
+    if (options.json === true) {
+      console.log(JSON.stringify(result, null, 2));
+    } else {
+      console.log(result.lines.join("\n"));
+      if (result.projectWake) {
+        const pw = result.projectWake;
+        if (pw.warning) console.log(`\n[project] ${pw.warning}`);
+        else {
+          console.log(`\n## ${pw.project} (map: ${pw.map ?? "none"})`);
+          for (const l of pw.currentState) console.log(l);
+          if (pw.daily.length > 0) {
+            console.log("\n## Recent daily (scoped)");
+            for (const l of pw.daily.slice(-6)) console.log(l);
+          }
+          if (pw.recentNotes.length > 0) {
+            console.log("\n## Recent notes (scoped)");
+            for (const n of pw.recentNotes.slice(0, 8)) console.log(`- ${n}`);
+          }
+        }
+      }
+      if (result.project_choice_required) {
+        const c = result.project_choice_required;
+        console.log(`\n## PROJECT CHOICE REQUIRED\n${c.question}`);
+        console.log("Roster: " + c.projects.map((p) => `${p.project} (${p.notes})`).join(", ") + (c.default_hint ? `\nDefault configured: ${c.default_hint}` : ""));
+      }
+    }
   });
 
 program
