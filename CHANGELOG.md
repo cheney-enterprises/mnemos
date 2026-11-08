@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Fixed — `mnemos sql --help` was unreachable
+- The sql argv guard (which protects leading `--` SQL comments from
+  commander) spliced `--` before `--help` too, turning the help flag into
+  the query argument: `mnemos sql --help` ran a query and failed with
+  "No .mnemos marker found" instead of printing help — the one command
+  whose flags were invisible. The guard now exempts `--help`/`-h`; a test
+  pins the exemption.
+
 ### Changed — CLI help finally explains itself
 - **Every CLI command now carries a `--help` description** (wake, status,
   health, add, promote, archive, bridge, serve, index, graph, query,

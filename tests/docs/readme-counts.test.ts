@@ -45,6 +45,13 @@ describe("CLI --help carries the vault contract and no bare commands", () => {
     }
   });
 
+  it("'mnemos sql --help' is reachable (the argv-munging guard must exempt help)", () => {
+    // The sql guard splices '--' before args that look like unknown options;
+    // without a --help exemption it turned the help flag into the query
+    // argument and help became unreachable on exactly one command.
+    expect(index).toContain('!argv.includes("--help") && !argv.includes("-h")');
+  });
+
   it("top-level help documents vault resolution (env, walk, global fallback)", () => {
     // The after-help text lives in src/index.ts; pin its load-bearing lines.
     expect(index).toContain("Vault resolution");

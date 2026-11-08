@@ -748,7 +748,11 @@ async function emit(result: unknown, code = 0, space?: number): Promise<void> {
 // separator goes in only immediately before an argument that actually looks
 // like an option and is not one of ours; a plain statement is left alone.
 const argv = process.argv.slice();
-if (argv[2] === "sql" && !argv.includes("--")) {
+// --help/-h must reach commander untouched: the munging below would splice a
+// '--' before it, turning the help flag into the query argument (observed:
+// 'mnemos sql --help' ran a query and failed with 'No .mnemos marker found'
+// instead of printing help).
+if (argv[2] === "sql" && !argv.includes("--") && !argv.includes("--help") && !argv.includes("-h")) {
   const TAKES_VALUE = new Set(["--limit", "--timeout"]);
   const FLAGS = new Set(["--schema", "--stdin"]);
   for (let i = 3; i < argv.length; i++) {
