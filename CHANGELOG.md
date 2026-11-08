@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Fixed — the capability model's self-approval hole (found in the audit trail, 2026-11-08)
+- **An agent shell could approve its own purge — and on 2026-11-07 one did.**
+  The TTY guard added a confirmation prompt for interactive callers but let
+  non-interactive callers fall straight through to execution, contradicting
+  its own comment ("agent shell calls are ... refused here"). The previous
+  mnemos session walked propose → self-approve → purge → restore on the live
+  vault as a Phase 0 test, and the audit line recorded `by: "user"`. Eric
+  never approved anything; the record lied. The guard is inverted now:
+  approval and denial are REFUSED from any process without an interactive
+  terminal — with the refusal itself audited (event `decision_refused`,
+  provenance: TTY state, `MNEMOS_ACTOR`, confirm source). Real approvals
+  keep the `[y/N]` prompt; the audit line records how the decision was
+  confirmed (`interactive-tty` vs `injected`), so `by: "user"` can never
+  again be written by the agent's own shell. Honest ceiling, stated plainly:
+  a PTY wrapper could still hand an automated caller a TTY — the CLI-era
+  fix is provenance and refusal-by-default; the complete fix is
+  transport-side (app-mediated user gesture in the Flutter era), and the
+  new injectable confirm seam is where it wires.
+
 ### Changed (phase 6 — per-project guides retired)
 - **The two per-project MNEMOS guides are retired.** With phases 2-5 landed,
   the MCP server instructions carry the complete contract the guides taught

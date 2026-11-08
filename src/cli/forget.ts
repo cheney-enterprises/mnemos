@@ -272,10 +272,66 @@ export async function runRequestsList(startDir: string): Promise<RequestListResu
 
 export type RequestDecision = "approved" | "denied";
 
+/**
+ * Provenance of the deciding process, recorded on every audit line. An agent
+ * shell (non-interactive stdin/stdout) must never be able to write a
+ * "by: user" approval — on 2026-11-07 exactly that happened: a session shell
+ * approved its own purge through the non-TTY fallthrough and the audit line
+ * lied. The TTY gate below is what makes the record honest AND the refusal
+ * mechanical.
+ */
+function decideProvenance(confirmSource: string): Record<string, unknown> {
+  return {
+    stdin_tty: process.stdin.isTTY === true,
+    stdout_tty: process.stdout.isTTY === true,
+    actor_env: process.env.MNEMOS_ACTOR ?? null,
+    confirm_source: confirmSource,
+  };
+}
+
+/**
+ * The default confirmation: refuse without a genuine interactive terminal,
+ * prompt [y/N] with a 30s timeout when there is one. The 2026-11-07 hole was
+ * the inverted form of this guard — the TTY check ADDED a prompt but the
+ * non-TTY case fell through to execution. Now the non-TTY case is refused at
+ * the call site before this is ever reached.
+ *
+ * Honest ceiling: `script`/PTY wrappers can hand an automated caller a TTY.
+ * That is outside the CLI era's threat model; the complete fix is
+ * transport-side (app-mediated user gesture in the Flutter era), which this
+ * seam (injectable confirm) is built for.
+ */
+async function interactiveConfirm(summary: string): Promise<boolean> {
+  process.stdout.write(`\nApprove ${summary}? [y/N] `);
+  const answer = await new Promise<string>((resolve) => {
+    const onData = (buf: Buffer) => {
+      process.stdin.removeListener("data", onData);
+      resolve(buf.toString().trim().toLowerCase());
+    };
+    process.stdin.once("data", onData);
+    setTimeout(() => {
+      process.stdin.removeListener("data", onData);
+      resolve("");
+    }, 30000).unref();
+  });
+  return answer === "y" || answer === "yes";
+}
+
+export interface RequestDecideOptions {
+  /**
+   * Injectable confirmation for tests and future transports (an HTTP sidecar
+   * wires an app-mediated gesture here). The CLI passes NOTHING — the agent's
+   * only path into this code is `mnemos requests <action>`, which always gets
+   * the TTY-required default. Whoever injects a confirm owns its honesty.
+   */
+  confirm?: (summary: string) => Promise<boolean>;
+}
+
 export async function runRequestDecide(
   startDir: string,
   id: string,
   decision: RequestDecision,
+  options: RequestDecideOptions = {},
 ): Promise<{ success: boolean; data?: Record<string, unknown>; warnings: string[] }> {
   const vaultRoot = await findVaultRoot(startDir);
   const intent = await getIntent(vaultRoot, id);
@@ -287,39 +343,66 @@ export async function runRequestDecide(
     return { success: false, warnings: [`request ${id} is ${intent.status}, not pending`] };
   }
 
+  // The user-only gate, INVERTED from the 2026-11-07 hole: without an
+  // interactive terminal AND without an injected confirm, the decision is
+  // refused — never fallen through. An agent shell (the process that proposed
+  // the intent) can therefore never approve or deny it.
+  const tty = process.stdin.isTTY === true && process.stdout.isTTY === true;
+  if (!options.confirm && !tty) {
+    await audit(vaultRoot, {
+      event: "decision_refused",
+      by: "non_interactive_process",
+      id,
+      decision,
+      kind: intent.kind,
+      provenance: decideProvenance("none"),
+    });
+    return {
+      success: false,
+      data: { id, refused: "non_interactive" },
+      warnings: [
+        "REFUSED: approving or denying a request requires an interactive terminal.",
+        "This process has no TTY — agent shells cannot approve their own proposals.",
+        "Ask the user to run: mnemos requests " + decision + " " + id,
+      ],
+    };
+  }
+
   if (decision === "denied") {
+    const summary = `${intent.kind} (${id})`;
+    const confirmed = options.confirm ? await options.confirm(summary) : await interactiveConfirm(summary);
+    if (!confirmed) {
+      return { success: false, warnings: ["aborted at the interactive confirmation"] };
+    }
     intent.status = "denied";
     await writeIntent(vaultRoot, intent);
-    await audit(vaultRoot, { event: "intent_denied", by: "user", id });
+    await audit(vaultRoot, {
+      event: "intent_denied",
+      by: "user",
+      id,
+      provenance: decideProvenance(options.confirm ? "injected" : "interactive-tty"),
+    });
     return { success: true, data: { id, status: "denied" }, warnings: [] };
   }
 
-  // Interactive TTY confirm — the honest ceiling of the CLI era. Agent shell
-  // calls are non-interactive and are refused here; there is no --yes bypass.
-  if (process.stdin.isTTY && process.stdout.isTTY) {
-    const summary =
-      intent.kind === "identity_update"
-        ? `rewrite ${intent.selfFile}`
-        : `purge ${intent.slugs.length} note(s): ${intent.slugs.join(", ")}`;
-    process.stdout.write(`\nApprove ${intent.kind} (${summary})? [y/N] `);
-    const answer = await new Promise<string>((resolve) => {
-      const onData = (buf: Buffer) => {
-        process.stdin.removeListener("data", onData);
-        resolve(buf.toString().trim().toLowerCase());
-      };
-      process.stdin.once("data", onData);
-      setTimeout(() => {
-        process.stdin.removeListener("data", onData);
-        resolve("");
-      }, 30000).unref();
-    });
-    if (answer !== "y" && answer !== "yes") {
-      return { success: false, warnings: ["aborted at the interactive confirmation"] };
-    }
+  const summary =
+    intent.kind === "identity_update"
+      ? `identity_update (rewrite ${intent.selfFile})`
+      : `${intent.kind} (${intent.slugs.length} note(s): ${intent.slugs.join(", ")})`;
+  const confirmed = options.confirm ? await options.confirm(summary) : await interactiveConfirm(summary);
+  if (!confirmed) {
+    return { success: false, warnings: ["aborted at the interactive confirmation"] };
   }
 
   intent.status = "approved";
   await writeIntent(vaultRoot, intent);
+  await audit(vaultRoot, {
+    event: "intent_approved",
+    by: "user",
+    id,
+    kind: intent.kind,
+    provenance: decideProvenance(options.confirm ? "injected" : "interactive-tty"),
+  });
 
   let result: Record<string, unknown> = { id, status: "approved" };
   if (intent.kind === "purge") {

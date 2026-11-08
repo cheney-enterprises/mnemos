@@ -464,7 +464,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 6 resources · 22 CLI commands · 1103 tests
+17 MCP tools · 6 resources · 22 CLI commands · 1108 tests
 
 ---
 
@@ -545,7 +545,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | `mnemos_warmth` | Inspect the associative warmth field |
 | `mnemos_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection |
 | `mnemos_prune` | Activation topology analysis and archive candidates |
-| `mnemos_forget` | Removal under the capability model: `release`/`supersede` are soft (files kept, dry-run default); `purge` proposes only — records a pending intent with exact slugs and returns the user's `mnemos requests approve <id>` command. Hard deletion is never agent-executable. |
+| `mnemos_forget` | Removal under the capability model: `release`/`supersede` are soft (files kept, dry-run default); `purge` proposes only — records a pending intent with exact slugs and returns the user's `mnemos requests approve <id>` command. Hard deletion is never agent-executable — approvals are refused from any non-interactive process, so an agent shell cannot approve its own purge. |
 | `mnemos_index_build` | Build/update embedding index and bootstrap co-occurrence edges |
 
 Six resources carry the always-readable layer:
@@ -599,7 +599,7 @@ mnemos prune [--apply] [--verbose]   # Topology analysis + archive candidates
 mnemos forget release <query> [--apply] [--max-forget <n>]   # Soft-evict matched notes (dry-run default)
 mnemos forget supersede <query> --new-text <text> [-p <proj>] [--apply]  # Retire the best match, write its replacement
 mnemos forget purge --slugs <s1,s2> [--reason <r>]            # Propose hard delete — user must approve (query-addressed purge removed)
-mnemos requests [list] | approve <id> | deny <id>             # User-only surface: execute or reject pending intents
+mnemos requests [list] | approve <id> | deny <id>             # User-only surface: execute or reject pending intents (interactive terminal required; agent shells are refused)
 
 # Retrieval
 mnemos explore <query>               # Recursive graph traversal (RMH)
