@@ -28,6 +28,17 @@ export async function runWake(
     recentNotes: string[];
     warning?: string;
   };
+  /**
+   * Present ONLY when no project was given and no default is configured:
+   * the payload stays global-only and the agent must relay this choice to
+   * the user, then re-call with project=<tag>. No session works unscoped.
+   */
+  project_choice_required?: {
+    reason: string;
+    question: string;
+    default_hint: string | null;
+    projects: Array<{ project: string; notes: number }>;
+  };
 }> {
   const vaultRoot = await findVaultRoot(startDir);
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
@@ -78,33 +89,51 @@ export async function runWake(
     policy: policyLine(policy),
   };
 
-  // The scoped layer: when a project is named, its map Current State, daily
-  // lines, and recent notes ride along — everything an agent working ON that
-  // project needs, nothing from the others. An unknown project is reported,
-  // not fatal: the roster in the same payload is the correction.
-  if (project?.trim()) {
-    const tag = project.trim();
-    const known = inputs.projects.some((p) => p.project === tag);
+  // Project resolution — the wake contract (Eric's design):
+  //   project given        -> global context + that project's context, ONE payload.
+  //   no project, default  -> same, using config wake.project_default.
+  //   no project, no default -> menu + a project_choice the agent relays to
+  //                             the user. The agent never works unscoped.
+  const tag = project?.trim();
+  const chosen = tag && tag.length > 0
+    ? tag
+    : (config.wake.project_default || "").trim();
+
+  if (chosen) {
+    const known = inputs.projects.some((p) => p.project === chosen);
     if (known) {
       const pw = await assembleProjectWake(
         vaultRoot,
         dbPath,
-        tag,
+        chosen,
         config.promote.project_map_routing,
       );
-      result.projectWake = { project: tag, ...pw };
+      result.projectWake = { project: chosen, ...pw };
     } else {
+      // A named project that does not exist (or a default pointing at
+      // nothing yet): report, name the fix, keep the roster as correction.
       result.projectWake = {
-        project: tag,
+        project: chosen,
         map: null,
         currentState: [],
         daily: [],
         recentNotes: [],
         warning:
-          `no project "${tag}" in this vault — the roster lists the live ones. ` +
-          "If this is a new project, create its map: mnemos_add(\"<tag> project map\", type=moc, project=[\"<tag>\"])",
+          `no project "${chosen}" in this vault — the roster lists the live ones. ` +
+          'If this is a new project, create its map: mnemos_add("<tag> project map", type=moc, project=["<tag>"])',
       };
     }
+  } else {
+    // Forced choice: the payload stays global-only and names the decision.
+    // The agent presents this to the user verbatim — an agent must not pick
+    // a project on the user's behalf, and must not work unscoped.
+    result.project_choice_required = {
+      reason: "wake.project_required",
+      question:
+        "Which project is this session working in? Choose from the project roster above, or name a NEW project (lowercase, hyphenated) and its map will be created. Re-call mnemos_wake with project=<tag>.",
+      default_hint: config.wake.project_default || null,
+      projects: inputs.projects,
+    };
   }
 
   return result;

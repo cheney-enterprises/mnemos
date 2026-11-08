@@ -100,6 +100,17 @@ export type ActivationConfig = {
   min_boost: number;    // default 0.01
 };
 
+export type WakeConfig = {
+  /**
+   * The default project for sessions that have no project of their own.
+   * Empty means no default — wake alone then always forces a choice.
+   * `project_default: mnemos` on a vault that hosts this repo's own notes
+   * keeps tooling residue out of the app projects.
+   */
+  project_default: string;
+  budget_lines: number;
+};
+
 export type WarmthConfig = {
   enabled: boolean;
   surprise_threshold: number;
@@ -158,6 +169,7 @@ export type MnemosConfig = {
   rerank: RerankConfig;
   ips: IPSConfig;
   activation: ActivationConfig;
+  wake: WakeConfig;
   warmth: WarmthConfig;
   explore: ExploreConfig;
 };
@@ -236,6 +248,13 @@ const DEFAULT_ACTIVATION_CONFIG: ActivationConfig = {
   min_boost: 0.01,
 };
 
+const DEFAULT_WAKE_CONFIG: WakeConfig = {
+  // No default project: wake alone forces a choice. A vault that hosts a
+  // specific tool's own notes sets this to that project (e.g. `mnemos`).
+  project_default: "",
+  budget_lines: 96,
+};
+
 const DEFAULT_WARMTH_CONFIG: WarmthConfig = {
   enabled: true,
   surprise_threshold: 0.15,
@@ -289,6 +308,7 @@ const DEFAULT_CONFIG: MnemosConfig = {
   rerank: { ...DEFAULT_RERANK_CONFIG },
   ips: { ...DEFAULT_IPS_CONFIG },
   activation: { ...DEFAULT_ACTIVATION_CONFIG },
+  wake: { ...DEFAULT_WAKE_CONFIG },
   warmth: { ...DEFAULT_WARMTH_CONFIG },
   explore: { ...DEFAULT_EXPLORE_CONFIG },
 };
@@ -310,6 +330,7 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
   const rawRerank = (raw as Record<string, unknown>).rerank as Partial<RerankConfig> | undefined;
   const rawIPS = (raw as Record<string, unknown>).ips as Partial<IPSConfig> | undefined;
   const rawActivation = (raw as Record<string, unknown>).activation as Partial<ActivationConfig> | undefined;
+  const rawWake = (raw as Record<string, unknown>).wake as Partial<WakeConfig> | undefined;
   const rawWarmth = (raw as Record<string, unknown>).warmth as Partial<WarmthConfig> | undefined;
   const rawExplore = (raw as Record<string, unknown>).explore as Partial<ExploreConfig> | undefined;
 
@@ -416,6 +437,10 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
       damping: rawActivation?.damping ?? DEFAULT_ACTIVATION_CONFIG.damping,
       max_hops: rawActivation?.max_hops ?? DEFAULT_ACTIVATION_CONFIG.max_hops,
       min_boost: rawActivation?.min_boost ?? DEFAULT_ACTIVATION_CONFIG.min_boost,
+    },
+    wake: {
+      project_default: typeof rawWake?.project_default === "string" ? rawWake.project_default : DEFAULT_WAKE_CONFIG.project_default,
+      budget_lines: typeof rawWake?.budget_lines === "number" && rawWake.budget_lines > 0 ? rawWake.budget_lines : DEFAULT_WAKE_CONFIG.budget_lines,
     },
     warmth: {
       enabled: rawWarmth?.enabled ?? DEFAULT_WARMTH_CONFIG.enabled,

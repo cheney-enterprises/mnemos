@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Changed — forced project choice on wake (Eric's design, refined)
+- **`mnemos_wake` alone no longer carries project context at all.** No
+  project arg and no configured default → the payload is global-only
+  (identity, roster, policy) plus `project_choice_required`: the question
+  the agent relays to the user verbatim, with the roster inline. The agent
+  re-calls with `project=<tag>`; one call, global + scoped, merged.
+- **`wake.project_default` in mnemos.config.yaml** — a vault may name a
+  default project for sessionless calls; the config DEFAULT is empty (forced
+  choice). This is a per-vault user decision, never a hardcoded project:
+  the mnemos repo's own notes are a normal project here, not a privileged
+  default (Eric's correction — the tool must not special-case itself).
+- **The vault now hosts a `mnemos` project** (map + the tooling session
+  records retagged out of roust/ai-flutter-chat), so this repo's own
+  development record stops leaking into the app projects' briefings.
+
 ### Changed — scoped wake: global menu, per-project context (Eric's design correction)
 - **Wake was a global dump; the briefing is now two-layered.** Eric spotted
   the architectural flaw: a shared `goals.md` and a shared `daily.md` meant

@@ -464,7 +464,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 6 resources · 22 CLI commands · 1121 tests
+17 MCP tools · 6 resources · 22 CLI commands · 1122 tests
 
 ---
 
@@ -531,7 +531,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 
 | Tool | What it does |
 |------|-------------|
-| `mnemos_wake` | Session boot in two steps: no project → identity, project roster, policy gates; `project=<tag>` → that project's map Current State, daily lines, and recent notes — scoped, never the other projects' noise. Onboarding on a fresh vault. |
+| `mnemos_wake` | Session boot: `project=<tag>` → global context + that project's scoped context in ONE payload (map Current State, its daily lines, its recent notes). Without a project → global-only + a `project_choice_required` prompt the agent relays to the user (config `wake.project_default` can name a default; empty default = forced choice). Onboarding on a fresh vault. |
 | `mnemos_update` | Write to identity, goals, methodology, daily, or reminders — or `file=map project=<tag>` to overwrite a project map's Current State section (the SESSION END ritual; replace semantics, Key Notes and frontmatter untouched). Policy gates apply; the previous version is always backed up. |
 | `mnemos_update_decision` | Record the user's answer to an update notice |
 | `mnemos_whats_new` | Release notes for the installed version, or any version |

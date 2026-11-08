@@ -178,3 +178,21 @@ describe("assembleProjectWake — the scoped context layer", () => {
     expect(pw.recentNotes).toEqual([]);
   });
 });
+
+describe("wake.project_default config contract", () => {
+  it("defaults to empty (wake alone forces a choice) and accepts an override", async () => {
+    const { loadConfig, applyConfigDefaults } = await import("../../src/core/config.js");
+    const d = applyConfigDefaults({});
+    expect(d.wake.project_default).toBe("");
+    expect(d.wake.budget_lines).toBe(96);
+    // YAML round-trip
+    const osmod = await import("node:os");
+    const fsp = await import("node:fs/promises");
+    const dir = await fsp.mkdtemp(path.join(osmod.tmpdir(), "wake-cfg-"));
+    await fsp.writeFile(path.join(dir, "mnemos.config.yaml"), "wake:\n  project_default: mnemos\n  budget_lines: 64\n", "utf8");
+    const c = await loadConfig(path.join(dir, "mnemos.config.yaml"));
+    expect(c.wake.project_default).toBe("mnemos");
+    expect(c.wake.budget_lines).toBe(64);
+    await fsp.rm(dir, { recursive: true, force: true });
+  });
+});
