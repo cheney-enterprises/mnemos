@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Changed (phase 6 — per-project guides retired)
+- **The two per-project MNEMOS guides are retired.** With phases 2-5 landed,
+  the MCP server instructions carry the complete contract the guides taught
+  (verified tool-by-tool; `mnemos_query_similar`/`mnemos_warmth` added to the
+  RETRIEVE rule to close the last gap). The roust and ai-flutter-chat guides
+  are archived at `docs/retired-guides/` for provenance; the project pointer
+  files (MEMORY.md, AGENTS.md) now name the MCP instructions as the single
+  source. One doctrine, one transport — per-client guides are how text drifts.
+
 ### Fixed (phase 5 — the cold-agent suite caught two real bugs)
 - **Promoted notes were invisible to memory_sql and wake's roster until the
   next sync.** `mnemos_add`'s embed-on-write synced the derived index while
