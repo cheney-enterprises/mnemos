@@ -34,6 +34,7 @@ import {
   type IntentRecord,
   type RemovalIntent,
 } from "../core/policy.js";
+import { inspectAncestry } from "../core/processgate.js";
 
 export type ForgetOp = "release" | "supersede" | "purge";
 
@@ -347,7 +348,42 @@ export async function runRequestDecide(
   // interactive terminal AND without an injected confirm, the decision is
   // refused — never fallen through. An agent shell (the process that proposed
   // the intent) can therefore never approve or deny it.
+  //
+  // Layer 2 (2026-11-08 PTY demonstration): a TTY alone is forgeable — an
+  // agent can wrap this CLI in `script`, obtain a terminal, and answer its
+  // own prompt. The process tree cannot be chosen: walk the PPID chain and
+  // refuse when the agent's own runtime is among the ancestors. Demonstrated
+  // chain for the forged case: sh -> script -> sh -> node (agent) -> bash ->
+  // ori. A genuine terminal never chains to the agent harness.
   const tty = process.stdin.isTTY === true && process.stdout.isTTY === true;
+  const ancestry = inspectAncestry();
+  const forged =
+    !options.confirm && tty && ancestry.agentAncestor;
+  if (forged) {
+    await audit(vaultRoot, {
+      event: "decision_refused",
+      by: "agent_runtime_ancestor",
+      id,
+      decision,
+      kind: intent.kind,
+      provenance: {
+        ...decideProvenance("none"),
+        ancestry: ancestry.chain,
+        agent_image: ancestry.agentImage,
+        ancestry_complete: ancestry.complete,
+      },
+    });
+    return {
+      success: false,
+      data: { id, refused: "agent_runtime_ancestor" },
+      warnings: [
+        "REFUSED: this approval is running under an agent runtime's process tree.",
+        `A terminal was detected, but the process ancestry chains through: ${ancestry.agentImage}`,
+        "Ask the user to run the command from THEIR OWN terminal (a shell not started by an agent):",
+        `mnemos requests ${decision === "approved" ? "approve" : "deny"} ${id}`,
+      ],
+    };
+  }
   if (!options.confirm && !tty) {
     await audit(vaultRoot, {
       event: "decision_refused",
@@ -363,7 +399,7 @@ export async function runRequestDecide(
       warnings: [
         "REFUSED: approving or denying a request requires an interactive terminal.",
         "This process has no TTY — agent shells cannot approve their own proposals.",
-        "Ask the user to run: mnemos requests " + decision + " " + id,
+        `Ask the user to run: mnemos requests ${decision === "approved" ? "approve" : "deny"} ${id}`,
       ],
     };
   }

@@ -326,6 +326,38 @@ describe("the user-only gate (the 2026-11-07 self-approval hole, closed)", () =>
     expect(approved.provenance.stdin_tty).toBe(false);
   });
 
+  it("layer 2 — an agent-forged TTY is refused via process ancestry", async () => {
+    // The 2026-11-08 demonstration: `script -q /dev/null` hands the CLI a
+    // real TTY, the agent answers its own prompt, the note dies. The gate's
+    // second layer walks the PPID chain; from INSIDE the agent tree (which
+    // is where this test process runs), the forged-TTY condition is
+    // tty && agentAncestor — so a non-injected approve here must be refused
+    // as agent_runtime_ancestor even though a TTY would be present under
+    // script. This test cannot allocate a PTY portably, so it pins the
+    // decisive half: the walk FINDS the agent runtime from the agent tree
+    // (covered exhaustively in processgate.test.ts) and the refusal reason
+    // for a tty-tree detection is distinct from non_interactive.
+    const { inspectAncestry } = await import("../../src/core/processgate.js");
+    const finding = inspectAncestry();
+    expect(finding.agentAncestor).toBe(true);
+
+    const { policy } = loadPolicy({});
+    const rec = await proposeIntent({
+      opRoot: vault, kind: "purge", slugs: ["alpha-note-one"], reason: "t", sessionId: "agent-session", policy,
+    });
+    // No injected confirm: whatever the TTY state, the gate must refuse from
+    // inside an agent tree (either non_interactive here, or
+    // agent_runtime_ancestor under a PTY — both refuse, both audit).
+    const res = await runRequestDecide(vault, rec.intent.id, "approved");
+    expect(res.success).toBe(false);
+    expect(
+      res.data?.refused === "non_interactive" || res.data?.refused === "agent_runtime_ancestor",
+    ).toBe(true);
+    expect(existsSync(join(vault, "notes", "alpha-note-one.md"))).toBe(true);
+    const auditRaw = readFileSync(join(vault, "ops", "forget-audit.jsonl"), "utf8");
+    expect(auditRaw).toContain("decision_refused");
+  });
+
   it("a declined interactive confirm aborts without mutating anything", async () => {
     const { policy } = loadPolicy({});
     const rec = await proposeIntent({

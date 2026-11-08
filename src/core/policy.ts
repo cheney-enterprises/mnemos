@@ -116,7 +116,7 @@ export function renderPolicySheet(policy: PolicyConfig, source: PolicySource): s
     "",
     "## Removal law",
     "- You (the agent) can never delete a note yourself and cannot approve your own proposals.",
-    "- purge proposals execute only via: mnemos requests approve <id> — a user-only CLI command, never an agent tool.",
+    "- purge proposals execute only via: mnemos requests approve <id> — a user-only CLI command, never an agent tool. Approval requires an interactive terminal that is NOT running under an agent's process tree; agent shells (and agent-forged PTYs) are refused and the refusal is audited.",
     `- Pending intents expire after ${policy.intent_ttl_days} days.`,
     "- Every executed purge copies the notes to ops/.trash/ first; ops/forget-audit.jsonl records every intent, approval, and execution.",
     "- If an action is refused, the refusal names the gate and the approve command — display it to the user verbatim.",

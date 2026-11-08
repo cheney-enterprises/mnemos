@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Fixed — layer 2: agent-forged PTY approvals (2026-11-08 demonstration)
+- **The TTY gate alone was bypassable — demonstrated, then closed.** An agent
+  wrapped `mnemos requests approve` in `script` (a real PTY), answered its
+  own `[y/N]` prompt, and deleted the note; the audit line even recorded
+  `interactive-tty`. The process tree is not forgeable in the same way: the
+  kernel sets a process's parent. Approvals now walk the PPID chain and are
+  REFUSED when an agent runtime (`~/.local/bin/ori`, `claude`, `codex`,
+  `aider`, `cline`, `cursor-agent`, `goose`, anything under `~/.ori/`) is
+  among the ancestors — refusal audited as `agent_runtime_ancestor` with the
+  full ancestry chain and the agent's command image in the provenance.
+  Demonstrated live: the exact `script`-wrapped attack that deleted a note
+  before this change now refuses with the forged chain recorded
+  (`script -> sh -> node -> bash -> ori`). Shells and interpreters are
+  never treated as agent evidence (a false positive would lock a real user
+  out of their own queue). Stated ceiling: double-fork daemonization
+  re-parents to PID 1 and can hide a chain — this layer raises the bar from
+  "any agent with `script`" to "an agent that deliberately forges its
+  environment" and keeps the audit provably clean for every non-forged
+  path; the absolute fix remains the transport-era app-mediated gesture.
+
 ### Fixed — the capability model's self-approval hole (found in the audit trail, 2026-11-08)
 - **An agent shell could approve its own purge — and on 2026-11-07 one did.**
   The TTY guard added a confirmation prompt for interactive callers but let
