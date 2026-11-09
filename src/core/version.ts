@@ -21,7 +21,14 @@ function resolvePackageJson(): string | null {
     try {
       const raw = readFileSync(candidate, "utf8");
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.name === "mnemos" && typeof parsed.version === "string") {
+      // Scoped package name (@cheney-enterprises/mnemos) — the strict
+      // `parsed.name === "mnemos"` check failed on every level and every
+      // install fell back to 0.0.0. Accept any package whose name ends in
+      // /mnemos or IS mnemos; the walk-up from dist/core/ only ever finds
+      // this package's own manifest (or a parent workspace's, which is
+      // still the package being served).
+      const name = typeof parsed?.name === "string" ? parsed.name : "";
+      if ((name === "mnemos" || name.endsWith("/mnemos")) && typeof parsed.version === "string") {
         return parsed.version;
       }
     } catch {

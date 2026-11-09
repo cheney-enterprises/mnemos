@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.9.0] - 2026-11-09
 
 ### Changed — cold-agent feedback fixes: access law, boot gate, content excerpts, MOC protection, provenance
 - **The MCP-only access rule is now stated everywhere an agent looks

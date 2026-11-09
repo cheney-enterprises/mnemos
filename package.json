@@ -1,6 +1,6 @@
 {
   "name": "@cheney-enterprises/mnemos",
-  "version": "0.8.1",
+  "version": "0.9.0",
   "mcpName": "io.github.cheney-enterprises/mnemos",
   "description": "Cognitive architecture for persistent AI agent memory. Knowledge graph with learning retrieval, ACT-R decay, and spreading activation. Markdown-native, local-first, zero cloud. MCP server + CLI.",
   "keywords": [
