@@ -532,7 +532,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | Tool | What it does |
 |------|-------------|
 | `mnemos_wake` | Session boot: `project=<tag>` → global context + that project's scoped context in ONE payload — map Current State, the project's OWN goals/daily/reminders (`ops/<tag>/` when present, tag-filtered shared files otherwise), warm notes scoped to its membership, recent notes. Without a project → global-only + a `project_choice_required` prompt the agent relays to the user (config `wake.project_default` can name a default; empty default = forced choice). Onboarding on a fresh vault. |
-| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders — `file=map project=<tag>` overwrites a project map's Current State (the SESSION END ritual); `file=daily|goals|reminders project=<tag>` lands in the project's OWN `ops/<tag>/` state files (the scoped wake reads these first); bare writes stay global. Policy gates apply; the previous version is always backed up. |
+| `mnemos_update` | Write to identity, goals, methodology, daily, or reminders — `file=map project=<tag>` overwrites a project map's Current State (the SESSION END ritual); `file=daily|goals|reminders project=<tag>` lands in the project's OWN `ops/<tag>/` state files (the scoped wake reads these first); bare writes stay global. **Policy gates apply:** identity/methodology rewrites propose when `identity_update: approval` (the user executes via `mnemos requests approve`); the previous version is always backed up to `.history/`. |
 | `mnemos_update_decision` | Record the user's answer to an update notice |
 | `mnemos_whats_new` | Release notes for the installed version, or any version |
 | `memory_sql` | Read-only SQL over the index — anything the ranking tools cannot express |
@@ -581,52 +581,61 @@ and `mnemos explore-conclude`.
 
 ---
 
-## CLI
+## CLI — every command, what it does, and what it guards
 
-```bash
-# Vault management
-mnemos init [dir]                    # Scaffold a new vault
-mnemos status                        # Vault overview
-mnemos health                        # Full diagnostics
-mnemos whats-new [version]           # Release notes
+The CLI is the same engine as the MCP tools, for humans and scripts. Run it
+from inside a vault (or set `MNEMOS_VAULT` — see `mnemos --help`). JSON
+output; `--json` on some commands for the full machine payload.
 
-# Note lifecycle
-mnemos add <title> [--type <type>]   # Capture to inbox
-mnemos promote [note] [--all]        # Promote to knowledge graph
-mnemos validate <path>               # Schema validation
-mnemos archive [--dry-run]           # Archive stale notes
-mnemos prune [--apply] [--verbose]   # Topology analysis + archive candidates
-mnemos forget release <query> [--apply] [--max-forget <n>]   # Soft-evict matched notes (dry-run default)
-mnemos forget supersede <query> --new-text <text> [-p <proj>] [--apply]  # Retire the best match, write its replacement
-mnemos forget purge --slugs <s1,s2> [--reason <r>]            # Propose hard delete — user must approve (query-addressed purge removed)
-mnemos requests [list] | approve <id> | deny <id>             # User-only surface: execute or reject pending intents (interactive terminal required; agent shells AND agent-forged PTYs are refused via process-ancestry check)
+### Vault & infrastructure
 
-# Retrieval
-mnemos explore <query>               # Recursive graph traversal (RMH)
-mnemos query ranked <query>          # Full intelligent retrieval
-mnemos query similar <query>         # Semantic search
-mnemos query important               # PageRank ranking
-mnemos query fading                  # Vitality detection
-mnemos query orphans                 # Notes with no incoming links
-mnemos query dangling                # Broken wiki-links
-mnemos query backlinks <note>        # What links to this note
-mnemos query cross-project           # Multi-project notes
+| Command | What it does / what it guards |
+|---|---|
+| `mnemos init [dir] --json` | Scaffolds a vault: `notes/`, `self/`, `ops/`, `templates/`, `mnemos.config.yaml`, the `.mnemos/` marker. Idempotent — a second run skips existing files. |
+| `mnemos status` | Vault overview: note counts, index state. Read-only. |
+| `mnemos health` | Full diagnostics: orphans, dangling links, schema violations, index health. Read-only. Run after bulk writes. |
+| `mnemos serve --mcp [--vault <path>]` | Runs the MCP server (stdio JSON-RPC). This is what agents connect through; the registration in `~/.ori/mcp.json` (or other clients) carries the `--vault` flag. |
+| `mnemos index build [--force]` | Rebuilds the derived index and embeddings. Automatic on every query (stat-filtered); `--force` re-embeds everything — use after writes from outside `mnemos add`. `index status` reports coverage; `index export-learned` / `import-learned` move the accumulated learning tables (see *When to rebuild* below — a rebuild destroys them). |
+| `mnemos graph metrics` / `graph communities` | PageRank/centrality and Louvain clustering over the knowledge graph. Read-only. |
+| `mnemos whats-new [version]` | Release notes. |
 
-# Infrastructure
-mnemos index build [--force]         # Rebuild everything derived from the vault
-mnemos index status                  # Index statistics
-mnemos graph metrics                 # PageRank, centrality
-mnemos graph communities             # Louvain clustering
-mnemos serve --mcp [--vault <path>]                                # Run MCP server
-mnemos bridge claude-code [--scope <s>] [--activation <a>] [--vault <p>]  # Claude Code (hooks + MCP + instructions)
-mnemos bridge hermes [--scope <s>] [--activation <a>] [--vault <p>]       # Hermes Agent (plugin + MCP + instructions)
-mnemos bridge opencode [--scope <s>] [--activation <a>] [--vault <p>]     # OpenCode (plugin + MCP + AGENTS.md)
-mnemos bridge cursor [--scope <s>] [--vault <p>]                          # Cursor (MCP config)
-mnemos bridge codex [--scope <s>] [--vault <p>]                           # Codex (TOML config)
-mnemos bridge generic [--scope <s>] [--vault <p>] [--json]                # Any MCP client (prints config)
-mnemos bridge status [--json]                                             # Inspect all bridge installs
-mnemos bridge <target> --uninstall                                        # Remove Mnemos config for a target
-```
+### Capture & promote
+
+| Command | What it does / what it guards |
+|---|---|
+| `mnemos add "<prose title>" -t <type> -d "<desc>" -p <tag> -c "<body>"` | Captures to `inbox/`. **Title must be multi-word prose** — a slug title silently fails (`success:false`). **The ask-first gate:** with no `-p` and no detectable project, the note is staged in inbox, NOT filed, and the response returns the project roster + the question for the user. `-c`/`-f`/`--content-stdin` supply the body. Auto-promotes to `notes/` when `promote.auto: true` and the project gate passes. |
+| `mnemos promote [note] [--all] [-t <type>] [-d <desc>] [-l <links...>] [-p <tag>] [--dry-run] [--no-auto]` | Moves an inbox note into the knowledge graph: type classification, wiki-link application, project routing (into the project's map). You are the intelligence layer — your overrides win; heuristics fill gaps. `--dry-run` previews. |
+| `mnemos validate <path>` | Schema validation of one note (frontmatter, types, description limits). Read-only. |
+
+### Removal — the capability model in the CLI
+
+| Command | What it does / what it guards |
+|---|---|
+| `mnemos forget release <query> [--apply] [--max-forget <n>]` | Soft-evict matched notes: `status: released`, files KEPT, never recalled — reversible. **Dry-run by default**; `--apply` mutates. Blast cap: refuses when the query addresses more than `--max-forget` notes (default 10). |
+| `mnemos forget supersede <query> --new-text <text> [-p <tag>] [--apply]` | Retires the best match and writes its replacement. Same dry-run default and blast cap. |
+| `mnemos forget purge --slugs <s1,s2> [--reason <text>]` | **Proposes a hard delete — never executes.** Records a pending intent (exact slugs only; query-addressed purge was removed after it unlinked 6 unintended notes) and returns the approval command. The agent surface can stop here; execution is the next line, and it is not the agent's. |
+| `mnemos requests [list] \| approve <id> \| deny <id>` | **The user-only surface.** Executes or rejects a pending intent. Guards, in order: refuses non-pending intents; **refuses any process without an interactive terminal** (agent shells cannot approve their own proposals); **refuses any process whose ancestry contains an agent runtime** (`ori`, `claude`, … — a `script`-wrapped PTY does not pass; the forged chain is audited). Real terminals get the `[y/N]` prompt. Every decision — and every refusal — is written to `ops/forget-audit.jsonl` with process provenance. Executed purges trash before unlink (`ops/.trash/`). |
+
+### Retrieval
+
+| Command | What it does / what it guards |
+|---|---|
+| `mnemos query ranked <query> [--limit <n>] [--project <tag>]` | Full retrieval: 4 signals fused via RRF + Q-value reranking + spreading activation. `--project <tag>` **hard-filters the answer set** to that project's notes (the exploration pool too) and names the other projects in the response; **omit it to search the whole vault** — cross-project learning is the unscoped default. Unknown tag degrades to unscoped WITH a warning. |
+| `mnemos query similar <query>` | Semantic-only search (faster, single signal). Same `--project` contract. |
+| `mnemos explore <query> [--depth <n>] [--limit <n>] [--project <tag>]` | Multi-hop PPR graph traversal with sub-question decomposition. `--project` scopes the ANSWER set (traversal stays global — the graph is honest). |
+| `mnemos query orphans / dangling / backlinks <note> / cross-project / important / fading` | Structure and vitality queries: unlinked notes, broken wiki-links, what links to a note, notes in multiple projects, PageRank ranking, decay detection. Read-only. |
+
+### Topology & bridges
+
+| Command | What it does / what it guards |
+|---|---|
+| `mnemos prune [--apply] [--verbose]` | Activation topology analysis; lists archive candidates. **Dry-run by default** — `--apply` archives. |
+| `mnemos archive` | Status-flip archiving (files kept). |
+| `mnemos bridge <target>` | Registers the mnemos MCP server for a client. Full lifecycle: `claude-code`, `hermes`, `opencode` (hooks/plugin + MCP + instructions). MCP-only: `cursor`, `codex`, **`ori`** (`~/.ori/mcp.json` — global only, the harness carries its own lifecycle). `generic` prints config for any client. `--scope project\|global`, `--activation auto\|manual`, `--uninstall`, `status` inspects all installs. Preserves unrelated servers; re-bridge updates in place. |
+| `mnemos wake [--budget <n>] [--project <tag>] [--json]` | The briefing, human-readable. `--project <tag>` scopes (global + that project's context in one output); bare wake prints the global briefing **plus the PROJECT CHOICE REQUIRED block** for the user to answer. `--json` emits the full machine payload (`projectWake`, `project_choice_required`). |
+
+The removal law, in one line: **the agent can propose; only the user executes —
+and only from a terminal the agent does not control.**
 
 Path-taking commands treat relative file paths as vault-relative. Absolute
 paths continue to work unchanged.

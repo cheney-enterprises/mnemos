@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Changed — the CLI section documents every command's flags, mechanics, and guards
+- **The README's CLI section was a bare command list** — captions, no
+  flags, no behavior. It is now grouped tables (vault/infrastructure,
+  capture & promote, removal, retrieval, topology & bridges) stating for
+  every command: its flags, its defaults (dry-run, blast caps), what it
+  allows, and what it PREVENTS (the ask-first gate on add; the
+  non-TTY + ancestry refusals on requests approve/deny; the slug-only
+  purge; the scoped-retrieval contract; the wake choice prompt). The
+  removal law reads in one line: the agent proposes; only the user
+  executes — from a terminal the agent does not control.
+- `mnemos_update`'s MCP row now states the identity_update gate behavior
+  (propose at approval, user executes) instead of just "policy gates
+  apply".
+
 ### Changed — the Vault Structure section now explains what each area is FOR
 - **The README's vault layout was a directory listing with six-word
   captions** — the reason Eric had to ask "what are inbox, ops, and self
