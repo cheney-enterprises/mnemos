@@ -16,6 +16,7 @@ import { runIndexBuild } from "./indexcmd.js";
 import { runPrune } from "./prune.js";
 import { runForget } from "./forget.js";
 import { runUpdateFile } from "./update.js";
+import { suggestScopesForReference } from "./wake.js";
 import { findVaultRootWithSource, getGlobalVaultPath, getVaultPaths, type VaultPaths } from "../core/vault.js";
 import { runInit } from "./init.js";
 import { runWake } from "./wake.js";
@@ -597,6 +598,37 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
+
+  // mnemos_suggest_scope — the cross-scope reference companion: rank the
+  // likely projects behind a vague user reference ("the alarm snooze
+  // stuff"). Read-only, no gates.
+  server.tool(
+    "mnemos_suggest_scope",
+    "Rank which projects the user most likely means by a vague reference. " +
+      "Use when the user says things like 'our crazy chat from the other night' or 'the alarm app stuff' — " +
+      "pass their words as reference; get ranked projects with reasons. Then search the suggested scope " +
+      "(mnemos_query_ranked with project=<tag>) or re-call mnemos_wake with project=<tag> to switch. " +
+      "Also use it BEFORE creating a conversational scope to check the topic doesn't already have a project.",
+    {
+      reference: z.string().describe("The user's words, verbatim: 'our crazy chat from the other night with the pirates'"),
+      current_project: z.string().optional().describe("The session's current scope, if any — mild bias in the ranking"),
+    },
+    async ({ reference, current_project }) => {
+      const suggestions = await suggestScopesForReference(vaultDir, reference, current_project);
+      return textResult({
+        success: true,
+        data: {
+          reference,
+          suggestions,
+          guidance:
+            suggestions.length === 0
+              ? "No scope matched the reference. If this is a new conversation, name it from its topic (lowercase, hyphenated) and create it: mnemos_add(\"<topic> project map\", type=moc, project=[\"<topic>\"])."
+              : "Search the top suggestion scoped (mnemos_query_ranked project=<tag>) before widening. If nothing matches, treat as a new conversational scope: deduce a name from the topic and create it silently.",
+        },
+        warnings: [],
+      });
+    }
+  );
 
   // mnemos_add
   server.tool(

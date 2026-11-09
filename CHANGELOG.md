@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added — the scope suggester: fuzzy references → likely projects (Eric's cross-scope design)
+- **`mnemos_suggest_scope` (18th tool).** The cross-scope reference
+  companion: when the user says "our crazy chat from the other night with
+  the pirates", rank which projects they most likely mean. Signals:
+  IDF-weighted text containment (rare-token hits dominate — a token in
+  every footprint is weak evidence), activity recency (7-day half-life),
+  size prior, current-scope bias — with reasons included, so the agent
+  can explain its suggestion. Footprints gather from the live index:
+  slugs + DESCRIPTIONS + map title + recent tag-filtered daily lines.
+  Tuned against the real vault through two measured failures: sqrt/Jaccard
+  buried the 'snooze' signal in roust's 143-token footprint (0.08), and
+  flat containment let one glancing 'flutter' cross-mention match at full
+  strength. Also the check BEFORE creating a conversational scope: suggest
+  first, create only when nothing matches.
+- **Chat-session naming rule in wake's choice payload**: conversational
+  sessions are scoped silently — the agent deduces the name from the topic
+  ('pirate-adventure'), creates it, confirms. The normie never answers a
+  project question.
+
 ### Added — every wake carries the manual pointer (Eric approved option 1)
 - **`mnemos_wake` now returns a `manual` field on every call** (MCP payload
   and CLI render): the resource URI, the file path, and the one-line note.

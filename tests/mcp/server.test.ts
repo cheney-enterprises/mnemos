@@ -74,6 +74,7 @@ describe("tools listing", () => {
       "mnemos_prune",
       "mnemos_query_ranked",
       "mnemos_query_similar",
+      "mnemos_suggest_scope",
       "mnemos_update",
       "mnemos_update_decision",
       "mnemos_validate",

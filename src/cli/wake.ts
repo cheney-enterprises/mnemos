@@ -9,6 +9,52 @@ import { loadWakeSources, assembleWakeInputs, assembleProjectWake } from "../cor
 import { buildWakePayload } from "../core/wake.js";
 import { parseTemporal, classifyReminder } from "../core/temporal.js";
 
+/**
+ * Rank likely scopes for a fuzzy user reference ("the alarm app snooze
+ * stuff"). Gathers per-project footprints from the live index
+ * (slugs + descriptions + map + recent daily lines) and runs the pure
+ * suggester. Best-effort: empty array on any failure.
+ */
+export async function suggestScopesForReference(
+  startDir: string,
+  reference: string,
+  currentScope?: string,
+): Promise<Array<{ project: string; score: number; reasons: string[] }>> {
+  try {
+    const vaultRoot = await findVaultRoot(startDir);
+    const config = await loadConfig(getVaultPaths(vaultRoot).config);
+    const dbPath = path.resolve(
+      vaultRoot,
+      (config as { engine?: { db_path?: string } }).engine?.db_path ?? ".mnemos/embeddings.db",
+    );
+    const { default: Database } = await import("better-sqlite3");
+    const { promises: fsp } = await import("node:fs");
+    const d = new Database(dbPath, { readonly: true });
+    try {
+      const tags = d.prepare("SELECT DISTINCT project FROM note_project").all() as Array<{ project: string }>;
+      const daily = await fsp.readFile(path.join(vaultRoot, "ops", "daily.md"), "utf8").catch(() => "");
+      const candidates: Array<{ project: string; footprint: string; lastActive: string | null; notes: number }> = [];
+      for (const { project } of tags) {
+        const notes = d
+          .prepare("SELECT n.slug, n.description, n.indexed_at FROM note_project p JOIN note n ON n.id=p.note_id WHERE p.project=?")
+          .all(project) as Array<{ slug: string; description: string | null; indexed_at: string }>;
+        const foot =
+          notes.map((n) => `${n.slug} ${n.description ?? ""}`).join(" ") +
+          " " +
+          daily.split("\n").filter((l) => l.includes(project)).slice(-5).join(" ");
+        const last = notes.reduce((m, n) => (n.indexed_at > m ? n.indexed_at : m), "");
+        candidates.push({ project, footprint: foot, lastActive: last, notes: notes.length });
+      }
+      const { suggestScopes } = await import("../core/scopesuggest.js");
+      return suggestScopes(reference, candidates, currentScope).slice(0, 3);
+    } finally {
+      d.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
 export async function runWake(
   startDir: string,
   budgetLines: number,
@@ -44,6 +90,8 @@ export async function runWake(
     question: string;
     default_hint: string | null;
     projects: Array<{ project: string; notes: number }>;
+    /** How conversational sessions get scoped: silently, from a description. */
+    chat_session_hint?: string;
   };
 }> {
   const vaultRoot = await findVaultRoot(startDir);
@@ -176,16 +224,18 @@ export async function runWake(
           'If this is a new project, create its map: mnemos_add("<tag> project map", type=moc, project=["<tag>"])',
       };
     }
-  } else {
-    // Forced choice: the payload stays global-only and names the decision.
-    // The agent presents this to the user verbatim — an agent must not pick
-    // a project on the user's behalf, and must not work unscoped.
+    // Forced choice WITH suggestions: when the user references a prior
+    // conversation vaguely ("the alarm app snooze stuff"), the suggester
+    // ranks the likely scopes. Also carries the chat-session naming rule
+    // (silent deduction for conversational sessions — no project question).
     result.project_choice_required = {
       reason: "wake.project_required",
       question:
-        "Which project is this session working in? Choose from the project roster above, or name a NEW project (lowercase, hyphenated) and its map will be created. Re-call mnemos_wake with project=<tag>.",
+        "Which project is this session working in? Choose from the roster, name a NEW project (lowercase, hyphenated), or — for a conversational/chat session — say what it was about and I will name and create the scope silently (e.g. 'pirate-adventure'). Re-call mnemos_wake with project=<tag>.",
       default_hint: config.wake.project_default || null,
       projects: inputs.projects,
+      chat_session_hint:
+        "For a conversational/chat session, just describe what it was about — the agent deduces a name (e.g. 'pirate-adventure'), creates the scope silently, and confirms.",
     };
   }
 

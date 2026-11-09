@@ -323,7 +323,7 @@ mnemos bridge ori --vault ~/brain                         # ~/.ori/mcp.json
 mnemos bridge generic --vault ~/brain                     # prints config for manual setup
 ```
 
-Claude Code, Hermes Agent, and OpenCode get full lifecycle integration — the agent orients at session start, captures insights at session end, and validates notes on write. Cursor, Codex, and other MCP clients get access to all 17 tools but manage their own session lifecycle.
+Claude Code, Hermes Agent, and OpenCode get full lifecycle integration — the agent orients at session start, captures insights at session end, and validates notes on write. Cursor, Codex, and other MCP clients get access to all 18 tools but manage their own session lifecycle.
 
 Manual MCP config (works with any client that speaks MCP):
 
@@ -455,7 +455,7 @@ All updates happen in a single SQLite transaction at session end, in order: co-o
 ## The Stack
 
 ```
-Layer 6: MCP Server                    17 tools, 7 resources — any agent talks to this
+Layer 6: MCP Server                    18 tools, 7 resources — any agent talks to this
 Layer 5: Recursive Exploration         PPR graph traversal, sub-question decomposition, convergence detection
 Layer 4: Retrieval Intelligence        Q-value reranking, co-occurrence learning, stage meta-optimization
 Layer 3: Dampening Pipeline            gravity, hub, resolution — ablation-validated
@@ -464,7 +464,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-17 MCP tools · 7 resources · 22 CLI commands · 1137 tests
+18 MCP tools · 7 resources · 22 CLI commands · 1137 tests
 
 ---
 
@@ -545,6 +545,7 @@ A typical session costs **~$0.10** with Mnemos. Without it: **~$6.00+**.
 | `mnemos_warmth` | Inspect the associative warmth field. `project=<tag>` scopes the field to one project. |
 | `mnemos_explore` | Recursive graph traversal — PPR, sub-question decomposition, convergence detection. `project=<tag>` scopes the ANSWER set (traversal stays global). |
 | `mnemos_prune` | Activation topology analysis and archive candidates |
+| `mnemos_suggest_scope` | Rank which projects the user most likely means by a vague reference ("our crazy chat from the other night with the pirates"). Text (IDF-weighted), recency, size, and current-scope signals; reasons included. Use before creating a conversational scope, or to find the scope to search. |
 | `mnemos_forget` | Removal under the capability model: `release`/`supersede` are soft (files kept, dry-run default); `purge` proposes only — records a pending intent with exact slugs and returns the user's `mnemos requests approve <id>` command. Hard deletion is never agent-executable — approvals are refused from any non-interactive process AND from any process running under an agent runtime (a forged PTY does not pass; the process tree is checked and the refusal audited with the ancestry chain). |
 | `mnemos_index_build` | Build/update embedding index and bootstrap co-occurrence edges |
 
