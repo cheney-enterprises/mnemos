@@ -151,3 +151,102 @@ describe("promote fallback warning retarget", () => {
     expect(areas).toEqual(["index"]);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The 2026-11-09 revision: four priority tiers + the new contract blocks.
+// ---------------------------------------------------------------------------
+import { criticalRules, workflowRules, qualityBars, hygieneRules } from "../../src/core/doctrine.js";
+
+describe("revision: the four priority tiers", () => {
+  it("critical tier is first, shortest, and carries the never-violate law", () => {
+    const c = criticalRules("/v");
+    expect(c).toContain("CRITICAL");
+    expect(c).toContain("ONLY through these tools");
+    expect(c).toContain("propose-only");
+    // Critical must be shorter than the whole workflow tier — if context
+    // dies, these lines must be the ones that survived.
+    expect(c.length).toBeLessThan(workflowRules().length);
+  });
+
+  it("full doctrine renders tiers in order: critical, workflow, quality, protocol, hygiene", () => {
+    const d = renderDoctrine({ vaultRoot: "/v", identitySummary: "TestBot." });
+    // Probe HEADER lines, not mentions: PROJECT PROTOCOL's last line says
+    // "see SESSION END", which a naive indexOf would match first.
+    const order = [
+      "CRITICAL, NEVER VIOLATE",
+      "WORKFLOW \u2014 the operating loop",
+      "QUALITY BARS \u2014 what makes",
+      "PROJECT PROTOCOL\n",
+      "SESSION END\n",
+      "HYGIENE \u2014 recovery",
+    ];
+    const positions = order.map((h) => d.indexOf(h));
+    expect(positions.every((p) => p > -1)).toBe(true);
+    expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+  });
+});
+
+describe("revision: scope decisions (fix #2 + #6)", () => {
+  it("teaches the scope default, the global rarity law, and the session-state ban", () => {
+    const w = workflowRules();
+    expect(w).toContain("SCOPE DECISIONS");
+    expect(w).toContain("Default to the session's project");
+    expect(w).toContain("GLOBAL is only for");
+    expect(w).toContain("global items are RARE");
+    expect(w).toContain("never written down");
+  });
+
+  it("teaches the session taxonomy: work vs chat/roleplay with silent naming", () => {
+    const w = workflowRules();
+    expect(w).toContain("CHAT/ROLEPLAY sessions scope silently");
+    expect(w).toContain("the normie never answers a project question");
+    expect(w).toContain("ask the user");
+  });
+});
+
+describe("revision: quality bars (fixes #3 + #4)", () => {
+  it("description standard: relevance without opening the note, condition-holds phrasing", () => {
+    const q = qualityBars();
+    expect(q).toContain("WITHOUT opening the note");
+    expect(q).toContain("what was learned, under what condition it holds");
+    expect(q).toContain("Max 200 chars");
+  });
+
+  it("link discipline: real relationships, broken beats false", () => {
+    const q = qualityBars();
+    expect(q).toContain("A link asserts a real relationship");
+    expect(q).toContain("A broken link is better than a false link");
+    expect(q).toContain("link the project map");
+  });
+});
+
+describe("revision: error-recovery map (fix #5)", () => {
+  it("carries failure→remedy pairs for the five real refusals", () => {
+    const h = hygieneRules();
+    expect(h).toContain("ERROR RECOVERY");
+    expect(h).toContain("waits in inbox/");
+    expect(h).toContain("No map matched");
+    expect(h).toContain("project_suggestions");
+    expect(h).toContain("create the scope or pick an existing one");
+    expect(h).toContain("never retry around a refusal");
+  });
+
+  it("pins the stale-entry law", () => {
+    expect(hygieneRules()).toContain("A stale memory surface is a defect, not history");
+  });
+});
+
+describe("revision: onboarding completeness (fix #7)", () => {
+  it("onboarding carries the manual pointer, working-style question, and the boundaries", () => {
+    const o = renderOnboarding(false);
+    expect(o).toContain("mnemos://manual");
+    expect(o).toContain("WORKING STYLE");
+    expect(o).toContain("wake.project_default");
+    expect(o).toContain("you can never delete their notes");
+    expect(o).toContain("never edit vault files directly");
+  });
+
+  it("onboarding offers the chat/companionship purpose (the normie path)", () => {
+    expect(renderOnboarding(false)).toContain("Mostly chat / companionship");
+  });
+});

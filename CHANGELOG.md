@@ -10,6 +10,37 @@
   warning naming them. The agent widens without a separate call; a
   well-matched scoped query carries no suggestions (no noise).
 
+### Changed — the doctrine revision: four priority tiers + the consistency contract (all 7 weaknesses, all 5 improvements)
+- **The doctrine is restructured into four priority tiers** — CRITICAL
+  (never-violate: direct-access ban, removal law, project-on-every-write,
+  policy-is-the-user's), WORKFLOW (the operating loop), QUALITY (the
+  bars), PROJECT PROTOCOL, SESSION END, HYGIENE (recovery + maintenance) —
+  so agents and humans can navigate instead of skimming a 50-line wall.
+- **SCOPE DECISIONS block (was absent):** default to the session's
+  project; GLOBAL is only for the self-model, umbrella goals, and
+  cross-project obligations — global items are RARE; session state is
+  never written. Session taxonomy: WORK sessions scope to the workstream;
+  CHAT/ROLEPLAY sessions scope silently (deduce a name from the topic,
+  e.g. 'pirate-adventure', create it, confirm) — the normie never answers
+  a project question; when torn, ask the user.
+- **QUALITY BARS (was absent):** the description standard ("one sentence a
+  future agent can use to decide relevance WITHOUT opening the note —
+  what was learned, under what condition it holds") and link discipline
+  ("a link asserts a real relationship; a broken link is better than a
+  false link").
+- **HYGIENE (was absent):** the failure→remedy map for the five real
+  refusals (ask-first staging, no-map-matched, thin scoped answers,
+  unknown-project wake, gate refusals displayed verbatim and never
+  retried around), plus the stale-entry law ("a stale memory surface is a
+  defect, not history").
+- **Onboarding (completeness):** offers the "mostly chat / companionship"
+  purpose, asks the WORKING STYLE question (projects vs mostly chat →
+  sets `wake.project_default` accordingly), points at `mnemos://manual`
+  before the first capture, and states the two boundaries plainly (no
+  agent delete; no direct file edits).
+- All 18 original load-bearing pins still pass verbatim; 10 new pins
+  cover the tiers and every new block. 1150 tests green.
+
 ### Added — the scope suggester: fuzzy references → likely projects (Eric's cross-scope design)
 - **`mnemos_suggest_scope` (18th tool).** The cross-scope reference
   companion: when the user says "our crazy chat from the other night with

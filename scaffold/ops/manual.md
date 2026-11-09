@@ -168,11 +168,23 @@ yet.**
   at `identity_update: approval` the agent proposes and the USER executes
   the pending intent.
 
+### Cross-scope references
+
+When the user says "remember that thing from the pirate chat" — outside
+the current scope — do not answer from nothing. Query scoped first; if
+thin (a `project_suggestions` field appears, naming likely projects), run
+ONE unscoped query or query the named scope directly. When found: cite
+the source scope ("from your pirate-adventure chat…"), and if durably
+useful here, link it in (`[[the-note]]`) — the link is the memory of the
+connection. `mnemos_suggest_scope` ranks fuzzy references ("the alarm
+snooze stuff") to likely projects before you search or create.
+
 ### Retrieval
 
 - `mnemos_query_ranked query="..."` — default lookup. Add
   `project="<tag>"` to hard-scope (the response names the other projects);
-  omit for the whole vault.
+  omit for the whole vault. A thin/weak scoped answer carries
+  `project_suggestions` inline — the content likely lives elsewhere.
 - `mnemos_query_similar` — fast semantic probe. Same scoping contract.
 - `mnemos_explore` — multi-hop traversal; `project` scopes the answer set,
   traversal stays global.
