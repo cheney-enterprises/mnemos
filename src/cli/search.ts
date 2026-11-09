@@ -27,6 +27,7 @@ import type { ScoredNote } from "../core/ranking.js";
 import { buildNoteIndex, computeAllVitality, recordNoteAccess } from "../core/noteindex.js";
 import {
   termDocumentFrequency, openSyncedIndex, cachedGraphMetrics,
+  loadBodyPreviews,
 } from "../core/indexstore.js";
 import { loadBoosts, applyActivationBoosts, computeActivationSpread } from "../core/activation.js";
 import { WarmthService, type WarmthSignal } from "../core/warmth.js";
@@ -574,13 +575,29 @@ export async function runQueryRanked(
   // Drift dampening stages (post-fusion, pre-rerank)
   let dampened = fused;
 
+  // title → type, for the dampening exemptions and the resolution boost.
+  // One map built once, consumed by three stages.
+  const noteTypes = new Map<string, string>();
+  for (const [title, fm] of noteIndex.frontmatter) {
+    if (typeof fm.type === "string") noteTypes.set(title, fm.type);
+  }
+
+  // Mark MOC/map candidates for the fusion warmth floor (fusion.ts). The
+  // fusion cannot see note types; the composite list carries the marker.
+  for (const n of compositeResults) {
+    const t = noteTypes.get(n.title);
+    if (t && t.toLowerCase() === "moc") {
+      (n.metadata ??= {}).warmthFloorEligible = true;
+    }
+  }
+
   // Gravity dampening: halve score for zero-overlap semantic ghosts
   const gravityDecision = shouldRun("gravity_dampening");
   if (gravityDecision !== "abstain" && gravityDecision !== "skip") {
     trackStage("gravity_dampening", dampened);
     const tg = performance.now();
     const titleMap = new Map(allTitles.map((t) => [t, t]));
-    dampened = applyGravityDampening(dampened, query, titleMap);
+    dampened = applyGravityDampening(dampened, query, titleMap, 0.3, noteTypes);
     pipelineElapsed += performance.now() - tg;
     trackStageAfter("gravity_dampening", dampened);
   }
@@ -590,16 +607,12 @@ export async function runQueryRanked(
   if (hubDecision !== "abstain" && hubDecision !== "skip") {
     trackStage("hub_dampening", dampened);
     const th = performance.now();
-    dampened = applyHubDampening(dampened, graph, classified.entities);
+    dampened = applyHubDampening(dampened, graph, classified.entities, noteTypes);
     pipelineElapsed += performance.now() - th;
     trackStageAfter("hub_dampening", dampened);
   }
 
   // Resolution boost: 1.25x for decision/learning notes
-  const noteTypes = new Map<string, string>();
-  for (const [title, fm] of noteIndex.frontmatter) {
-    if (typeof fm.type === "string") noteTypes.set(title, fm.type);
-  }
   dampened = applyResolutionBoost(dampened, noteTypes);
 
   // Re-sort after dampening
@@ -913,6 +926,21 @@ export async function runQueryRanked(
     );
   }
 
+  // Content excerpts on every returned note (cold-agent feedback item 3).
+  // Ranked results used to carry titles-without-content, so an agent that
+  // could not judge relevance from a title fell back to filesystem reads of
+  // the vault. The excerpts come from the derived index (sync-time reads,
+  // zero per-query file I/O); an untrustworthy index degrades to no excerpt
+  // rather than a wrong one — titles still rank, the agent just loses the
+  // preview, never gets a stale one.
+  const previews = indexDb ? loadBodyPreviews(indexDb) : undefined;
+  if (previews) {
+    for (const note of withExploration) {
+      const preview = previews.get(note.title);
+      if (preview) (note.metadata ??= {}).preview = preview;
+    }
+  }
+
   // 17. Close DB only if we opened it ourselves
   if (ownDb) {
     mainDb.close();
@@ -1114,15 +1142,18 @@ export async function runQuerySimilar(
   ).cnt;
 
   let vectors: Map<string, import("../core/engine.js").StoredVectors>;
+  let previews: Map<string, string> | undefined;
   if (rowCount === 0) {
     db.close();
     warnings.push("Embedding index is empty — building now");
     await buildIndex(vaultRoot, config.engine);
     const db2 = initDB(dbPath);
     vectors = loadVectors(db2);
+    previews = loadBodyPreviews(db2);
     db2.close();
   } else {
     vectors = loadVectors(db);
+    previews = loadBodyPreviews(db);
     db.close();
   }
 
@@ -1166,6 +1197,18 @@ export async function runQuerySimilar(
       })
     : pool;
   const results = filtered.slice(0, resultLimit);
+
+  // Content excerpts — same contract as the ranked path (item 3), read from
+  // the composite path's own DB handle before it closed. A missing or empty
+  // index degrades to no excerpt.
+  try {
+    for (const note of results) {
+      const preview = previews?.get(note.title);
+      if (preview) (note.metadata ??= {}).preview = preview;
+    }
+  } catch {
+    // previews are additive; never fail the query over them
+  }
 
   return {
     success: true,

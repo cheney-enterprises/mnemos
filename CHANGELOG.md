@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### Changed — cold-agent feedback fixes: access law, boot gate, content excerpts, MOC protection, provenance
+- **The MCP-only access rule is now stated everywhere an agent looks
+  (item 1).** The doctrine's CRITICAL tier names both failure modes (a
+  direct READ misleads — it bypasses ranking, scoping, and the learning
+  pipeline; a direct WRITE corrupts — schema, graph, index, and audit are
+  skipped) and names the ladder instead of the filesystem when retrieval
+  disappoints. The policy summary line carries a `vault=mcp-only` token,
+  mnemos://policy gained an Access law section, every wake payload carries
+  a one-line access boundary, and the manual's "who may do what" covers
+  reads as well as writes.
+- **The two-step wake is now enforced, not just designed (item 2).** A
+  session that never ran mnemos_wake is REFUSED on retrieval with the
+  exact repair; a session booted bare (roster shown, project not yet
+  chosen) gets a `boot_warning` on every retrieval naming the skipped
+  second step. The wake tool description says the second call is NOT
+  optional. The manual spells the sequence out.
+- **Ranked and similar results carry content excerpts (item 3).** Every
+  returned note now has `metadata.preview` — a whitespace-normalized
+  240-char body excerpt read from the derived index (zero per-query file
+  I/O). A new `body_preview` column on the `note` table is populated at
+  sync time; an untrustworthy index degrades to no excerpt, never a stale
+  one. The titles-without-content gap that pushed a cold agent to
+  filesystem reads is closed.
+- **MOC/map notes are protected from hub dampening and get a bounded
+  warmth floor (item 4).** `applyHubDampening` and
+  `applyGravityDampening` exempt `type=moc` notes (maps are entry points,
+  not noise hubs — the map that fell #1 → #6 on its own most relevant
+  query), and the weighted RRF fusion floors a marked MOC note's warmth
+  term at half a top-ranked warmth term — partial by design, because the
+  demotion was measured real.
+- **Provenance at the storage layer (item 6).** `mnemos_add` accepts
+  `provenance: observed | inferred | advisory` (default: observed), the
+  value persists through promote and lives in a `provenance` column on
+  the index's `note` table, and the QUALITY bars make the rule explicit:
+  never present an advisory as a witnessed fact, never invent prior
+  sessions — retrieve instead (memory_sql over v_retrieval is the record
+  of what past sessions actually saw).
+
 ### Changed — suggestions ride INSIDE the scoped search response (Eric: "not a separate call")
 - **`project_suggestions` is now part of the scoped search response
   itself.** When a scoped query's answer is thin or weak (fewer than

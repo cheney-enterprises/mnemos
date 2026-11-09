@@ -9,6 +9,7 @@ _schema:
     - status
     - created
   optional:
+    - provenance
     - confidence
     - alternatives
     - rationale
@@ -33,6 +34,10 @@ _schema:
       - speculative
       - promising
       - validated
+    provenance:
+      - observed
+      - inferred
+      - advisory
   constraints:
     description:
       max_length: 200

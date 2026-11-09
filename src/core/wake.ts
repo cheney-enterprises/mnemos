@@ -101,6 +101,7 @@ export function buildWakePayload(
 ): { lines: string[]; sections: Record<string, number> } {
   const caps = {
     identity_line: 1,
+    access: 1,
     active_goals: 8,
     reminders_due: 6,
     daily_recent: 20,
@@ -139,6 +140,18 @@ export function buildWakePayload(
     name: "identity_line",
     lines: identityLine ? [identityLine] : [],
     cap: caps.identity_line,
+  });
+
+  // Access boundary — one line, every boot. The cold-agent feedback session
+  // (2026-11-08) fell back to filesystem reads of the vault when ranked
+  // retrieval disappointed; nothing in the tool surface told a cold agent the
+  // vault is not filesystem-addressable. The doctrine carries the full rule;
+  // the briefing carries the token so the rule is met on every boot, even
+  // when instructions were skimmed.
+  sections.push({
+    name: "access",
+    lines: ["Vault access is MCP-only — never read/write vault files via shell or file tools; all access goes through the mnemos tools."],
+    cap: 1,
   });
 
   // Active goals
@@ -250,6 +263,7 @@ export function buildWakePayload(
     "policy",
     "vault_vitals",
     "projects",
+    "access",
     "warm_notes",
     "daily_recent",
     "reminders_due",

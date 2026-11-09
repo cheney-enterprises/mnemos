@@ -256,4 +256,62 @@ describe("cold agent: scoped wake (the two-step boot)", () => {
     expect(xd.projectWake.warning).toContain("no project");
     expect(xd.projectWake.warning).toContain("mnemos_add");
   });
+
+  it("every wake carries the MCP-only access line", async () => {
+    const g = await callTool(ctx.client, "mnemos_wake", {});
+    const joined = JSON.stringify(g.parsed);
+    expect(joined).toContain("MCP-only");
+  });
+});
+
+// Boot gate (cold-agent feedback item 2): a session that skipped the
+// project-scoped wake worked without its project's state and fell back to
+// filesystem dives. Retrieval from an unbooted session is refused; from a
+// bare-booted session it is warned.
+describe("cold agent: boot gate on retrieval", () => {
+  it("refuses retrieval before any wake, naming the repair", async () => {
+    // Fresh server, fresh vault — this session has never woken.
+    const { Client } = await import("@modelcontextprotocol/sdk/client/index.js");
+    const { StdioClientTransport } = await import("@modelcontextprotocol/sdk/client/stdio.js");
+    const vault = await fs.mkdtemp(path.join(os.tmpdir(), "cold-boot-gate-"));
+    const { runInit } = await import("../../src/cli/init.js");
+    await runInit({ targetDir: vault });
+    const transport = new StdioClientTransport({
+      command: "node",
+      args: [path.resolve(import.meta.dirname, "..", "..", "dist", "index.js"), "serve", "--mcp"],
+      cwd: vault,
+      env: process.env as Record<string, string>,
+    });
+    const client = new Client({ name: "boot-gate-probe", version: "1.0.0" }, { capabilities: {} });
+    await client.connect(transport);
+    try {
+      const q = await callTool(client, "mnemos_query_ranked", { query: "anything" });
+      expect(q.raw.isError).toBe(true);
+      const msg = (q.parsed as { error?: string }).error ?? "";
+      expect(msg).toContain("Session not booted");
+      expect(msg).toContain("mnemos_wake");
+
+      // Waking bare clears the refusal (unscoped retrieval is legal), but
+      // the response carries the skipped-step warning.
+      const w = await callTool(client, "mnemos_wake", {});
+      expect(text(w.parsed).project_choice_required).toBeDefined();
+      const q2 = await callTool(client, "mnemos_query_ranked", { query: "anything" });
+      expect(q2.raw.isError).toBeUndefined();
+      const q2data = payload(q2.parsed) as { boot_warning?: string };
+      expect(String(q2data.boot_warning)).toContain("project=<tag>");
+
+      // Scoping clears the warning.
+      // (No projects exist in this vault; wake with a new name warns but
+      // still marks the session booted+scoped — the contract is about the
+      // call, not the roster.)
+      const w2 = await callTool(client, "mnemos_wake", { project: "boot-gate-probe" });
+      expect(text(w2.parsed).projectWake).toBeDefined();
+      const q3 = await callTool(client, "mnemos_query_ranked", { query: "anything" });
+      const q3data = payload(q3.parsed) as { boot_warning?: string };
+      expect(q3data.boot_warning).toBeUndefined();
+    } finally {
+      await client.close();
+      await fs.rm(vault, { recursive: true, force: true }).catch(() => undefined);
+    }
+  });
 });

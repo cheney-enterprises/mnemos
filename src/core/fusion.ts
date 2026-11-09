@@ -88,6 +88,14 @@ export function normalizeSignalWeights(
  * For each unique note across all signals:
  *   score = Sum_s( signal_weight_s * raw_score_s / (k + rank_s + 1) )
  *
+ * MOC/map notes (marked metadata.warmthFloorEligible by the retrieval
+ * pipeline) get a bounded warmth floor: their warmth term is floored at
+ * WARMTH_FLOOR of a top-ranked warmth term. This blunts the demotion of
+ * hub notes on their own project's queries (cold-agent feedback item 4: a
+ * project map fell #1 → #6 on its most relevant query) without restoring
+ * warmth's full weight — the demotion was measured real, so the floor is
+ * partial by design.
+ *
  * Returns all notes sorted by fused score descending.
  */
 export function fuseScoreWeightedRRF(
@@ -96,6 +104,13 @@ export function fuseScoreWeightedRRF(
 ): ScoredNote[] {
   const k = config.rrf_k;
   const weights = normalizeSignalWeights(config.signal_weights);
+  // Warmth floor for MOC/map notes (marked metadata.warmthFloorEligible by
+  // the retrieval pipeline): their warmth term is floored at this fraction
+  // of a TOP-ranked warmth term. Blunts the measured hub-note demotion on a
+  // project's own queries (cold-agent feedback item 4: a map fell #1 → #6
+  // on its most relevant query) without restoring warmth's full weight —
+  // the floor is partial by design.
+  const WARMTH_FLOOR = 0.5;
 
   // Build per-signal indexes
   const indexes: Record<SignalName, Map<string, RankEntry>> = {
@@ -113,6 +128,14 @@ export function fuseScoreWeightedRRF(
     }
   }
 
+  // Floor-eligible titles, gathered once: the composite list carries the
+  // marker (see search.ts where it is set from the note's type).
+  const hubTitles = new Set(
+    signals.composite
+      .filter((n) => n.metadata?.warmthFloorEligible === true)
+      .map((n) => n.title),
+  );
+
   // Fuse
   const results: ScoredNote[] = [];
 
@@ -122,6 +145,8 @@ export function fuseScoreWeightedRRF(
     let baseScore = 0;
     let fusedScore = 0;
     const signalScores: SignalScoreMap = {};
+    const isHub = hubTitles.has(title);
+    const warmthEntry = indexes.warmth.get(title);
 
     // Merge metadata and spaces from whichever signal provides them
     let metadata: Record<string, unknown> | undefined;
@@ -144,6 +169,24 @@ export function fuseScoreWeightedRRF(
     }
 
     signalScores.rrf_base = baseScore;
+    // Warmth floor for MOC/map notes: warmth is a recency signal that
+    // systematically under-serves hub notes (maps age, rarely accessed), so
+    // on a project's own queries every other note collects a warmth term the
+    // map cannot — the measured demotion (cold-agent feedback item 4: a map
+    // fell #1 → #6 on its most relevant query). The floor gives marked notes
+    // a warmth term of at least WARMTH_FLOOR of a TOP-ranked warmth term —
+    // partial by design (the demotion was measured real; full immunity would
+    // erase the signal). Genuine warmth placements above the floor pass
+    // through unchanged.
+    if (isHub) {
+      const floorTerm = (weights.warmth * WARMTH_FLOOR) / (k + 1);
+      const actualTerm = warmthEntry
+        ? (weights.warmth * warmthEntry.score) / (k + warmthEntry.rank + 1)
+        : 0;
+      if (actualTerm < floorTerm) {
+        fusedScore += floorTerm - actualTerm;
+      }
+    }
     signalScores.rrf = fusedScore;
 
     const fused: ScoredNote = {

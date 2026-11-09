@@ -84,7 +84,11 @@ export function loadPolicy(config: unknown): { policy: PolicyConfig; source: Pol
 
 export function policyLine(policy: PolicyConfig): string {
   const g = policy.gates;
-  return `purge=${g.purge} · identity=${g.identity_update} · protected=${g.protected_removal} · bulk=${g.bulk_effect} · soft=${g.soft_removal} · state=${g.state_overwrite}`;
+  // vault=mcp-only rides the same line: it is a capability boundary the
+  // agent must be able to PREDICT, like the gates — a cold agent that fell
+  // back to filesystem reads when retrieval disappointed had no token
+  // telling it the vault is not filesystem-addressable at all.
+  return `purge=${g.purge} · identity=${g.identity_update} · protected=${g.protected_removal} · bulk=${g.bulk_effect} · soft=${g.soft_removal} · state=${g.state_overwrite} · vault=mcp-only`;
 }
 
 /**
@@ -93,7 +97,11 @@ export function policyLine(policy: PolicyConfig): string {
  * rendered transport-neutral so the MCP resource today and the HTTP/Flutter
  * transports later serve identical text.
  */
-export function renderPolicySheet(policy: PolicyConfig, source: PolicySource): string {
+export function renderPolicySheet(
+  policy: PolicyConfig,
+  source: PolicySource,
+  vaultRoot?: string,
+): string {
   const g = policy.gates;
   const origin =
     source === "config"
@@ -121,6 +129,9 @@ export function renderPolicySheet(policy: PolicyConfig, source: PolicySource): s
     "- Every executed purge copies the notes to ops/.trash/ first; ops/forget-audit.jsonl records every intent, approval, and execution.",
     "- If an action is refused, the refusal names the gate and the approve command — display it to the user verbatim.",
     "- You cannot change policy; mnemos.config.yaml is the user's file. Re-read this resource any time you need the effective gates.",
+    "",
+    "## Access law",
+    `- Vault access is MCP-only: never read or write vault files${vaultRoot ? ` (under ${vaultRoot})` : ""} via shell or file tools. All access goes through the mnemos tools; if a capability is missing, ask the user rather than bypassing the server. A direct read misleads you (you bypass ranking, scoping, and the learning pipeline); a direct write corrupts the vault (schema, index, and audit are skipped).`,
     "",
   ].join("\n");
 }

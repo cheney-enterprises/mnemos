@@ -35,6 +35,8 @@ export type AddOptions = {
   description?: string;
   /** Project tags (#39). */
   project?: string[];
+  /** How the content is known (cold-agent feedback item 6). */
+  provenance?: "observed" | "inferred" | "advisory";
 };
 
 export type AddResult = {
@@ -170,6 +172,12 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
     description,
     type,
     project,
+    // Provenance at the storage layer (cold-agent feedback item 6): an agent
+    // presented a confabulated caveat as fact. Observed = witnessed this
+    // session; inferred = derived from cited notes; advisory = the agent's
+    // own judgment. The agent sets it when it knows better; the default is
+    // the honest one for a body the agent wrote.
+    provenance: options.provenance ?? "observed",
     status: "inbox",
     created,
     last_accessed: created,

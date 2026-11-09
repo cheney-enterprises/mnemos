@@ -138,7 +138,9 @@ yet.**
 
 1. **Boot:** `mnemos_wake` with the session's project. Unknown project?
    Bare wake returns the roster + the question — relay it to the user, get
-   the answer, re-call. Never work unscoped.
+   the answer, then re-call wake with project=<tag> before any retrieval.
+   The two-step sequence is mandatory: retrieval is refused until the
+   first wake, and warned while unscoped. Never work unscoped.
 2. **During:** retrieve before re-derive — `mnemos_query_ranked` first
    (scoped to the project when the answer should be project-local; unscoped
    when you want the wide net), `memory_sql` for what ranking cannot
@@ -147,7 +149,9 @@ yet.**
    If you don't write it down, it won't exist next session.
 4. **Session end (the ritual):** durable residue → `mnemos_add`; map
    Current State → `mnemos_update file=map project=<tag>` (overwrite,
-   3–5 lines: done / next / blocked); the project's daily →
+   done / next / blocked — as long as the session needs: the handoff
+   must survive, so compress, never truncate, never append); the
+   project's daily →
    `mnemos_update file=daily project=<tag>`; goals if they moved →
    `file=goals project=<tag>`. The next session starts cold except for
    what you persisted.
@@ -213,7 +217,10 @@ snooze stuff") to likely projects before you search or create.
 - **The user** approves removals and identity rewrites (from a real
   terminal), owns `mnemos.config.yaml`, answers the project-choice and
   ask-first questions.
-- **Nobody** edits vault files directly — every path through the tools
-  maintains schema, links, index, and audit; a direct edit corrupts the
-  vault invisibly. The `mnemos` CLI is the sanctioned fallback ONLY when
-  MCP tools are not attached.
+- **Nobody** reads or edits vault files directly — every path through the
+  tools maintains schema, links, index, and audit; a direct edit corrupts
+  the vault invisibly, and a direct read bypasses ranking, scoping, and
+  the learning pipeline so what you "find" is not what the system knows.
+  When retrieval disappoints, change tools (explore → memory_sql → ask
+  the user) — never open the files. The `mnemos` CLI is the sanctioned
+  fallback ONLY when MCP tools are not attached.

@@ -32,8 +32,14 @@ describe("identity helpers", () => {
 describe("ground rules", () => {
   it("bans direct vault access with the reason", () => {
     const g = groundRules("/v");
-    expect(g).toContain("ONLY through these tools");
-    expect(g).toContain("corrupt the vault invisibly");
+    expect(g).toContain("Vault access is MCP-ONLY");
+    expect(g).toContain("Never read, write, move, rename, list, or search");
+    // BOTH failure modes are named — a read misleads, a write corrupts.
+    expect(g).toContain("misleads");
+    expect(g).toContain("corrupts the vault invisibly");
+    // The escape hatch names the ladder, not the filesystem.
+    expect(g).toContain("change tools");
+    expect(g).toContain("corrupts the vault invisibly");
   });
 
   it("teaches wake-first, the retrieval ladder, and the write path", () => {
@@ -161,7 +167,7 @@ describe("revision: the four priority tiers", () => {
   it("critical tier is first, shortest, and carries the never-violate law", () => {
     const c = criticalRules("/v");
     expect(c).toContain("CRITICAL");
-    expect(c).toContain("ONLY through these tools");
+    expect(c).toContain("Vault access is MCP-ONLY");
     expect(c).toContain("propose-only");
     // Critical must be shorter than the whole workflow tier — if context
     // dies, these lines must be the ones that survived.

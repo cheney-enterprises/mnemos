@@ -131,6 +131,15 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   const rewardAccumulator = new SessionRewardAccumulator(sessionId);
   const sessionStageTracker = new StageTracker();
   let sessionQueryFeatures: number[] | null = null;
+  // Boot state for the two-step wake contract (cold-agent feedback item 2):
+  // the designed sequence is bare wake → user answers → wake with project.
+  // A cold agent skipped the second step and queried anyway, working without
+  // its project's map, goals, or daily state. null = never woken;
+  // { scoped: false } = woken bare, no project chosen yet; scoped = booted.
+  // Retrieval is refused while null and warned while unscoped — queries are
+  // not blocked on the unscoped state (cross-project retrieval is legal)
+  // but the agent is told what it skipped.
+  let wakeState: { scoped: boolean; project?: string } | null = null;
 
   // Open persistent DB for intelligence layers
   const intelligenceDbPath = path.resolve(vaultDir, ".mnemos", "embeddings.db");
@@ -453,7 +462,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       contents: [{
         uri: uri.href,
         mimeType: "text/markdown",
-        text: renderPolicySheet(policy, source),
+        text: renderPolicySheet(policy, source, vaultDir),
       }],
     };
   });
@@ -492,20 +501,46 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
   // ─── Tools ───
 
+  // The two-step wake gate (cold-agent feedback item 2). A session that
+  // never ran mnemos_wake has no roster, no policy, no project scope —
+  // retrieval from that state is how a cold agent ended up filesystem-diving.
+  // Refused with the exact repair; the queries themselves are never lost,
+  // the agent re-calls with the same arguments after booting.
+  const requireBoot = (): string | null => {
+    if (wakeState === null) {
+      return "Session not booted: call mnemos_wake first (bare, to get the project roster and policy), then again with project=<tag> once the user names one. Retrieval is refused until then — the vault stays MCP-only.";
+    }
+    if (!wakeState.scoped) {
+      return null; // booted bare: legal to query unscoped, but nudge below
+    }
+    return null;
+  };
+
+  // For a booted-but-unscoped session, a notice rides on the response: the
+  // agent skipped step 2 of the wake contract and is working without its
+  // project's map/goals/daily state.
+  const bootWarning = (): string | null => {
+    if (wakeState && !wakeState.scoped) {
+      return "Session was booted WITHOUT a project (bare wake). The two-step wake contract expects a second call with project=<tag> — your project's map Current State, goals, and daily lines were never loaded. Call mnemos_wake with project=<tag> before relying on project context.";
+    }
+    return null;
+  };
 
   server.tool(
     "mnemos_wake",
     "Session boot, budget-capped. Two steps: (1) call with NO project — get identity, the " +
       "project roster, and policy; (2) call again with project=<tag> — get that project's map " +
-      "Current State, its daily lines, and its recent notes. The roster feeds the ask-first " +
-      "gate; policy predicts removal refusals. On a vault with no identity yet it returns an " +
-      "onboarding script instead.",
+      "Current State, its daily lines, and its recent notes. The second call is NOT optional: " +
+      "a session that skips it works without its project's state and retrieval is degraded " +
+      "until it happens. The roster feeds the ask-first gate; policy predicts removal " +
+      "refusals. On a vault with no identity yet it returns an onboarding script instead.",
     {
       budget: z.number().optional().describe("Max lines (default 96)"),
       project: z.string().optional().describe("Second call: the project tag whose scoped context to load (from the roster the first call returned)"),
     },
     async ({ budget, project }) => {
       const payload: Record<string, unknown> = await runWake(vaultDir, budget ?? 96, project);
+      wakeState = { scoped: Boolean(project?.trim()), project: project?.trim() || undefined };
       attachLearningResetNotice(payload);
       await attachWhatsNew(payload);
 
@@ -586,7 +621,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     {
       file: z.enum(["identity", "goals", "methodology", "daily", "reminders", "map"])
         .describe("Which file to update; map = the project map's Current State section"),
-      content: z.string().describe("Full new content for the file; for map, the new Current State body (3-5 lines: done, next action, blocked)"),
+      content: z.string().describe("Full new content for the file; for map, the new Current State body (done, next action, blocked — as long as the session needs; compress, don't truncate)"),
       project: z.string().optional().describe("file=map: the project whose map to update (from the wake roster). file=daily|goals: land the write in the project's own ops/<tag>/ state files (the scoped wake reads these first). Ignored for identity/methodology/reminders."),
     },
     async ({ file, content, project }) => {
@@ -648,8 +683,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         ),
       description: z.string().optional().describe("One sentence adding context beyond the title (max 200 chars)"),
       project: z.array(z.string()).optional().describe("Project tags that apply to this note — ask the user if unsure (the tool refuses with the roster if none given and none detectable)"),
+      provenance: z.enum(["observed", "inferred", "advisory"]).optional().describe(
+        "How the content is known: observed (witnessed directly this session), inferred (derived from cited notes — cite them), advisory (your own judgment, no direct evidence). Default: observed. Advisory notes never present themselves as witnessed fact."
+      ),
     },
-    async ({ title, type, content, description, project }) => {
+    async ({ title, type, content, description, project, provenance }) => {
       const result = await runAdd({
         startDir: vaultDir,
         title,
@@ -657,6 +695,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         content: content ?? undefined,
         description: description ?? undefined,
         project: project ?? undefined,
+        provenance,
       });
 
       // Log to reward accumulator for forward citation detection
@@ -778,6 +817,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       project: z.string().optional().describe("Hard-filter results to one project's notes (from the wake roster). Omit to search the whole vault — cross-project learning is the unscoped default. Scoped results name the other projects so you know the scope was a choice."),
     },
     async ({ query, limit, include_archived, project }) => {
+      const notBooted = requireBoot();
+      if (notBooted) return errorResult(notBooted);
       const result = await runQueryRanked(
         vaultDir,
         query,
@@ -789,6 +830,10 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         sessionStageTracker,
         project,
       );
+      const bw = bootWarning();
+      if (result.success && bw) {
+        (result.data as Record<string, unknown>).boot_warning = bw;
+      }
 
       // #37 reset question and what's new, for sessions that skip wake.
       if (result.success) attachLearningResetNotice(result.data as Record<string, unknown>);
@@ -876,6 +921,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       project: z.string().optional().describe("Filter RESULTS to one project's notes (traversal stays global — the graph is honest; the answer set is scoped). Omit = whole vault."),
     },
     async ({ query, limit, depth, include_content, include_archived, recursive, project }) => {
+      const notBooted = requireBoot();
+      if (notBooted) return errorResult(notBooted);
       const result = await runExplore(
         vaultDir,
         query,
@@ -892,6 +939,10 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         sessionId,
         sessionStageTracker,
       );
+      const bw = bootWarning();
+      if (result.success && bw) {
+        (result.data as Record<string, unknown>).boot_warning = bw;
+      }
 
       if (result.success && result.data.results.length > 0) {
         const intent = result.data.intent ?? "semantic";
@@ -953,6 +1004,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       project: z.string().optional().describe("Hard-filter the field to one project's notes. Omit = whole vault."),
     },
     async ({ context, limit, project }) => {
+      const notBooted = requireBoot();
+      if (notBooted) return errorResult(notBooted);
       const result = await runQueryWarmth(
         vaultDir,
         context,
@@ -960,6 +1013,10 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         await graphCache.get(paths.notes),
         project,
       );
+      const bw = bootWarning();
+      if (result.success && bw) {
+        (result.data as Record<string, unknown>).boot_warning = bw;
+      }
       return textResult(result);
     }
   );
@@ -976,6 +1033,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       project: z.string().optional().describe("Hard-filter results to one project's notes. Omit = whole vault."),
     },
     async ({ query, limit, include_archived, project }) => {
+      const notBooted = requireBoot();
+      if (notBooted) return errorResult(notBooted);
       const result = await runQuerySimilar(
         vaultDir,
         query,
@@ -984,6 +1043,10 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         await graphCache.get(paths.notes),
         project,
       );
+      const bw = bootWarning();
+      if (result.success && bw) {
+        (result.data as Record<string, unknown>).boot_warning = bw;
+      }
       return textResult(result);
     }
   );

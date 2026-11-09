@@ -253,3 +253,73 @@ describe("fuseSimpleRRF", () => {
     expect(noteD.score).toBeGreaterThan(noteE.score);
   });
 });
+
+// Warmth floor for MOC/map notes (cold-agent feedback item 4): a project
+// map was demoted #1 → #6 on its own most relevant query. The floor gives
+// marked notes a warmth term of at least half a top-ranked warmth term —
+// partial by design, because the demotion was measured real.
+describe("fuseScoreWeightedRRF warmth floor for MOC notes", () => {
+  const makeConfig = (warmth: number): RetrievalConfig => ({
+    ...testConfig,
+    signal_weights: { composite: 1, keyword: 0, graph: 0, warmth },
+  });
+  // composite-only base score for "map note": rank 0, weight NORMALIZED —
+  // composite=1 and warmth=0.25 → w_composite = 1/1.25 = 0.8.
+  const base = (0.8 * 0.9) / (60 + 0 + 1);
+
+  const baseSignals = () => ({
+    composite: [
+      { title: "map note", score: 0.9, signals: { composite: 0.9 } },
+      { title: "plain note", score: 0.4, signals: { composite: 0.4 } },
+    ],
+    keyword: [],
+    graph: [],
+    warmth: [
+      { title: "map note", score: 0.7, signals: { warmth: 0.7 } },
+    ],
+  });
+
+  it("restores half of the warmth contribution for a marked MOC note", () => {
+    // The floor binds when the note's actual warmth term is BELOW the
+    // floor: a weak warmth score. It is the ONLY warmth entry, so it sits
+    // at rank 0: actual = 0.2*0.1/61 < floor = 0.2*0.5/61.
+    const composite = baseSignals().composite;
+    composite[0]!.metadata = { warmthFloorEligible: true };
+    const out = fuseScoreWeightedRRF(
+      { composite, keyword: [], graph: [], warmth: [{ title: "map note", score: 0.1, signals: { warmth: 0.1 } }] },
+      makeConfig(0.25),
+    );
+    const mapNote = out.find((n) => n.title === "map note")!;
+    const actualTerm = (0.2 * 0.1) / 61;
+    const floorTerm = (0.2 * 0.5) / 61;
+    // The merge loop adds the genuine warmth term; the floor tops up to it:
+    // fused = base + actual + (floor - actual) = base + floor.
+    expect(mapNote.signals.rrf).toBeCloseTo(base + floorTerm, 10);
+
+    // A genuine above-floor placement passes through unchanged.
+    const out2 = fuseScoreWeightedRRF(
+      { composite, keyword: [], graph: [], warmth: baseSignals().warmth },
+      makeConfig(0.25),
+    );
+    const mapNote2 = out2.find((n) => n.title === "map note")!;
+    expect(mapNote2.signals.rrf).toBeCloseTo(base + (0.2 * 0.7) / 61, 10);
+  });
+
+  it("leaves unmarked notes at plain fused score", () => {
+    const config = makeConfig(0.25);
+    const out = fuseScoreWeightedRRF(baseSignals(), config);
+    const plain = out.find((n) => n.title === "plain note")!;
+    // Unmarked, and warmth never placed it anyway — fused score is base.
+    expect(plain.signals.rrf).toBe(plain.signals.rrf_base);
+  });
+
+  it("floors a MOC note that warmth did not place at all", () => {
+    // No warmth placement → actualTerm 0 → the floor still binds. This is
+    // the point of the fix: a map that warmth ignored gets its floor term.
+    const composite = baseSignals().composite;
+    composite[0]!.metadata = { warmthFloorEligible: true };
+    const out = fuseScoreWeightedRRF({ composite, keyword: [], graph: [], warmth: [] }, makeConfig(0.25));
+    const mapNote = out.find((n) => n.title === "map note")!;
+    expect(mapNote.signals.rrf).toBeCloseTo(base + (0.2 * 0.5) / 61, 10);
+  });
+});

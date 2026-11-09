@@ -16,6 +16,7 @@ import os from "node:os";
 import Database from "better-sqlite3";
 import {
   initIndexStore, syncIndex, loadNoteIndex, loadLinkGraph,
+  loadBodyPreviews,
   recordAccess, loadAccess, flushAccessToFrontmatter,
   saveGraphMetrics, loadGraphMetrics, hygiene, openSyncedIndex,
   saveCachedGraphMetrics, graphFingerprint,
@@ -314,5 +315,34 @@ describe("openSyncedIndex refuses an index that does not cover the vault", () =>
     const result = await openSyncedIndex(closed, notesDir, 1);
     expect(result.index).toBeUndefined();
     expect(result.reason).toContain("per-query scans");
+  });
+});
+
+// Body previews (cold-agent feedback item 3): ranked results carry a short
+// content excerpt from the index so relevance is judgeable without opening
+// files — the fallback that pushed a cold agent to filesystem reads.
+describe("body previews", () => {
+  it("stores a whitespace-normalized body preview per note", async () => {
+    await note("one", "type: insight", "first line\n\nsecond   line with    gaps\nthird");
+    await note("empty", "type: insight");
+    await syncIndex(db, notesDir);
+
+    const previews = loadBodyPreviews(db);
+    expect(previews.get("one")).toBe("first line second line with gaps third");
+    expect(previews.get("empty")).toBe("");
+  });
+
+  it("caps the preview at 240 chars", async () => {
+    await note("long", "type: insight", "x".repeat(500));
+    await syncIndex(db, notesDir);
+    expect(loadBodyPreviews(db).get("long")).toHaveLength(240);
+  });
+
+  it("refreshes the preview when the body changes", async () => {
+    await note("live", "type: insight", "old body");
+    await syncIndex(db, notesDir);
+    await note("live", "type: insight", "new body");
+    await syncIndex(db, notesDir);
+    expect(loadBodyPreviews(db).get("live")).toBe("new body");
   });
 });

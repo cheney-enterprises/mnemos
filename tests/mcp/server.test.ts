@@ -101,6 +101,9 @@ describe("tools listing", () => {
 
 describe("mnemos_warmth", () => {
   it("returns an empty warmth field on a fresh vault", async () => {
+    // The boot gate (cold-agent feedback item 2) refuses retrieval from a
+    // session that never woke; boot first, per the two-step contract.
+    await callTool(ctx.client, "mnemos_wake", {});
     const { parsed } = await callTool(ctx.client, "mnemos_warmth", {
       context: "token incentives and memory resonance",
       limit: 5,

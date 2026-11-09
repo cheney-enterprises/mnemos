@@ -254,13 +254,35 @@ export function initIndexStore(db: DB): void {
   // shape engine.ts already uses for the boosts table. The index is derived
   // and could simply be rebuilt, but a silent "no such column" on someone's
   // existing vault is a worse first experience than a cheap ALTER.
+  let noteShapeChanged = false;
   for (const column of [
     "fm_access_count INTEGER NOT NULL DEFAULT 0",
     "has_frontmatter INTEGER NOT NULL DEFAULT 1",
+    // Content excerpt for ranked retrieval (cold-agent feedback item 3):
+    // ranked results carried titles-without-content, so an agent that could
+    // not judge relevance from a title fell back to filesystem reads. The
+    // explore path already reads files for this; the index carries it so the
+    // read happens at sync time, not per query. body-only, frontmatter
+    // stripped; null when the body is empty.
+    "body_preview TEXT NOT NULL DEFAULT ''",
+    // Provenance (cold-agent feedback item 6): observed | inferred | advisory,
+    // from frontmatter. The storage-layer guard wants agent-issued advisories
+    // distinguishable from witnessed facts; the index row is that storage.
+    // Empty = pre-provenance note (treated as observed, the historical
+    // default) — never fabricated here.
+    "provenance TEXT NOT NULL DEFAULT ''",
   ]) {
     try {
       db.exec(`ALTER TABLE note ADD COLUMN ${column}`);
+      if (column.startsWith("body_preview") || column.startsWith("provenance")) noteShapeChanged = true;
     } catch { /* column already exists */ }
+  }
+  if (noteShapeChanged) {
+    // Same reasoning as the note_term migration below: ALTER alone leaves
+    // existing rows at DEFAULT '' and stat-filtered sync never reparses an
+    // unchanged note, so previews would be empty forever. Clearing `note`
+    // cascades the derived tables and makes the next sync a full rebuild.
+    db.exec("DELETE FROM note");
   }
 
   // `note_term` gained per-field counts when BM25 started reading its postings
@@ -391,6 +413,7 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
     terms: string[];
     tf: Map<string, [number, number, number]>;
     tok: [number, number, number];
+    preview: string;
   };
   const parsed: Parsed[] = [];
   const unchanged: string[] = [];
@@ -444,9 +467,13 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
     for (const t of tokenize(title)) { bump(t, 0); tok[0] += 1; }
     for (const t of tokenize(str(data, "description"))) { bump(t, 1); tok[1] += 1; }
     for (const t of tokenize(body)) { bump(t, 2); tok[2] += 1; }
+    // Whitespace-normalized body preview, frontmatter stripped. 240 chars ≈
+    // 40-60 tokens — enough to judge relevance, cheap enough for 10-30
+    // results per response.
+    const preview = body.replace(/\s+/g, " ").trim().slice(0, 240);
     parsed.push({
       title, hash, mtime: stat.mtimeMs, size: stat.size, data, links,
-      terms: [...distinct], tf, tok,
+      terms: [...distinct], tf, tok, preview,
     });
   }
 
@@ -462,16 +489,17 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
     const upsert = db.prepare(`
       INSERT INTO note (slug, title, description, type, status, created,
                         content_hash, mtime_ms, size_bytes, fm_access_count,
-                        has_frontmatter, indexed_at,
+                        has_frontmatter, indexed_at, body_preview, provenance,
                         tok_title, tok_desc, tok_body)
       VALUES (@slug, @title, @description, @type, @status, @created,
-              @hash, @mtime, @size, @fmAccess, @hasFm, @now,
+              @hash, @mtime, @size, @fmAccess, @hasFm, @now, @preview, @prov,
               @tokTitle, @tokDesc, @tokBody)
       ON CONFLICT(slug) DO UPDATE SET
         title = @title, description = @description, type = @type,
         status = @status, created = @created, content_hash = @hash,
         mtime_ms = @mtime, size_bytes = @size, fm_access_count = @fmAccess,
-        has_frontmatter = @hasFm, indexed_at = @now,
+        has_frontmatter = @hasFm, indexed_at = @now, body_preview = @preview,
+        provenance = @prov,
         tok_title = @tokTitle, tok_desc = @tokDesc, tok_body = @tokBody
     `);
     for (const p of parsed) {
@@ -482,6 +510,8 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
         size: p.size, now,
         fmAccess: typeof p.data?.access_count === "number" ? p.data.access_count : 0,
         hasFm: p.data ? 1 : 0,
+        preview: p.preview,
+        prov: str(p.data, "provenance"),
         tokTitle: p.tok[0], tokDesc: p.tok[1], tokBody: p.tok[2],
       });
     }
@@ -569,12 +599,12 @@ export function loadNoteIndex(db: DB): NoteIndex {
   }
   type MetaRow = {
     slug: string; description: string; type: string; status: string;
-    created: string; fm_access_count: number;
+    created: string; fm_access_count: number; provenance: string;
   };
   // has_frontmatter = 0 is excluded to match buildNoteIndex's `if (data)`.
   for (const row of rows<MetaRow>(
     db,
-    "SELECT slug, description, type, status, created, fm_access_count FROM note " +
+    "SELECT slug, description, type, status, created, fm_access_count, provenance FROM note " +
     "WHERE has_frontmatter = 1",
   )) {
     const data: Record<string, unknown> = {};
@@ -583,11 +613,27 @@ export function loadNoteIndex(db: DB): NoteIndex {
     if (row.status) data.status = row.status;
     if (row.created) data.created = row.created;
     if (row.fm_access_count > 0) data.access_count = row.fm_access_count;
+    if (row.provenance) data.provenance = row.provenance;
     const p = projects.get(row.slug);
     if (p) data.project = p;
     frontmatter.set(row.slug, data);
   }
   return { frontmatter };
+}
+
+/** Body previews for retrieval results (cold-agent feedback item 3): ranked
+ *  responses carry a short content excerpt so relevance is judgeable without
+ *  opening the file — the failure that pushed a cold agent to filesystem
+ *  reads. Empty strings are kept as entries so the trim/slice callers can
+ *  rely on the map covering every live note; the renderer skips empties. */
+export function loadBodyPreviews(db: DB): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const row of rows<{ slug: string; body_preview: string }>(
+    db, "SELECT slug, body_preview FROM note",
+  )) {
+    out.set(row.slug, row.body_preview ?? "");
+  }
+  return out;
 }
 
 /**

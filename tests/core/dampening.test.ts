@@ -178,3 +178,57 @@ describe("applyResolutionBoost", () => {
     }
   });
 });
+
+// MOC/map exemption (cold-agent feedback item 4): a project map fell
+// #1 → #6 on its own most relevant query because hub dampening treats
+// high-degree entry points as spam. Maps ARE the entry points.
+describe("MOC/map exemption from dampening", () => {
+  const graph: LinkGraph = {
+    outgoing: new Map([
+      ["alpha project map", new Set(["a", "b", "c", "d", "e", "f", "g", "h", "i", "j"])],
+      ["a", new Set(["b"])],
+      ["b", new Set(["c"])],
+      ["c", new Set(["d"])],
+      ["d", new Set(["e"])],
+      ["e", new Set(["f"])],
+      ["f", new Set(["g"])],
+      ["g", new Set(["h"])],
+      ["h", new Set(["i"])],
+      ["i", new Set(["j"])],
+    ]),
+    incoming: new Map([
+      ["a", new Set(["alpha project map"])],
+      ["b", new Set(["alpha project map", "a"])],
+      ["c", new Set(["alpha project map", "b"])],
+      ["d", new Set(["alpha project map", "c"])],
+      ["e", new Set(["alpha project map", "d"])],
+      ["f", new Set(["alpha project map", "e"])],
+      ["g", new Set(["alpha project map", "f"])],
+      ["h", new Set(["alpha project map", "g"])],
+      ["i", new Set(["alpha project map", "h"])],
+      ["j", new Set(["alpha project map", "i"])],
+    ]),
+  };
+
+  const results: ScoredNote[] = [
+    { title: "alpha project map", score: 0.9, signals: {} },
+    { title: "a", score: 0.8, signals: {} },
+  ];
+  const types = new Map([["alpha project map", "moc"]]);
+
+  it("hub dampening exempts moc notes", () => {
+    const dampened = applyHubDampening(results, graph, [], types);
+    expect(dampened.find((r) => r.title === "alpha project map")!.score).toBe(0.9);
+    // A non-moc hub is still dampened.
+    const plain = applyHubDampening(results, graph);
+    expect(plain.find((r) => r.title === "alpha project map")!.score).toBeLessThan(0.9);
+  });
+
+  it("gravity dampening exempts moc notes even with zero term overlap", () => {
+    const titleMap = new Map(results.map((r) => [r.title, r.title]));
+    const dampened = applyGravityDampening(results, "telemetry barometer drift", titleMap, 0.3, types);
+    expect(dampened.find((r) => r.title === "alpha project map")!.score).toBe(0.9);
+    const plain = applyGravityDampening(results, "telemetry barometer drift", titleMap);
+    expect(plain.find((r) => r.title === "alpha project map")!.score).toBe(0.45);
+  });
+});

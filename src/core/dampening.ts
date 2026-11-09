@@ -56,12 +56,17 @@ export function applyGravityDampening(
   query: string,
   _noteTitles: Map<string, string>, // noteId -> title (kept for API stability)
   threshold: number = 0.3,
+  noteTypes?: Map<string, string>,
 ): ScoredNote[] {
   const queryTerms = extractKeyTerms(query);
   if (queryTerms.size === 0) return results;
 
   return results.map((note) => {
     if (note.score <= threshold) return note;
+
+    // MOC/map notes are entry points, not semantic ghosts (see hub dampening).
+    const type = noteTypes?.get(note.title);
+    if (type && HUB_EXEMPT_TYPES.has(type.toLowerCase())) return note;
 
     // Check term overlap against note title (which IS the note ID in Mnemos)
     const titleTerms = extractKeyTerms(note.title);
@@ -82,6 +87,14 @@ export function applyGravityDampening(
 
 // --- Hub Dampening (Drift P@5 delta: -0.104) ---
 
+/** MOC/map notes are the vault's entry points, not spam: they are the
+ *  anchors an agent starts from (wake hands the project map's Current State
+ *  to every session). Hub dampening exists to stop index notes dominating
+ *  every query, but demoting THE map on its own project's queries sends the
+ *  agent digging — the cold-agent feedback session watched the map drop
+ *  #1 → #6 on exactly its most relevant query. Exempt them. */
+const HUB_EXEMPT_TYPES = new Set(["moc"]);
+
 /**
  * Hub dampening: penalize notes in the top 10% by edge count.
  * Prevents map/index notes from dominating every query.
@@ -98,6 +111,7 @@ export function applyHubDampening(
   results: ScoredNote[],
   linkGraph: LinkGraph,
   queryEntities: string[] = [],
+  noteTypes?: Map<string, string>,
 ): ScoredNote[] {
   // Compute degree for all notes in the graph
   const degrees = new Map<string, number>();
@@ -126,6 +140,10 @@ export function applyHubDampening(
 
     // Entity-matched notes are exempt
     if (entitySet.has(note.title.toLowerCase())) return note;
+
+    // MOC/map notes are exempt — they are entry points, not noise hubs
+    const type = noteTypes?.get(note.title);
+    if (type && HUB_EXEMPT_TYPES.has(type.toLowerCase())) return note;
 
     const ratio = (degree - p90) / (maxDeg - p90);
     const penalty = 1.0 - 0.6 * ratio;
