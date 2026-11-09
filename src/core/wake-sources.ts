@@ -284,7 +284,11 @@ export async function assembleProjectWake(
       let dailyLines: string[];
       try {
         const content = await fsp.readFile(projectDailyPath, 'utf8');
-        dailyLines = content.split(/\r?\n/).filter((l) => l.trim() !== '').slice(-12);
+        // Strip frontmatter — per-project daily files carry schema-valid
+        // frontmatter now, and its lines would leak into the briefing
+        // (observed live: 'status: active' surfacing as a daily line).
+        const body = content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+        dailyLines = body.split(/\r?\n/).filter((l) => l.trim() !== '').slice(-12);
       } catch {
         dailyLines = [];
       }

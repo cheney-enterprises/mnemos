@@ -109,6 +109,19 @@
   the audit trail), plus the one-line division: notes/ = knows, self/ =
   is, ops/ = does, inbox/ = not sure yet.
 
+### Fixed — the scaffold era's frontmatter leakage (3 instances, all found by live verification)
+- The scaffold emitted `type: project-state` — not a schema-valid type.
+  Scaffolds now emit schema-valid frontmatter (type/status/created); the
+  live vault's state files normalized and validate clean.
+- The per-project daily reader didn't strip frontmatter — with schema-
+  valid state files, `status: active` surfaced as a daily line in the
+  scoped wake. Frontmatter stripped before scanning.
+- Three hand-written state files were missing frontmatter or closing
+  delimiters entirely (found by validating every ops/<tag>/ file).
+- **Vault handoff refreshed:** mnemos map Current State written via the
+  ritual (tooling state, open items, design laws), scope-model session
+  daily entry, all scoped wakes verified clean.
+
 ### Changed — project creation scaffolds state files; the project-fallback is removed (Eric's law)
 - **Every project gets its own state files AT CREATION.** First capture
   into a project scaffolds `ops/<tag>/goals.md`, `daily.md`,

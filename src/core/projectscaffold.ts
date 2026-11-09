@@ -63,8 +63,10 @@ export async function scaffoldProjectFiles(
     const frontmatter = [
       "---",
       `description: ${tag} — ${f.name.replace(".md", "")} (project state)`,
-      "type: project-state",
+      "type: insight",
       `project: [${tag}]`,
+      "status: active",
+      `created: ${new Date().toISOString().slice(0, 10)}`,
       "---",
       "",
     ].join("\n");
