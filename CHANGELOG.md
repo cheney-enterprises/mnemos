@@ -109,6 +109,25 @@
   the audit trail), plus the one-line division: notes/ = knows, self/ =
   is, ops/ = does, inbox/ = not sure yet.
 
+### Changed — the live vault migrated to per-project state files (the fallback era ends)
+- **Eric's vault now runs the structural layout, not the fallback.** The
+  shared `self/goals.md` was split: flutter's performance-track goals →
+  `ops/ai-flutter-chat/goals.md`, roust's → `ops/roust/goals.md`, the
+  global file reduced to umbrella-only (currently empty). The shared
+  `ops/daily.md` was split by block attribution (headers name their
+  project; untagged lines follow their block's header): 7 flutter lines,
+  roust history + the tooling-session note, 6 mnemos entries
+  (reconstructed from the session record after the first split pass
+  dropped them — caught by the cross-contamination check, corrected, and
+  the Layer-2 line moved from flutter to mnemos where it belonged). The
+  mnemos reminders file restored (npm-publish item). Bare wake verified:
+  forced choice; every scoped wake verified: goals/daily/reminders from
+  the project's own files, zero cross-project leakage.
+- **Bug fixed en route:** `project_choice_required` sat inside the
+  `if (effective)` branch (an indentation slip from the scope-default
+  edit), so bare wake never showed the choice prompt. Moved to the else
+  branch; pinned by the existing contract tests.
+
 ### Changed — reminders join the global+project sets (Eric's design: none of the current items are global)
 - **`ops/<tag>/reminders.md` is the project's own reminder file**, read as
   the authority by the scoped wake (and put through the same temporal

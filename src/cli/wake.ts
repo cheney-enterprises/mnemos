@@ -224,10 +224,10 @@ export async function runWake(
           'If this is a new project, create its map: mnemos_add("<tag> project map", type=moc, project=["<tag>"])',
       };
     }
-    // Forced choice WITH suggestions: when the user references a prior
-    // conversation vaguely ("the alarm app snooze stuff"), the suggester
-    // ranks the likely scopes. Also carries the chat-session naming rule
-    // (silent deduction for conversational sessions — no project question).
+  } else {
+    // Forced choice: the payload stays global-only and names the decision.
+    // The agent presents this to the user verbatim — an agent must not pick
+    // a project on the user's behalf, and must not work unscoped.
     result.project_choice_required = {
       reason: "wake.project_required",
       question:
