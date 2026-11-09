@@ -53,6 +53,12 @@ itself across all work ("keep the vault honest"), not if it mentions
 another project ("publish the mnemos package" is the mnemos project's
 reminder even though it references tooling).
 
+**Every project gets its own state files at creation.** When a project
+comes into existence (its map is captured), `ops/<tag>/goals.md`,
+`daily.md`, and `reminders.md` are scaffolded automatically. The scoped
+wake reads those files — never the global ones, never grep-the-shared-
+file. The only fallback in wake is the global documents themselves.
+
 **Session state stays out.** Current file being edited, intermediate
 reasoning, temp paths — these die with the conversation. Writing them
 down is how memory rots.

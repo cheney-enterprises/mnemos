@@ -109,6 +109,24 @@
   the audit trail), plus the one-line division: notes/ = knows, self/ =
   is, ops/ = does, inbox/ = not sure yet.
 
+### Changed — project creation scaffolds state files; the project-fallback is removed (Eric's law)
+- **Every project gets its own state files AT CREATION.** First capture
+  into a project scaffolds `ops/<tag>/goals.md`, `daily.md`,
+  `reminders.md` automatically (idempotent, best-effort, announced in the
+  warnings). Verified live: a brand-new project's scoped wake reads its
+  own files from the first session.
+- **The project→shared-file fallback is REMOVED from wake.** A project
+  never greps the shared `goals.md`/`daily.md`/`reminders.md` — a missing
+  per-project file means an EMPTY section (honest), never another scope's
+  document. The only fallback in wake is the global documents for global
+  wake. Three tests inverted to pin the new law (the old fallback pins
+  became no-fallback pins).
+- Doctrine's NEW PROJECT flow updated (scaffolding is automatic step 4);
+  the operating manual states the law ("the only fallback in wake is the
+  global documents themselves").
+- Sidecar work explicitly parked at Eric's request — no sidecar code in
+  this or future commits until he calls for it.
+
 ### Fixed — per-project goals frontmatter leak + mnemos goals file created
 - **The goals reader leaked the `---` frontmatter delimiter into the
   briefing** — the bullet filter (`/^[-*]/`) matches the YAML delimiter

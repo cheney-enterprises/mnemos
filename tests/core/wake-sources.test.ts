@@ -113,8 +113,11 @@ describe("assembleProjectWake — the scoped context layer", () => {
     await mkdir(notesDir, { recursive: true });
     await mkdir(path.join(idxRoot, "ops"), { recursive: true });
     await fs.writeFile(path.join(idxRoot, "ops", "daily.md"), [
-      "- 2026-11-08: kite line about telemetry and barometers",
       "- 2026-11-08: roust line about alarms and snooze",
+    ].join("\n"), "utf8");
+    await mkdir(path.join(idxRoot, "ops", "kite"), { recursive: true });
+    await writeFile(path.join(idxRoot, "ops", "kite", "daily.md"), [
+      "- 2026-11-08: kite line about telemetry and barometers",
       "- 2026-11-08: another kite budget line",
     ].join("\n"), "utf8");
     const note = (name: string, fm: string, body = "") =>
@@ -143,9 +146,10 @@ describe("assembleProjectWake — the scoped context layer", () => {
     expect(pw.map).toBe("kite project map");
     expect(pw.currentState).toContain("- done: scoped wake designed");
     expect(pw.currentState).toContain("- next: land it");
-    // Daily lines scoped by tag-in-line (current shared-file convention)
+    // Daily lines come from the project's OWN file — never the shared log.
     expect(pw.daily.length).toBe(2);
     expect(pw.daily.every((l) => l.includes("kite"))).toBe(true);
+    expect(pw.daily.some((l) => l.includes("roust"))).toBe(false);
     // Recent notes: only kite's, not roust's
     expect(pw.recentNotes).toContain("ktelemetry");
     expect(pw.recentNotes).toContain("kite project map");
@@ -214,7 +218,7 @@ describe("scoped wake: substituted sections (goals/daily/warm)", () => {
     await fs.rm(idxRoot, { recursive: true, force: true });
   });
 
-  it("legacy fallback: no per-project file -> tag-filtered shared goals", async () => {
+  it("NO fallback: a project never reads the shared goals file (Eric's law)", async () => {
     const { mkdir, writeFile } = await import("node:fs/promises");
     const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-subst2-"));
     await mkdir(path.join(idxRoot, "self"), { recursive: true });
@@ -222,8 +226,9 @@ describe("scoped wake: substituted sections (goals/daily/warm)", () => {
 
     const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
     const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "roust", {});
+    // No ops/roust/goals.md -> EMPTY section, never the shared file.
     expect(pw.goalsFromFile).toBe(false);
-    expect(pw.goals).toEqual(["- roust device verification"]);
+    expect(pw.goals).toEqual([]);
 
     await fs.rm(idxRoot, { recursive: true, force: true });
   });
@@ -271,7 +276,7 @@ describe("per-project reminders (global + project sets, Eric's design)", () => {
     await fs.rm(idxRoot, { recursive: true, force: true });
   });
 
-  it("legacy fallback: no per-project file -> lines mentioning the tag in the shared file", async () => {
+  it("NO fallback: a project never reads the shared reminders file", async () => {
     const { mkdir, writeFile } = await import("node:fs/promises");
     const idxRoot = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-prem2-"));
     await mkdir(path.join(idxRoot, "ops"), { recursive: true });
@@ -280,7 +285,7 @@ describe("per-project reminders (global + project sets, Eric's design)", () => {
     const { assembleProjectWake } = await import("../../src/core/wake-sources.js");
     const pw = await assembleProjectWake(idxRoot, "/nonexistent/db", "roust", {});
     expect(pw.remindersFromFile).toBe(false);
-    expect(pw.reminders).toEqual(["- roust device verdict follow up"]);
+    expect(pw.reminders).toEqual([]);
 
     await fs.rm(idxRoot, { recursive: true, force: true });
   });

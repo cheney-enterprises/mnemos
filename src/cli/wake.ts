@@ -72,6 +72,12 @@ export async function runWake(
     currentState: string[];
     daily: string[];
     recentNotes: string[];
+    goals?: string[];
+    goalsFromFile?: boolean;
+    reminders?: string[];
+    remindersFromFile?: boolean;
+    warmNotes?: Array<{ title: string; decayed: number }>;
+    members?: Set<string>;
     warning?: string;
   };
   /** The operating manual pointer — present on every wake. */
@@ -213,15 +219,23 @@ export async function runWake(
     } else {
       // A named project that does not exist (or a default pointing at
       // nothing yet): report, name the fix, keep the roster as correction.
+      // The AGENT creates the project (add the map) — the scaffold then
+      // happens in add's promote path. Wake itself never writes.
       result.projectWake = {
         project: effective,
         map: null,
         currentState: [],
         daily: [],
         recentNotes: [],
+        goals: [],
+        goalsFromFile: false,
+        reminders: [],
+        remindersFromFile: false,
+        warmNotes: [],
+        members: new Set(),
         warning:
           `no project "${effective}" in this vault — the roster lists the live ones. ` +
-          'If this is a new project, create its map: mnemos_add("<tag> project map", type=moc, project=["<tag>"])',
+          'If this is a new project, create it: mnemos_add("<tag> project map", type=moc, project=["<tag>"]) — the state files (ops/<tag>/goals|daily|reminders.md) are scaffolded automatically.',
       };
     }
   } else {

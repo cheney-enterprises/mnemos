@@ -234,10 +234,11 @@ export async function assembleProjectWake(
     }
   }
 
-  // --- Per-project goals: ops/<tag>/goals.md when it exists (the structural
-  // design), else text-filtered from the shared self/goals.md (legacy
-  // fallback — no data migration forced). The section, not a suppression:
-  // the scoped wake's active_goals feeds from HERE.
+  // --- Per-project goals: ops/<tag>/goals.md. The ONLY fallback in wake is
+  // the GLOBAL documents — a project never greps the shared file (Eric's
+  // law: projects get their own documents at creation, scaffolded by the
+  // project-creation flow; a missing file means the section is empty, which
+  // is honest, not a migration debt).
   const projectGoalsPath = path.join(vaultRoot, 'ops', project, 'goals.md');
   try {
     const goalsContent = await fsp.readFile(projectGoalsPath, 'utf8');
@@ -250,38 +251,22 @@ export async function assembleProjectWake(
       .filter((g) => /^[-*]|\d+[.)]/.test(g.trim()))
       .slice(0, 8);
   } catch {
-    // No per-project file: legacy fallback — tag-filtered shared goals.
-    try {
-      const shared = await fsp.readFile(path.join(vaultRoot, 'self', 'goals.md'), 'utf8');
-      wake.goals = shared
-        .split(/\r?\n/)
-        .filter((g) => /^[-*]|\d+[.)]/.test(g.trim()))
-        .filter((g) => g.includes(project))
-        .slice(0, 8);
-    } catch {
-      // no shared file either — empty
-    }
+    // No per-project file: empty section. NOT the shared file — a project
+    // never reads another scope's document.
+    wake.goals = [];
   }
 
-  // --- Per-project reminders: ops/<tag>/reminders.md when present; legacy
-  // fallback = lines mentioning the tag in the shared file. A FILE concern —
-  // it must not live inside the db try-catch (a missing index would starve
-  // it; found by the contract test with dbPath=/nonexistent/db).
+  // --- Per-project reminders: ops/<tag>/reminders.md. No shared-file
+  // fallback — the shared file is the GLOBAL reminder set; a project never
+  // reads it. (A FILE concern — kept out of the db try-catch so a missing
+  // index never starves it.)
   const projectRemindersPath = path.join(vaultRoot, 'ops', project, 'reminders.md');
   try {
     const content = await fsp.readFile(projectRemindersPath, 'utf8');
     wake.remindersFromFile = true;
     wake.reminders = content.split(/\r?\n/).filter((l) => l.trim().startsWith('-'));
   } catch {
-    try {
-      const shared = await fsp.readFile(path.join(vaultRoot, 'ops', 'reminders.md'), 'utf8');
-      wake.reminders = shared
-        .split(/\r?\n/)
-        .filter((l) => l.trim().startsWith('-'))
-        .filter((l) => l.includes(project));
-    } catch {
-      // neither exists — empty
-    }
+    wake.reminders = [];
   }
 
   // --- Project-scoped reads from the live index. A missing/locked db degrades
@@ -293,23 +278,15 @@ export async function assembleProjectWake(
     const db = new Database(dbPath, { readonly: true });
     try {
       const ph = [...FORGOTTEN_STATUSES].map(() => '?').join(', ');
-      // Daily lines: prefer the per-project file (ops/<tag>/daily.md); fall
-      // back to tag-filtered lines from the shared ops/daily.md.
+      // Daily lines: the per-project file (ops/<tag>/daily.md). No shared-
+      // file fallback — a project never reads the global log.
       const projectDailyPath = path.join(vaultRoot, 'ops', project, 'daily.md');
       let dailyLines: string[];
       try {
         const content = await fsp.readFile(projectDailyPath, 'utf8');
         dailyLines = content.split(/\r?\n/).filter((l) => l.trim() !== '').slice(-12);
       } catch {
-        dailyLines = (await fsp
-          .readFile(path.join(vaultRoot, 'ops', 'daily.md'), 'utf8')
-          .then((content) =>
-            content
-              .split(/\r?\n/)
-              .filter((l) => l.includes(project))
-              .slice(-12),
-          )
-          .catch(() => [] as string[]));
+        dailyLines = [];
       }
       // Membership — the truth everything above and below is cut from.
       const memberRows = db

@@ -300,6 +300,22 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
           ...promoted.warnings,
           ...promoted.changes.map((c) => `auto-promote: ${c}`)
         );
+        // Every project gets its own state files at creation (Eric's law:
+        // the ONLY fallback in wake is the global documents). First promote
+        // into a project scaffolds ops/<tag>/{goals,daily,reminders}.md.
+        // Idempotent; best-effort — a scaffold failure must never lose the
+        // promoted note.
+        if (project.length > 0) {
+          try {
+            const { scaffoldProjectFiles } = await import("../core/projectscaffold.js");
+            const scaffold = await scaffoldProjectFiles(paths, project[0]);
+            for (const c of scaffold.created) {
+              warnings.push(`project scaffold: created ${c}`);
+            }
+          } catch (err) {
+            warnings.push(`project scaffold failed (non-fatal): ${String(err)}`);
+          }
+        }
         // Re-sync the derived index AFTER the move. The embed-on-write pass
         // above synced notes/ while the note still lived in inbox/, so the
         // promoted note was absent from note/note_project until some later
