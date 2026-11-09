@@ -429,6 +429,17 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
+  // The operating manual — intended use, global/project/session scopes,
+  // naming, command workflows. Sits in ops/ so the operational layer
+  // carries it; every transport serves the same text from the scaffold.
+  server.resource("manual", "mnemos://manual", async (uri) => ({
+    contents: [{
+      uri: uri.href,
+      mimeType: "text/markdown",
+      text: await safeReadFile(path.join(paths.ops, "manual.md")),
+    }],
+  }));
+
   // The effective policy sheet — the capability model the agent reads to
   // PREDICT refusals instead of discovering them by trial. Rendered from the
   // same loadPolicy the enforcement sites consume, so the sheet cannot drift

@@ -120,7 +120,7 @@ describe("mnemos_warmth", () => {
 // ---------------------------------------------------------------------------
 
 describe("resources", () => {
-  it("lists all 6 resources", async () => {
+  it("lists all 7 resources", async () => {
     const result = await ctx.client.listResources();
     const uris = result.resources.map((r) => r.uri).sort();
 
@@ -128,10 +128,23 @@ describe("resources", () => {
       "mnemos://daily",
       "mnemos://goals",
       "mnemos://identity",
+      "mnemos://manual",
       "mnemos://methodology",
       "mnemos://policy",
       "mnemos://reminders",
     ]);
+  });
+
+  it("serves the operating manual (intended use, scopes, naming, workflows)", async () => {
+    const result = await ctx.client.readResource({ uri: "mnemos://manual" });
+    const text = result.contents[0].text as string;
+    // The load-bearing sections a cold agent needs.
+    expect(text).toContain("Intended use");
+    expect(text).toContain("GLOBAL / PROJECT / SESSION");
+    expect(text).toContain("Every entry carries its project");
+    expect(text).toContain("Project naming");
+    expect(text).toContain("Command workflows");
+    expect(text).toContain("lowercase, hyphenated");
   });
 
   it("reads identity resource", async () => {

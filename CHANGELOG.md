@@ -2,7 +2,23 @@
 
 ## [Unreleased]
 
-### Changed — the CLI section documents every command's flags, mechanics, and guards
+### Added — the operating manual (`ops/manual.md`, `mnemos://manual`)
+- **Every vault now ships with an operating manual** in `ops/manual.md`,
+  served as the `mnemos://manual` resource. This is the layer the server
+  instructions compress and the README tables reference: intended use
+  (the "would a fresh session have to rediscover this?" test), the three
+  scopes with decision rules (**GLOBAL** — true across every project,
+  rare by design; **PROJECT** — belongs to one project, the default
+  destination; **SESSION** — ephemeral, never written), the rule that
+  every entry carries its project tag, project naming law (lowercase,
+  hyphenated, permanent, map-title convention), the default-project
+  policy (empty by default; a chat/scratch project is the canonical use,
+  never an active workstream), the full command workflows (session
+  lifecycle, removal, state writes, retrieval, housekeeping), and the
+  who-may-do-what table. The doctrine line points agents at it: "when
+  unsure HOW to use the system, read the manual before acting."
+
+### Added — the CLI section documents every command's flags, mechanics, and guards
 - **The README's CLI section was a bare command list** — captions, no
   flags, no behavior. It is now grouped tables (vault/infrastructure,
   capture & promote, removal, retrieval, topology & bridges) stating for
