@@ -242,7 +242,10 @@ export async function assembleProjectWake(
   try {
     const goalsContent = await fsp.readFile(projectGoalsPath, 'utf8');
     wake.goalsFromFile = true;
-    wake.goals = goalsContent
+    // Strip frontmatter first — the delimiter '---' starts with '-' and the
+    // bullet filter below would leak it into the briefing (observed live).
+    const goalsBody = goalsContent.replace(/^---\n[\s\S]*?\n---\n?/, '');
+    wake.goals = goalsBody
       .split(/\r?\n/)
       .filter((g) => /^[-*]|\d+[.)]/.test(g.trim()))
       .slice(0, 8);

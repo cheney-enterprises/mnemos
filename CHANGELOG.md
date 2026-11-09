@@ -109,6 +109,16 @@
   the audit trail), plus the one-line division: notes/ = knows, self/ =
   is, ops/ = does, inbox/ = not sure yet.
 
+### Fixed — per-project goals frontmatter leak + mnemos goals file created
+- **The goals reader leaked the `---` frontmatter delimiter into the
+  briefing** — the bullet filter (`/^[-*]/`) matches the YAML delimiter
+  (observed live: a bare `---` line rendered as a goal in the mnemos
+  scoped wake). Frontmatter is now stripped before filtering.
+- **`ops/mnemos/goals.md` created** — the mnemos project had been waking
+  with zero goals (the fallback grep found nothing in the umbrella-only
+  shared file). The project's real goals (publish, sidecar, project
+  rename, capability honesty) are now the scoped wake's active_goals.
+
 ### Changed — the live vault migrated to per-project state files (the fallback era ends)
 - **Eric's vault now runs the structural layout, not the fallback.** The
   shared `self/goals.md` was split: flutter's performance-track goals →
