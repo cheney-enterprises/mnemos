@@ -2,6 +2,13 @@
 
 ## [Unreleased]
 
+### Added — every wake carries the manual pointer (Eric approved option 1)
+- **`mnemos_wake` now returns a `manual` field on every call** (MCP payload
+  and CLI render): the resource URI, the file path, and the one-line note.
+  The CONTENT never rides in wake — 9KB per boot would be the context debt
+  the budget ladder exists to prevent — but the pointer is impossible to
+  miss: an agent unaware of the manual is defeated by it.
+
 ### Added — the operating manual (`ops/manual.md`, `mnemos://manual`)
 - **Every vault now ships with an operating manual** in `ops/manual.md`,
   served as the `mnemos://manual` resource. This is the layer the server

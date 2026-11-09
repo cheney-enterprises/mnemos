@@ -28,6 +28,12 @@ export async function runWake(
     recentNotes: string[];
     warning?: string;
   };
+  /** The operating manual pointer — present on every wake. */
+  manual: {
+    resource: string;
+    path: string;
+    note: string;
+  };
   /**
    * Present ONLY when no project was given and no default is configured:
    * the payload stays global-only and the agent must relay this choice to
@@ -126,6 +132,15 @@ export async function runWake(
     sections: out.sections,
     projects: inputs.projects,
     policy: policyLine(policy),
+    // The operating manual pointer — one structured line per boot, never the
+    // content (9KB in every wake would be the context debt the budget ladder
+    // exists to prevent). The MANUAL exists so agents know how to act; an
+    // agent unaware of the manual is defeated by it.
+    manual: {
+      resource: "mnemos://manual",
+      path: "ops/manual.md",
+      note: "Operating manual: intended use, global/project/session scopes, project naming, command workflows. Read it (resource or file) when unsure HOW to act.",
+    },
   };
 
   // Project resolution — the wake contract (Eric's design). NOTE: the

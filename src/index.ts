@@ -136,6 +136,7 @@ program
           }
         }
       }
+      console.log(`\n[manual] ${result.manual.note} → ${result.manual.resource} (${result.manual.path})`);
       if (result.project_choice_required) {
         const c = result.project_choice_required;
         console.log(`\n## PROJECT CHOICE REQUIRED\n${c.question}`);
