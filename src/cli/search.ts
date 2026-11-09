@@ -108,6 +108,17 @@ export type SearchResult = {
       /** Other live projects NOT searched. */
       others: Array<{ project: string; notes: number }>;
     };
+    /**
+     * Present when a scoped query's answer looks like the content lives
+     * ELSEWHERE: thin in-scope results or a weak top score. Ranked likely
+     * scopes for the query text (the suggester) — the agent can widen
+     * without a separate call.
+     */
+    project_suggestions?: Array<{
+      project: string;
+      score: number;
+      reasons: string[];
+    }>;
   };
   warnings: string[];
 };
@@ -685,6 +696,7 @@ export async function runQueryRanked(
   // then the <tag>…map convention); a known-tag miss or an unknown tag
   // degrades to unscoped with a warning — never a silent empty answer.
   let projectScope: SearchResult["data"]["project_scope"] | undefined;
+  let projectSuggestions: SearchResult["data"]["project_suggestions"];
   if (project?.trim()) {
     const tag = project.trim();
     const dbPath = path.resolve(vaultRoot, config.engine.db_path);
@@ -703,6 +715,47 @@ export async function runQueryRanked(
         project: tag,
         others: allProjects.filter((p) => p.project !== tag),
       };
+      // The inline suggester: when the scoped answer is thin or weak, the
+      // content may live in another project. Rank the others using the
+      // query text (the suggester) — surfaced IN this response; the agent
+      // widens without a separate call. Thresholds: < limit/2 results, or
+      // top score < 0.45 (weak relevance).
+      const thin = ranked.length < resultLimit / 2;
+      const weak = ranked.length === 0 || (ranked[0]?.score ?? 0) < 0.45;
+      if (thin || weak) {
+        const { suggestScopes } = await import("../core/scopesuggest.js");
+        const cands: Array<{ project: string; footprint: string; lastActive: string | null; notes: number }> = [];
+        for (const p of allProjects.filter((p) => p.project !== tag)) {
+          const others = await projectMemberSlugs(dbPath, p.project);
+          // Footprint: the other project's slugs + descriptions.
+          const slugs = [...others];
+            const descs = slugs.length
+              ? (() => {
+                  const d2 = initDB(dbPath);
+                  try {
+                    const rows = d2
+                      .prepare(
+                        `SELECT slug, description FROM note WHERE slug IN (${slugs.map(() => "?").join(",")})`,
+                      )
+                      .all(...slugs) as Array<{ slug: string; description: string | null }>;
+                    return rows.map((r) => `${r.slug} ${r.description ?? ""}`).join(" ");
+                  } finally {
+                    d2.close();
+                  }
+                })()
+              : "";
+          cands.push({ project: p.project, footprint: slugs.join(" ") + " " + descs, lastActive: null, notes: p.notes });
+        }
+        const suggestions = suggestScopes(query, cands, tag).slice(0, 3);
+        if (suggestions.length > 0) {
+          projectSuggestions = suggestions;
+          warnings.push(
+            `Thin/weak result in scope "${tag}" — the query may belong to another project (suggested: ${suggestions
+              .map((x) => x.project)
+              .join(", ")}). Re-run unscoped or with project=<suggested> if the user may be referencing other conversations.`,
+          );
+        }
+      }
       if (before > 0 && ranked.length === 0) {
         warnings.push(`No ${tag} notes matched this query — 0 of ${before} candidates were in scope.`);
       }
@@ -875,6 +928,7 @@ export async function runQueryRanked(
       warmth: config.warmth.shadow_compare_enabled ? warmthDebug : undefined,
       stages_skipped: stagesSkipped.length > 0 ? stagesSkipped : undefined,
       project_scope: projectScope,
+      project_suggestions: projectSuggestions,
     },
     warnings,
   };

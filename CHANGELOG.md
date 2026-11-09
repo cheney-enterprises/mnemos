@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Changed — suggestions ride INSIDE the scoped search response (Eric: "not a separate call")
+- **`project_suggestions` is now part of the scoped search response
+  itself.** When a scoped query's answer is thin or weak (fewer than
+  limit/2 results, or top score < 0.45), the suggester runs inline on the
+  query text and the response carries ranked likely projects — with the
+  warning naming them. The agent widens without a separate call; a
+  well-matched scoped query carries no suggestions (no noise).
+
 ### Added — the scope suggester: fuzzy references → likely projects (Eric's cross-scope design)
 - **`mnemos_suggest_scope` (18th tool).** The cross-scope reference
   companion: when the user says "our crazy chat from the other night with

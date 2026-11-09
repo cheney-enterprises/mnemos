@@ -125,3 +125,26 @@ describe("degenerate scopes", () => {
     expect(r.data.project_scope).toBeUndefined();
   });
 });
+
+describe("inline suggestions (no separate call)", () => {
+  it("a scoped query whose content lives elsewhere carries ranked suggestions in the SAME response", async () => {
+    // The beta-scoped query about alpha's vocabulary: thin in scope, the
+    // suggester should surface alpha IN the response.
+    const r = await runQueryRanked(vault, "telemetry barometer drift altitude", 5, undefined, undefined, undefined, undefined, undefined, "beta");
+    expect(r.data.project_scope?.project).toBe("beta");
+    const sugg = r.data.project_suggestions ?? [];
+    expect(sugg.length).toBeGreaterThan(0);
+    expect(sugg[0].project).toBe("alpha");
+    expect(sugg[0].reasons.join(" ").toLowerCase()).toContain("barometer");
+    // The warning names the suggested project.
+    expect(r.warnings.join(" ")).toContain(sugg[0].project);
+  });
+
+  it("a well-matched scoped query carries NO suggestions (no noise)", async () => {
+    const r = await runQueryRanked(vault, "telemetry barometer drift altitude", 5, undefined, undefined, undefined, undefined, undefined, "alpha");
+    // Strong in-scope answer — thin/weak thresholds not met, or suggestions
+    // empty because the top candidate IS the current scope (filtered out).
+    const sugg = r.data.project_suggestions ?? [];
+    expect(sugg.every((x) => x.project !== "alpha")).toBe(true);
+  });
+});
