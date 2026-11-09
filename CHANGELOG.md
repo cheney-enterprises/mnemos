@@ -2,6 +2,18 @@
 
 ## [Unreleased]
 
+### Changed — the Vault Structure section now explains what each area is FOR
+- **The README's vault layout was a directory listing with six-word
+  captions** — the reason Eric had to ask "what are inbox, ops, and self
+  for?" a week into using it. The section now states each area's job in
+  full: notes/ (durable knowledge, the source of project truth via
+  frontmatter), inbox/ (the airlock — the ask-first gate means nothing
+  files without a project), self/ (the one agent's identity — global by
+  nature, gates on identity rewrites), ops/ (what the agent is doing —
+  wake reads it, global + per-project state files, the approval queue,
+  the audit trail), plus the one-line division: notes/ = knows, self/ =
+  is, ops/ = does, inbox/ = not sure yet.
+
 ### Changed — reminders join the global+project sets (Eric's design: none of the current items are global)
 - **`ops/<tag>/reminders.md` is the project's own reminder file**, read as
   the authority by the scoped wake (and put through the same temporal

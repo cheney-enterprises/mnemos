@@ -686,24 +686,71 @@ disposable. That was wrong, and following it cost six months of learning.
 
 ```
 vault/
-├── .mnemos                       # Vault marker
-├── mnemos.config.yaml            # Configuration
-├── notes/                     # Knowledge graph (flat, no subfolders)
-│   └── index.md               # Hub entry point
-├── inbox/                     # Capture buffer
-├── templates/                 # Note and map schemas
-├── self/                      # Agent identity
-│   ├── identity.md            # Name, personality, values
-│   ├── goals.md               # Active threads, priorities
-│   ├── methodology.md         # Processing principles
-│   └── memory/                # Agent's accumulated insights
-└── ops/                       # Operational state
-    ├── daily.md               # Today's completed and pending
-    ├── reminders.md           # Time-bound commitments
-    └── sessions/              # Session logs
+├── .mnemos/                      # Vault marker + derived state (embeddings.db, caches)
+├── mnemos.config.yaml            # Configuration (the USER owns this file — the agent never edits it)
+├── notes/                        # The knowledge graph — durable, cross-session knowledge
+│   ├── index.md                  # Hub entry point
+│   ├── <project-tag>-project-map.md   # One map per project: Key Notes + Current State (the living handoff)
+│   └── <note>.md                 # Typed notes with project frontmatter + wiki-links
+├── inbox/                        # Capture buffer — notes land here first, ALWAYS
+├── templates/                    # Note and map schemas (the shape every note must satisfy)
+├── self/                         # The agent's identity — WHO it is (one agent, never per-project)
+│   ├── identity.md               # Name, personality, values (identity_update gate)
+│   ├── goals.md                  # GLOBAL goals — umbrella threads spanning projects
+│   ├── methodology.md            # Processing principles (identity_update gate)
+│   └── memory/                   # Agent's accumulated self-insights
+└── ops/                          # Operational state — what the agent is DOING (wake reads this)
+    ├── daily.md                  # GLOBAL session log — cross-project record of what happened
+    ├── reminders.md              # GLOBAL time-bound commitments (due/upcoming only surface in wake)
+    ├── <tag>/                    # Per-project state: goals.md, daily.md, reminders.md
+    │   ├── goals.md              #   THIS project's goals (scoped wake reads these first)
+    │   ├── daily.md              #   THIS project's session log
+    │   └── reminders.md          #   THIS project's time-bound items
+    ├── sessions/                 # Explore-session records
+    ├── requests/                 # Pending removal/identity intents (the approval queue)
+    ├── .trash/                   # Executed purges — trash copy before unlink, always
+    ├── forget-audit.jsonl        # Append-only audit: every intent, approval, refusal, execution
+    └── promote.log               # Promotion history
 ```
 
 Every file is plain markdown. Open it in any text editor, Obsidian, or your file browser. `git log` is your audit trail.
+
+### What each area is FOR (and who touches it)
+
+**`notes/` — the knowledge. Durable facts, decisions, doctrines, platform truths.**
+What a fresh session must *retrieve*. Written via `mnemos_add` → `mnemos_promote`; each note
+carries `project: [tag]` frontmatter, which is the single source of truth for project separation
+(the derived index mirrors it into `note_project`, and every scoped read filters on it). The map's
+`## Current State` section is the overwritten, always-current "where we are" — the handoff of record.
+
+**`inbox/` — the airlock. Nothing skips it.**
+`mnemos_add` writes here first. The note is staged, not filed: the ask-first gate refuses to
+auto-promote anything without a project, so a project-less capture waits in inbox until the user
+answers ("existing project, or a new one + its name?"). Promote moves it into `notes/` with
+classification, links, and routing.
+
+**`self/` — the agent's identity. WHO it is — global by nature.**
+- `identity.md` / `methodology.md`: the self-model. Rewriting these is `identity_update`-gated:
+  the agent proposes, the user approves from a real terminal.
+- `goals.md`: the GLOBAL goal set — umbrella threads spanning projects ("ship the Flutter
+  sidecar", "keep the vault honest"). Per-project goals live in `ops/<tag>/goals.md`, and the
+  scoped wake reads those first. Bare `mnemos_update file=goals` means global.
+
+**`ops/` — the operational state. WHAT the agent is doing — wake reads this.**
+- `daily.md` (global) + `ops/<tag>/daily.md` (per project): session logs. The scoped wake reads
+  the project's own file first, falling back to tag-filtered lines of the shared file.
+- `reminders.md` (global) + `ops/<tag>/reminders.md` (per project): time-bound commitments.
+  The temporal filter surfaces only due/upcoming items; expired ones never appear. Genuinely
+  global items ("follow up with Eric on X") belong in the shared file; project-bound ones in
+  the project's file.
+- `requests/`: the capability model's approval queue — pending purge/identity intents await a
+  user's `mnemos requests approve|deny <id>` from a real terminal.
+- `forget-audit.jsonl`: append-only record of every removal decision, with process provenance.
+
+**The division in one line:** `notes/` is what the agent knows, `self/` is who the agent is,
+`ops/` is what the agent is doing, `inbox/` is what it is not yet sure about. And every state
+file in `ops/` has a global form and a per-project form (`ops/<tag>/`), with the project form
+winning whenever a project is named.
 
 ---
 
