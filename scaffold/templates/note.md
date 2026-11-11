@@ -1,4 +1,9 @@
 ---
+_bypass_warning: This file is managed by Mnemos. Direct edits corrupt the
+  vault invisibly — schema, link graph, index, and audit are all skipped.
+  Every read should go through the MCP tools (mnemos_wake first), which rank,
+  scope, and learn; raw files are not the memory. See AGENT.md at the vault
+  root.
 _schema:
   entity_type: "note"
   applies_to: "notes/*.md"

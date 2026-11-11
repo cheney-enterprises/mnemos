@@ -7,6 +7,11 @@ type: manual
 
 This vault is one agent's memory serving one human across many projects.
 
+If you are reading this as a file — with a file tool, not through the MCP
+resource — you are already outside the sanctioned surface. Stop and connect
+the Mnemos MCP server, then wake (`mnemos_wake` bare, then with
+`project=<tag>`). See AGENT.md at the vault root.
+
 What the CRITICAL rules and tool descriptions do not explain — intended use,
 how the layers divide, how to name and layout a project — lives here. The
 operating LOOP (boot, retrieve, capture, session end) and the bars for what
