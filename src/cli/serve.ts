@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod";
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import crypto from "node:crypto";
 import { runAdd } from "./add.js";
 import { runValidate } from "./validate.js";
@@ -16,10 +17,9 @@ import { runIndexBuild } from "./indexcmd.js";
 import { runPrune } from "./prune.js";
 import { runForget } from "./forget.js";
 import { runUpdateFile } from "./update.js";
-import { suggestScopesForReference } from "./wake.js";
+import { runWake, suggestScopesForReference } from "./wake.js";
 import { findVaultRootWithSource, getGlobalVaultPath, getVaultPaths, type VaultPaths } from "../core/vault.js";
 import { runInit } from "./init.js";
-import { runWake } from "./wake.js";
 import { GraphCache } from "../core/graph.js";
 import { initDB } from "../core/engine.js";
 import { loadConfig } from "../core/config.js";
@@ -547,9 +547,37 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       project: z.string().optional().describe("The project tag whose scoped context to load — pass it when the user or the repo names the project and the FIRST call then returns the full briefing in one shot"),
       path: z.string().optional().describe("The repository/session directory to resolve to a project (overrides config wake.project_paths matching)"),
       hint: z.string().optional().describe("A loose description of what this session is about, used to suggest or resolve the project when project= is not given"),
+      ask: z.boolean().optional().describe("Force the project-choice question even when the project could be resolved silently (ask=true) — for when the user must choose"),
     },
-    async ({ budget, project, path: pathArg, hint }) => {
-      const payload: Record<string, unknown> = await runWake(vaultDir, budget ?? 96, project, hint, pathArg);
+    async ({ budget, project, path: pathArg, hint, ask }) => {
+      // The MCP server is bound to the vault root, so startDir inside runWake
+      // is the vault, never the user's repo — the cwd bridge cannot fire over
+      // MCP. Roots close that gap: when the client advertises the roots
+      // capability (Claude Code, Cursor, Ori all do), the session's workspace
+      // dirs arrive here and take path-bridge precedence (below an explicit
+      // path= argument, above the config default — most-specific wins).
+      let rootsDir: string | undefined;
+      try {
+        const caps = server.server.getClientCapabilities();
+        if (caps?.roots && !pathArg?.trim()) {
+          const roots = await server.server.listRoots();
+          const first = roots.roots[0]?.uri;
+  if (first) {
+            rootsDir = fileURLToPath(first);
+          }
+        }
+      } catch {
+        // Roots are a courtesy signal, not a requirement — a client without
+        // them degrades to the CLI/paths/default/question ladder unchanged.
+      }
+      const payload: Record<string, unknown> = await runWake(
+        vaultDir,
+        budget ?? 96,
+        project,
+        hint,
+        pathArg?.trim() || rootsDir,
+        ask === true,
+      );
       wakeState = { scoped: Boolean(project?.trim()), project: project?.trim() || undefined };
       attachLearningResetNotice(payload);
       await attachWhatsNew(payload);
@@ -659,7 +687,7 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       current_project: z.string().optional().describe("The session's current scope, if any — mild bias in the ranking"),
     },
     async ({ reference, current_project }) => {
-      const suggestions = await suggestScopesForReference(vaultDir, reference, current_project);
+      const suggestions = await suggestScopesForReference(vaultDir, reference, current_project, vaultDir);
       return textResult({
         success: true,
         data: {

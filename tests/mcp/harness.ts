@@ -6,6 +6,8 @@
  */
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { ListRootsRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { pathToFileURL } from "node:url";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -18,11 +20,20 @@ export type McpTestContext = {
   cleanup: () => Promise<void>;
 };
 
+export type McpTestContextOptions = {
+  /**
+   * Workspace dirs the client reports via MCP roots — what Claude Code,
+   * Cursor, and Ori hand the server at session start. Roots are how an MCP
+   * wake learns the session's repo (the server itself is vault-bound).
+   */
+  roots?: string[];
+};
+
 /**
  * Create a fresh vault, spawn the MCP server, connect a client.
  * Returns a context object with client, vaultDir, and cleanup function.
  */
-export async function createMcpTestContext(): Promise<McpTestContext> {
+export async function createMcpTestContext(options?: McpTestContextOptions): Promise<McpTestContext> {
   // Create temp vault
   const vaultDir = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-mcp-test-"));
   await runInit({ targetDir: vaultDir });
@@ -58,8 +69,14 @@ export async function createMcpTestContext(): Promise<McpTestContext> {
 
   const client = new Client(
     { name: "mnemos-test-client", version: "1.0.0" },
-    { capabilities: {} }
+    { capabilities: options?.roots ? { roots: { listChanged: true } } : {} }
   );
+
+  if (options?.roots?.length) {
+    client.setRequestHandler(ListRootsRequestSchema, async () => ({
+      roots: options.roots.map((r) => ({ uri: pathToFileURL(r).href, name: path.basename(r) })),
+    }));
+  }
 
   await client.connect(transport);
 

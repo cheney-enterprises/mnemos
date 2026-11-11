@@ -184,6 +184,8 @@ describe("hint resolution and suggestions", () => {
     const names = (q?.suggestions ?? []).map((s) => s.project);
     expect(names).toContain("alpha");
     expect(names).toContain("beta");
+    // Two strong candidates = a genuine ambiguity; the payload says so.
+    expect(q?.race_note).toBeDefined();
   });
 
   it("a hint matching nothing never resolves silently and never fakes text agreement", async () => {
@@ -216,6 +218,64 @@ describe("config parsing keeps the boundary honest", () => {
       await fs.writeFile(configPath, original);
     } finally {
       await fs.rm(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("ask=true forces the question", () => {
+  it("skips every silent-resolution path, including an explicit default", async () => {
+    const configPath = path.join(vaultDir, "mnemos.config.yaml");
+    const original = await fs.readFile(configPath, "utf8");
+    try {
+      await fs.writeFile(configPath, original + "\nwake:\n  project_default: alpha\n");
+      const r = await runWake(vaultDir, 96, undefined, undefined, undefined, true);
+      expect(r.project_choice_required).toBeDefined();
+      expect(r.project_choice_required?.reason).toBe("wake.project_required");
+      expect(r.projectWake).toBeUndefined();
+      expect(r.resolution).toBeUndefined();
+    } finally {
+      await fs.writeFile(configPath, original);
+    }
+  });
+
+  it("explicit project still wins over ask (the user named it)", async () => {
+    const r = await runWake(vaultDir, 96, "beta", undefined, undefined, true);
+    expect(r.projectWake?.project).toBe("beta");
+    expect(r.project_choice_required).toBeUndefined();
+  });
+});
+
+describe("directory-name suggestions (the Alarm App case)", () => {
+  it("a dir whose NAME matches project content feeds suggestions inside the question", async () => {
+    // gamma's footprint carries 'garden' — a repo NAMED for the topic but
+    // not registered in project_paths suggests, never silently scopes.
+    // MNEMOS_VAULT pins the vault (the real CLI-with-env shape); the session
+    // dir is an unregistered repo whose NAME matches gamma's footprint.
+    const gardenDir = path.join(os.tmpdir(), "garden-planner-workspace");
+    await fs.mkdir(gardenDir, { recursive: true });
+    try {
+      process.env.MNEMOS_VAULT = vaultDir;
+      const r = await runWake(gardenDir, 96);
+      expect(r.project_choice_required).toBeDefined();
+      const names = (r.project_choice_required?.suggestions ?? []).map((s) => s.project);
+      expect(names).toContain("gamma");
+    } finally {
+      delete process.env.MNEMOS_VAULT;
+      await fs.rm(gardenDir, { recursive: true, force: true });
+    }
+  });
+
+  it("an unregistered dir name never resolves silently, however strong the match", async () => {
+    const calDir = path.join(os.tmpdir(), "calendar-events-workspace");
+    await fs.mkdir(calDir, { recursive: true });
+    try {
+      process.env.MNEMOS_VAULT = vaultDir;
+      const r = await runWake(calDir, 96);
+      expect(r.projectWake).toBeUndefined();
+      expect(r.project_choice_required).toBeDefined();
+    } finally {
+      delete process.env.MNEMOS_VAULT;
+      await fs.rm(calDir, { recursive: true, force: true });
     }
   });
 });

@@ -98,8 +98,9 @@ program
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
   .option("--path <dir>", "the repository directory to resolve to a project (overrides wake.project_paths matching)")
   .option("--hint <phrase>", "a loose description of the session, used to resolve or suggest the project when --project is not given")
+  .option("--ask", "force the project-choice question even when the project could be resolved silently")
   .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
-  .action(async (options: { budget: string; project?: string; hint?: string; path?: string; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
+    .action(async (options: { budget: string; project?: string; hint?: string; path?: string; ask?: boolean; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
     // Doctrine syntax alias. The MCP tool takes named arguments (project="<tag>"),
     // and the doctrine teaches that convention — but bare text on the CLI is a
     // positional. Accept the doctrine form here so the two surfaces can never
@@ -118,7 +119,7 @@ program
       );
       process.exit(1);
     }
-    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.hint, options.path);
+    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.hint, options.path, options.ask === true);
     if (options.json === true) {
       console.log(JSON.stringify(result, null, 2));
     } else {

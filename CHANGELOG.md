@@ -3,6 +3,34 @@
 ## [Unreleased]
 
 ### Changed — wake resolves the project instead of asking (Eric's cold-session feedback, items 2-4)
+- **The MCP roots bridge (the "open memory vault in a repo session" flow).**
+  The MCP server is vault-bound, so a bare MCP wake could never see the
+  session's working directory — the path bridge was CLI-only. Now, when the
+  client advertises the roots capability (Claude Code, Cursor, Ori all do),
+  wake asks for the session's workspace dirs and matches them against
+  `wake.project_paths` — one call, no question, no agent judgment. Clients
+  without roots degrade to the unchanged ladder. An explicit `path=`
+  argument outranks the roots (explicit beats discovered).
+- **Most-specific-wins precedence.** A directory match now outranks
+  `wake.project_default` — a default is for sessions with no project of
+  their own, and a session sitting in a registered repo has one. (The
+  0.9.0 ordering had this backwards.)
+- **`ask=true` forces the question** through every silent path — for when
+  the user must choose. An explicit `project=` still wins: it IS the
+  answer, not a resolution guess.
+- **Directory names feed the suggester (the "Alarm App" case).** The vault
+  tag and the repo name never have to match — `wake.project_paths` maps
+  the real directory to whatever tag (`"~/Desktop/Alarm App": roust`).
+  When the directory is NOT registered, its basename is folded into the
+  suggestion reference: a session in "Alarm Widget Experiments" returns
+  the question with "mentions alarm → roust, mentions widget →
+  ai-flutter-chat" inside it — and a `race_note` when the top two are
+  nearly tied, so the agent asks instead of guessing. A directory name
+  alone can NEVER resolve silently: it is circumstantial; only a
+  caller-supplied hint is intent.
+- **Test-harness roots support** (tests/mcp/harness.ts): a test client can
+  declare the roots capability and answer roots/list, so the MCP surface
+  of the bridge is covered end-to-end (tests/mcp/wake-roots.test.ts).
 - **Resolve-first wake.** Without an explicit project, wake now scopes silently
   when something names the project: config `wake.project_default`, then the
   session directory via the new `wake.project_paths` bridge (exact or nested
