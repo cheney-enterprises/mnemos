@@ -90,17 +90,15 @@ program
   .command("wake")
   .description(
     "OPEN the memory vault — the session-start verb (wake/boot/orient). One call: identity, roster, policy, and — when the project is known — the project's full briefing in ONE payload. " +
-      "--project <tag> when the user names it; --path <dir> to match a repository to a project; --hint \"<phrase>\" for a loose description (\"the alarm snooze stuff\") — resolved or suggested automatically. " +
-      "Bare wake is the menu form: roster +, on true ambiguity, a project_choice_required question to relay to the user, then re-call with --project. " +
+      "--project <tag> when the user names it. A bare wake scopes itself when the session directory is registered in wake.project_paths or wake.project_default is set (every silent scoping carries a resolution note); otherwise it ASKS: a project_choice_required question (roster + new-project option) to relay to the user, then re-call with --project. " +
       "Run from inside a vault (or set MNEMOS_VAULT)."
   )
   .option("--budget <n>", "max lines (default 96)", "96")
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
   .option("--path <dir>", "the repository directory to resolve to a project (overrides wake.project_paths matching)")
-  .option("--hint <phrase>", "a loose description of the session, used to resolve or suggest the project when --project is not given")
   .option("--ask", "force the project-choice question even when the project could be resolved silently")
   .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
-    .action(async (options: { budget: string; project?: string; hint?: string; path?: string; ask?: boolean; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
+    .action(async (options: { budget: string; project?: string; path?: string; ask?: boolean; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
     // Doctrine syntax alias. The MCP tool takes named arguments (project="<tag>"),
     // and the doctrine teaches that convention — but bare text on the CLI is a
     // positional. Accept the doctrine form here so the two surfaces can never
@@ -119,7 +117,7 @@ program
       );
       process.exit(1);
     }
-    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.hint, options.path, options.ask === true);
+    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.path, options.ask === true);
     if (options.json === true) {
       console.log(JSON.stringify(result, null, 2));
     } else {

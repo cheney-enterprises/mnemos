@@ -79,10 +79,16 @@ function sizeScore(notes: number): number {
 }
 
 /**
- * IDF across the candidate set: a token in EVERY footprint (cross-mentions —
- * the roust handoff line mentions the flutter session) is weak evidence; a
- * token unique to one footprint ('snooze' lives only in roust) is strong.
- * idf(t) = ln(1 + N/df), N = candidates, df = footprints containing t.
+ * IDF across the candidate set: a token in EVERY footprint of a REAL set
+ * (df = N, N >= 2) carries ZERO discriminating information — "memory" in a
+ * vault where every project touches memory must not manufacture a tie
+ * (observed live: cwd "ai memory" ranked all three projects ~1.00 under the
+ * old ln(1 + N/df), which gave a universal token ln(2) ≈ 0.69). A token
+ * unique to one footprint is strong. With a SINGLE candidate, though,
+ * containment IS the evidence — there is nothing to discriminate against —
+ * so the lone candidate earns full credit for its hits (this is what the
+ * inline scoped-query suggestions run on: one other project, does its
+ * footprint contain the query's words).
  */
 function tokenIdf(
   refTokens: string[],
@@ -93,7 +99,11 @@ function tokenIdf(
   for (const t of refTokens) {
     let df = 0;
     for (const fp of footprints) if (fp.has(t)) df += 1;
-    weights.set(t, Math.log(1 + N / Math.max(1, df)));
+    if (df >= N && N > 1) {
+      weights.set(t, 0); // universal across a real set: zero discrimination
+    } else {
+      weights.set(t, Math.log(1 + N / Math.max(1, df)));
+    }
   }
   return weights;
 }
@@ -127,12 +137,19 @@ export function suggestScopes(
     // everywhere-token hits weigh near nothing.
     const foot = footprints[candidates.indexOf(c)];
     const hits = [...ref].filter((t) => foot.has(t));
+    // Only tokens with positive IDF are distinctive evidence; a universal
+    // token (idf 0) matches everyone equally and must not count as a "hit"
+    // — otherwise a reference of nothing but universal tokens dresses pure
+    // recency noise up as a 1.00 text match (observed live: "memory" in a
+    // vault where every project touches memory ranked all three at 1.00,
+    // with the true memory project THIRD on size alone).
+    const distinctiveHits = hits.filter((t) => (idf.get(t) ?? 0) > 0);
     const idfSum = [...ref].reduce((s2, t) => s2 + (idf.get(t) ?? 0), 0);
     const textScore =
       ref.size === 0 || idfSum === 0 ? 0 : hits.reduce((s2, t) => s2 + (idf.get(t) ?? 0), 0) / idfSum;
-    if (hits.length > 0) {
+    if (distinctiveHits.length > 0) {
       score += textScore * WEIGHTS.text;
-      const distinctive = hits
+      const distinctive = distinctiveHits
         .slice()
         .sort((a, b) => (idf.get(b) ?? 0) - (idf.get(a) ?? 0));
       reasons.push(`mentions ${distinctive.slice(0, 3).join(", ")}`);

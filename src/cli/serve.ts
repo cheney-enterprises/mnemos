@@ -535,21 +535,22 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       "other memory tool (it is the wake/boot/orient call). One call returns the identity, " +
       "the project roster, policy, and — when the project is known — that project's full " +
       "briefing (map Current State, goals, daily, reminders, recent notes). Pass " +
-      "project=<tag> when the user or the repo names it; pass path=<dir> when the vault " +
-      "should be matched to a repository; pass hint=\"<phrase>\" when the user described " +
-      "the work loosely (\"the alarm snooze stuff\", \"the flutter chat\") and the likely " +
-      "project is resolved or suggested automatically. Bare wake (nothing passed) is the " +
-      "menu form: it returns the roster and, on true ambiguity, a project_choice_required " +
-      "question to relay to the user — then re-call with project=<tag> to load the scoped " +
-      "briefing. Retrieval tools are degraded until a wake happens.",
+      "project=<tag> when the user names the project. A bare wake scopes itself when the " +
+      "session directory is registered in wake.project_paths (the repo→project bridge; " +
+      "the repo's name never has to match the tag) or when wake.project_default is set — " +
+      "every silent scoping carries a resolution note. Otherwise wake ASKS: it returns " +
+      "project_choice_required (roster + the new-project option) for you to relay to the " +
+      "user — the user picks an existing project or names a new one, then you re-call with " +
+      "project=<tag>. For vague user answers (\"the alarm snooze stuff\"), " +
+      "mnemos_suggest_scope ranks the likely projects — but ask first, do not guess. " +
+      "Retrieval tools are degraded until a wake happens.",
     {
       budget: z.number().optional().describe("Max lines (default 96)"),
       project: z.string().optional().describe("The project tag whose scoped context to load — pass it when the user or the repo names the project and the FIRST call then returns the full briefing in one shot"),
       path: z.string().optional().describe("The repository/session directory to resolve to a project (overrides config wake.project_paths matching)"),
-      hint: z.string().optional().describe("A loose description of what this session is about, used to suggest or resolve the project when project= is not given"),
       ask: z.boolean().optional().describe("Force the project-choice question even when the project could be resolved silently (ask=true) — for when the user must choose"),
     },
-    async ({ budget, project, path: pathArg, hint, ask }) => {
+    async ({ budget, project, path: pathArg, ask }) => {
       // The MCP server is bound to the vault root, so startDir inside runWake
       // is the vault, never the user's repo — the cwd bridge cannot fire over
       // MCP. Roots close that gap: when the client advertises the roots
@@ -574,7 +575,6 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         vaultDir,
         budget ?? 96,
         project,
-        hint,
         pathArg?.trim() || rootsDir,
         ask === true,
       );

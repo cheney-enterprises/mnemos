@@ -102,6 +102,17 @@ describe("explicit project beats everything", () => {
     const r = await runWake(vaultDir, 96, "no-such-project");
     expect(r.projectWake?.warning).toContain("no project");
     expect(r.project_choice_required).toBeUndefined();
+    // The create path is machine-actionable: the agent may create the scope.
+    expect(r.projectWake?.new_project_ready).toBe(true);
+  });
+});
+
+describe("new-project flow", () => {
+  it("a named-but-absent project invites creation via a machine-readable flag", async () => {
+    const r = await runWake(vaultDir, 96, "fresh-scope");
+    expect(r.projectWake?.project).toBe("fresh-scope");
+    expect(r.projectWake?.new_project_ready).toBe(true);
+    expect(r.projectWake?.warning).toContain("fresh-scope");
   });
 });
 
@@ -153,7 +164,7 @@ describe("the repo->project bridge (wake.project_paths)", () => {
       await fs.writeFile(configPath, original + `\nwake:\n  project_paths:\n    "${otherDir}": beta\n`);
       // pathArg points at otherDir (registered to beta) while startDir is
       // the vault itself (unregistered) — the explicit argument wins.
-      const r = await runWake(vaultDir, 96, undefined, undefined, otherDir);
+      const r = await runWake(vaultDir, 96, undefined, otherDir);
       expect(r.projectWake?.project).toBe("beta");
       expect(r.resolution?.method).toBe("path");
     } finally {
@@ -162,43 +173,26 @@ describe("the repo->project bridge (wake.project_paths)", () => {
   });
 
   it("a path that registers to nothing falls through to the question", async () => {
-    const r = await runWake(vaultDir, 96, undefined, undefined, otherDir);
+    const r = await runWake(vaultDir, 96, undefined, otherDir);
     expect(r.project_choice_required).toBeDefined();
   });
 });
 
-describe("hint resolution and suggestions", () => {
-  it("a distinctive hint resolves silently via the suggester", async () => {
-    const r = await runWake(vaultDir, 96, undefined, "the calendar scheduling stuff");
-    expect(r.projectWake?.project).toBe("alpha");
-    expect(r.resolution?.method).toBe("hint");
-    expect(r.resolution?.note).toContain("hint");
-    expect(r.project_choice_required).toBeUndefined();
-  });
-
-  it("an ambiguous hint puts the suggestions INSIDE the question", async () => {
-    const r = await runWake(vaultDir, 96, undefined, "calendar and countdown features");
+describe("hints ask instead of resolving (Eric's call: the question beats fuzzy logic)", () => {
+  it("the question carries every roster project with its note count — the user sees the options", async () => {
+    // The suggestion engine manufactured phantom ties in the live vault
+    // ("ai memory" ranked all three projects 1.00 on a token every footprint
+    // contained); the hint parameter is retired. The question is the one
+    // path for unknown scopes, and it must name the options inline — the
+    // user never faces a bare "which project?".
+    const r = await runWake(vaultDir, 96);
     const q = r.project_choice_required;
     expect(q).toBeDefined();
-    expect(q?.suggestions).toBeDefined();
-    const names = (q?.suggestions ?? []).map((s) => s.project);
-    expect(names).toContain("alpha");
-    expect(names).toContain("beta");
-    // Two strong candidates = a genuine ambiguity; the payload says so.
-    expect(q?.race_note).toBeDefined();
-  });
-
-  it("a hint matching nothing never resolves silently and never fakes text agreement", async () => {
-    const r = await runWake(vaultDir, 96, undefined, "quantum xylophone maintenance");
-    // Recency-only suggestions may ride INSIDE the question (they are
-    // advisory; temporal hints like "last night" rank by recency
-    // legitimately) — but none may claim a text match, and nothing may
-    // resolve silently on recency alone.
-    expect(r.projectWake).toBeUndefined();
-    expect(r.project_choice_required).toBeDefined();
-    for (const s of r.project_choice_required?.suggestions ?? []) {
-      expect(s.reasons.every((reason) => !reason.startsWith("mentions "))).toBe(true);
+    for (const p of ["alpha", "beta", "gamma"]) {
+      expect(q?.question).toContain(p);
     }
+    expect(q?.question).toContain("notes");
+    expect(q?.question).toContain("NEW project");
   });
 });
 
@@ -228,7 +222,7 @@ describe("ask=true forces the question", () => {
     const original = await fs.readFile(configPath, "utf8");
     try {
       await fs.writeFile(configPath, original + "\nwake:\n  project_default: alpha\n");
-      const r = await runWake(vaultDir, 96, undefined, undefined, undefined, true);
+      const r = await runWake(vaultDir, 96, undefined, undefined, true);
       expect(r.project_choice_required).toBeDefined();
       expect(r.project_choice_required?.reason).toBe("wake.project_required");
       expect(r.projectWake).toBeUndefined();
@@ -239,43 +233,29 @@ describe("ask=true forces the question", () => {
   });
 
   it("explicit project still wins over ask (the user named it)", async () => {
-    const r = await runWake(vaultDir, 96, "beta", undefined, undefined, true);
+    const r = await runWake(vaultDir, 96, "beta", undefined, true);
     expect(r.projectWake?.project).toBe("beta");
     expect(r.project_choice_required).toBeUndefined();
   });
 });
 
 describe("directory-name suggestions (the Alarm App case)", () => {
-  it("a dir whose NAME matches project content feeds suggestions inside the question", async () => {
-    // gamma's footprint carries 'garden' — a repo NAMED for the topic but
-    // not registered in project_paths suggests, never silently scopes.
-    // MNEMOS_VAULT pins the vault (the real CLI-with-env shape); the session
-    // dir is an unregistered repo whose NAME matches gamma's footprint.
-    const gardenDir = path.join(os.tmpdir(), "garden-planner-workspace");
-    await fs.mkdir(gardenDir, { recursive: true });
+  it("an unregistered dir asks plainly — no suggestion machinery in the question", async () => {
+    // Dir-name folding was retired with the hint path: the question is the
+    // user's decision point, and the roster inside it is the only guidance.
+    // (Vague references are mnemos_suggest_scope's job, on the user's words.)
+    const someDir = path.join(os.tmpdir(), "garden-planner-workspace");
+    await fs.mkdir(someDir, { recursive: true });
     try {
       process.env.MNEMOS_VAULT = vaultDir;
-      const r = await runWake(gardenDir, 96);
+      const r = await runWake(someDir, 96);
       expect(r.project_choice_required).toBeDefined();
-      const names = (r.project_choice_required?.suggestions ?? []).map((s) => s.project);
-      expect(names).toContain("gamma");
-    } finally {
-      delete process.env.MNEMOS_VAULT;
-      await fs.rm(gardenDir, { recursive: true, force: true });
-    }
-  });
-
-  it("an unregistered dir name never resolves silently, however strong the match", async () => {
-    const calDir = path.join(os.tmpdir(), "calendar-events-workspace");
-    await fs.mkdir(calDir, { recursive: true });
-    try {
-      process.env.MNEMOS_VAULT = vaultDir;
-      const r = await runWake(calDir, 96);
+      expect(r.project_choice_required?.suggestions).toBeUndefined();
+      expect(r.project_choice_required?.race_note).toBeUndefined();
       expect(r.projectWake).toBeUndefined();
-      expect(r.project_choice_required).toBeDefined();
     } finally {
       delete process.env.MNEMOS_VAULT;
-      await fs.rm(calDir, { recursive: true, force: true });
+      await fs.rm(someDir, { recursive: true, force: true });
     }
   });
 });

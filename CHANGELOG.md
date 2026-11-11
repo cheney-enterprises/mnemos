@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Changed — the wake contract simplified: known-or-ask, no fuzzy layer (Eric's call)
+- **Wake resolves from *intent signals only*, and asks otherwise.** Silent
+  scoping happens from an explicit `project=`, a registered session directory
+  (`wake.project_paths` / client roots / `path=`), or a configured default —
+  signals that name the project, not guess at it. Everything else goes
+  straight to the question: `project_choice_required`, now with the existing
+  options IN the question text (`Existing projects: ai-flutter-chat (28
+  notes), roust (25 notes), mnemos (4 notes)`) plus the new-project option —
+  the user never faces a bare "which project?" without seeing what exists.
+  The `hint=`/`--hint` parameter is retired: the suggestion engine ran on a
+  reference the caller had to construct, manufactured phantom ties in the
+  live vault (cwd "ai memory" ranked all three projects ~1.00 on a token
+  every footprint contained), and the fix for fuzzy noise is the question,
+  not smarter fuzzy logic. Vague user answers ("the alarm snooze stuff")
+  remain mnemos_suggest_scope's job — invoked on the USER's words, never a
+  silent wake path.
+- **IDF fix in the suggester (kept for mnemos_suggest_scope and the inline
+  scoped-query suggestions).** A token present in every candidate footprint
+  of a real set (df = N, N ≥ 2) now scores ZERO discriminating weight
+  (was ln(1 + N/df) ≈ 0.69 — the phantom-tie root cause); with a single
+  candidate, containment still earns full credit (nothing to discriminate
+  against — what the inline query suggestions run on). A dedicated unit
+  suite (tests/core/scopesuggest.test.ts) pins the contract: universal
+  tokens never claim "mentions", distinctive tokens dominate recency noise,
+  the smallest project wins on genuine evidence, and lone-candidate
+  containment survives.
 ### Changed — wake resolves the project instead of asking (Eric's cold-session feedback, items 2-4)
 - **The MCP roots bridge (the "open memory vault in a repo session" flow).**
   The MCP server is vault-bound, so a bare MCP wake could never see the
