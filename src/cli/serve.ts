@@ -439,8 +439,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }],
   }));
 
-  // The operating manual — intended use, global/project/session scopes,
-  // naming, command workflows. Sits in ops/ so the operational layer
+  // The operating manual — intended use, scopes, naming, layout. Sits in
+  // ops/ so the operational layer carries it; every transport serves the
+  // same text from the scaffold. The doctrine carries the always-present
+  // contract; the manual is the section-addressed deep reference, so
+  // agents pull one section instead of shotgun-reading the file.
   // carries it; every transport serves the same text from the scaffold.
   server.resource("manual", "mnemos://manual", async (uri) => ({
     contents: [{

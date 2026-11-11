@@ -553,7 +553,7 @@ Six resources carry the always-readable layer:
 
 | Resource | What it serves |
 |----------|----------------|
-| `mnemos://manual` | The operating manual: intended use, the global/project/session scope decision rules, project naming, and every command workflow in depth. `ops/manual.md` — ships with every vault scaffold. |
+| `mnemos://manual` | The operating manual, section-addressed: §1 intended use (what belongs in the vault), §2-4 scope/tagging/naming rules, §5 vault layout. Deep reference — read the one section you need, never the whole file; the command workflows are doctrine, carried in every session. `ops/manual.md` — ships with every vault scaffold. |
 | `mnemos://identity`, `mnemos://goals`, `mnemos://methodology` | The self layer, as written by `mnemos_update` |
 | `mnemos://daily`, `mnemos://reminders` | The ops layer, as written by `mnemos_update` |
 | `mnemos://policy` | The effective policy sheet: all six gates with their configured levels, the removal law (propose/approve split, trash, audit), and the config source. Rendered from the same `loadPolicy` the enforcement sites consume, so it cannot drift from what is actually enforced. |

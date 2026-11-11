@@ -1,5 +1,35 @@
 # Changelog
 
+## [Unreleased]
+
+### Changed — the operating manual deduplicated: the doctrine owns the contract, the manual is the section-addressed deep reference
+- **The manual no longer restates the command workflows, the quality bars,
+  or the capability model.** Sections 1-4 (intended use, the three scopes,
+  project tagging, naming rules) are unchanged — they are the load-bearing
+  content only the manual carries. The old §6 "Command workflows" (and its
+  removal/state-write/cross-scope/retrieval subsections) is replaced by
+  §6 "Where the deep references live": pointers to `mnemos --help`, the
+  README's tool table, `mnemos://policy`, and `mnemos://identity`. The
+  workflow loop and the quality bars are doctrine, carried in every
+  session's context; restating them in the manual doubled the drift
+  surface (the live vault copy had already diverged from the scaffold)
+  and repaid ~2,600 tokens every time an agent opened the file whole.
+- **Every manual trigger now addresses sections, not the whole file.** The
+  wake pointer names §1 / §2-4 / §5 and says the doctrine is the
+  always-present contract; both doctrine RESOURCES lines carry the same
+  section map and drop the "when unsure HOW to act, read the manual"
+  invitation (a cold agent is unsure by definition — that trigger is how
+  the shotgun read happened); onboarding's first-capture read stops at §4
+  ("the command workflows are doctrine, already in your context; do not
+  read them twice"). The manual shrinks 10.4 KB → 7.0 KB; a targeted
+  §2-4 read is now ~1,600 tokens instead of ~2,600 for the whole file.
+- **A drift-guard test pins the shape** (tests/docs/manual-sync.test.ts):
+  the manual carries exactly §1-6 and no workflow restatement, wake and
+  both doctrine carriers point at sections, and — when a live vault is
+  present on the machine — the vault's `ops/manual.md` must be
+  byte-identical to the scaffold's, the same counting mechanism that
+  keeps the README honest.
+
 ## [0.9.0] - 2026-11-09
 
 ### Changed — cold-agent feedback fixes: access law, boot gate, content excerpts, MOC protection, provenance

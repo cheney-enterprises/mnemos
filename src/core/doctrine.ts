@@ -82,7 +82,7 @@ export function workflowRules(): string {
     "- MAP UPDATE (mnemos_update file=map project=\"<tag>\"): overwrites the project map's Current State section — this is how the SESSION END map step is performed. Replace semantics: pass the new Current State body (done / next action / blocked); Key Notes and frontmatter are untouched.\n" +
     "- MAPS ARE POINTERS: a project map's Current State section is the living handoff — overwrite semantics, never append session narrative to a map.\n" +
     "- HOUSEKEEPING (mnemos_health, mnemos_prune, mnemos_index_build) on user instruction or notice.\n" +
-    "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, mnemos://reminders for targeted reads; mnemos://policy for the full policy sheet (the briefing carries only the one-line gate summary); mnemos://manual for the operating manual \u2014 when unsure HOW to use the system, read the manual before acting.\n" +
+    "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, mnemos://reminders for targeted reads; mnemos://policy for the full policy sheet (the briefing carries only the one-line gate summary); mnemos://manual for the operating manual — read ONLY the section you need: §1 intended use (what belongs in the vault vs not), §2-4 scopes/project tagging/naming rules (when a write could land in the wrong scope or break routing), §5 vault layout. Never read it whole to answer a question the doctrine or a tool description already answers.\n" +
     "- The mnemos CLI is the sanctioned fallback ONLY when these tools are not attached.\n"
   );
 }
@@ -114,7 +114,7 @@ export function hygieneRules(): string {
     "  · scoped query returns thin/weak (a project_suggestions field appears): the content likely lives in another project — see CROSS-SCOPE REFERENCE.\n" +
     "  · wake with an unknown project: the payload names the roster and the map-creation flow — create the scope or pick an existing one.\n" +
     "  · any gate refusal: display it verbatim to the user (the message names the gate and the approve command); never retry around a refusal.\n" +
-    "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, mnemos://reminders for targeted reads; mnemos://policy for the full policy sheet (the briefing carries only the one-line gate summary); mnemos://manual for the operating manual (intended use, global/project/session scopes, naming, command workflows) — when unsure HOW to use the system, read the manual before acting.\n" +
+    "- RESOURCES: mnemos://identity, mnemos://goals, mnemos://methodology, mnemos://daily, mnemos://reminders for targeted reads; mnemos://policy for the full policy sheet (the briefing carries only the one-line gate summary); mnemos://manual for the operating manual (§1 intended use, §2-4 scope/tagging/naming rules, §5 vault layout) — read the one section you need, never the whole file.\n" +
     "- STALE ENTRIES: when a newer fact contradicts an older note, do not leave both live — retire the old one (mnemos_forget op=supersede, dry-run first) or update it in place. A stale memory surface is a defect, not history.\n"
   );
 }
@@ -180,7 +180,7 @@ export function renderOnboarding(autoCreated: boolean): string {
     "- file=identity (name, personality, communication style, values)\n" +
     "- file=goals (projects and threads from their brain dump)\n" +
     "- file=methodology (session rhythm based on their purpose)\n\n" +
-    "Before their first capture, read the operating manual (mnemos://manual) — it carries the full contract: intended use, the global/project/session scope rules, project naming, and every command workflow.\n\n" +
+    "Before their first capture, read the operating manual's first four sections (mnemos://manual, §1-4) — intended use, the scope rules, project tagging, and naming. The command workflows are doctrine, already in your context; do not read them twice.\n\n" +
     "Then establish your first project per the PROJECT PROTOCOL (create the map, tag notes, announce in goals).\n\n" +
     "Two boundaries to state plainly during onboarding: you can never delete their notes (removal is propose-only; they approve from their terminal), and they should never edit vault files directly (every direct edit corrupts memory invisibly).\n\n" +
     "Make the onboarding feel warm and alive — this is their agent waking up for the first time."

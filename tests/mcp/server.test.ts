@@ -142,12 +142,15 @@ describe("resources", () => {
   it("serves the operating manual (intended use, scopes, naming, workflows)", async () => {
     const result = await ctx.client.readResource({ uri: "mnemos://manual" });
     const text = result.contents[0].text as string;
-    // The load-bearing sections a cold agent needs.
+    // The load-bearing sections a cold agent needs. Command workflows are
+    // NOT here — the doctrine carries them in every session's context; the
+    // manual points at that instead of restating it (see manual-sync.test).
     expect(text).toContain("Intended use");
     expect(text).toContain("GLOBAL / PROJECT / SESSION");
     expect(text).toContain("Every entry carries its project");
     expect(text).toContain("Project naming");
-    expect(text).toContain("Command workflows");
+    expect(text).toContain("Where the deep references live");
+    expect(text).toContain("they are not restated here");
     expect(text).toContain("lowercase, hyphenated");
   });
 

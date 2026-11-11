@@ -188,12 +188,14 @@ export async function runWake(
     policy: policyLine(policy),
     // The operating manual pointer — one structured line per boot, never the
     // content (9KB in every wake would be the context debt the budget ladder
-    // exists to prevent). The MANUAL exists so agents know how to act; an
-    // agent unaware of the manual is defeated by it.
+    // exists to prevent). It points at SECTIONS, not the whole file: the
+    // manual is the occasional deep reference; the doctrine above is the
+    // always-present contract. An agent unaware of the manual is defeated
+    // by it; an agent shotgun-reading it inflates context for nothing.
     manual: {
       resource: "mnemos://manual",
       path: "ops/manual.md",
-      note: "Operating manual: intended use, global/project/session scopes, project naming, command workflows. Read it (resource or file) when unsure HOW to act.",
+      note: "Operating manual (deep reference; read only the section you need): §1 what belongs in the vault, §2-4 scope/tagging/naming rules, §5 vault layout. The doctrine above is the always-present contract — command workflows and quality bars live there, not in the manual.",
     },
   };
 

@@ -1,14 +1,17 @@
 ---
-description: The operating manual — intended use, global vs project vs session, naming, and command workflows
+description: The operating manual — intended use, scopes, naming, layout; deep references are pointed to, not restated
 type: manual
 ---
 
 # Mnemos Operating Manual
 
 This vault is one agent's memory serving one human across many projects.
-This file is the operating manual: what the system is for, how the layers
-divide, and how to run every command. The MCP server instructions teach
-the same rules in compact form; this file is the deeper reference.
+
+What the CRITICAL rules and tool descriptions do not explain — intended use,
+how the layers divide, how to name and layout a project — lives here. The
+operating LOOP (boot, retrieve, capture, session end) and the bars for what
+makes an entry useful live in the doctrine you already carry; this manual
+does not restate them.
 
 ---
 
@@ -132,95 +135,21 @@ yet.**
 
 ---
 
-## 6. Command workflows
+## 6. Where the deep references live
 
-### Session lifecycle (the core loop)
+The workflow loop, command syntax, and the bars for useful entries are
+doctrine, carried in every session's context — they are not restated here.
+What is left here is the detail only needed occasionally:
 
-1. **Boot:** `mnemos_wake` with the session's project. Unknown project?
-   Bare wake returns the roster + the question — relay it to the user, get
-   the answer, then re-call wake with project=<tag> before any retrieval.
-   The two-step sequence is mandatory: retrieval is refused until the
-   first wake, and warned while unscoped. Never work unscoped.
-2. **During:** retrieve before re-derive — `mnemos_query_ranked` first
-   (scoped to the project when the answer should be project-local; unscoped
-   when you want the wide net), `memory_sql` for what ranking cannot
-   express, `mnemos_explore` for multi-hop questions.
-3. **Capture when it surfaces:** `mnemos_add` (typed, tagged, wiki-linked).
-   If you don't write it down, it won't exist next session.
-4. **Session end (the ritual):** durable residue → `mnemos_add`; map
-   Current State → `mnemos_update file=map project=<tag>` (overwrite,
-   done / next / blocked — as long as the session needs: the handoff
-   must survive, so compress, never truncate, never append); the
-   project's daily →
-   `mnemos_update file=daily project=<tag>`; goals if they moved →
-   `file=goals project=<tag>`. The next session starts cold except for
-   what you persisted.
-
-### Removal (the capability model)
-
-- `mnemos_forget op=release` — soft-evict; files kept, reversible.
-  Dry-run by default; review the match list, then `--apply`.
-- `mnemos_forget op=supersede` — retire the best match, write its
-  replacement. Same dry-run discipline.
-- `mnemos_forget op=purge --slugs <exact,slugs>` — PROPOSES only: records
-  an intent, returns the approve command. Never executes from the agent.
-- `mnemos requests approve|deny <id>` — USER ONLY, from a real terminal
-  (agent shells and agent-forged PTYs are refused; every decision and
-  refusal is audited with process provenance).
-
-### State writes
-
-- `mnemos_update file=daily|goals|reminders project=<tag>` → the project's
-  own `ops/<tag>/` files (the scoped wake reads these first).
-- Bare (`no project`) → the global files. Global items are rare; be sure
-  the item really spans all projects before writing it globally.
-- `mnemos_update file=identity|methodology` — the self-model. Gated:
-  at `identity_update: approval` the agent proposes and the USER executes
-  the pending intent.
-
-### Cross-scope references
-
-When the user says "remember that thing from the pirate chat" — outside
-the current scope — do not answer from nothing. Query scoped first; if
-thin (a `project_suggestions` field appears, naming likely projects), run
-ONE unscoped query or query the named scope directly. When found: cite
-the source scope ("from your pirate-adventure chat…"), and if durably
-useful here, link it in (`[[the-note]]`) — the link is the memory of the
-connection. `mnemos_suggest_scope` ranks fuzzy references ("the alarm
-snooze stuff") to likely projects before you search or create.
-
-### Retrieval
-
-- `mnemos_query_ranked query="..."` — default lookup. Add
-  `project="<tag>"` to hard-scope (the response names the other projects);
-  omit for the whole vault. A thin/weak scoped answer carries
-  `project_suggestions` inline — the content likely lives elsewhere.
-- `mnemos_query_similar` — fast semantic probe. Same scoping contract.
-- `mnemos_explore` — multi-hop traversal; `project` scopes the answer set,
-  traversal stays global.
-- `mnemos_warmth` — what memory is resonating; scopable.
-- `memory_sql` — the global escape hatch; SQL over the index answers
-  cross-project and structural questions.
-
-### Health & housekeeping (on user instruction or notice)
-
-- `mnemos_health` after bulk writes; `mnemos_prune` (dry-run first) for
-  archive candidates; `mnemos_index_build --force` after writes from
-  outside `mnemos_add`.
-
----
-
-## 7. Who may do what
-
-- **The agent** captures, promotes, retrieves, updates project state,
-  proposes removals and identity rewrites.
-- **The user** approves removals and identity rewrites (from a real
-  terminal), owns `mnemos.config.yaml`, answers the project-choice and
-  ask-first questions.
-- **Nobody** reads or edits vault files directly — every path through the
-  tools maintains schema, links, index, and audit; a direct edit corrupts
-  the vault invisibly, and a direct read bypasses ranking, scoping, and
-  the learning pipeline so what you "find" is not what the system knows.
-  When retrieval disappoints, change tools (explore → memory_sql → ask
-  the user) — never open the files. The `mnemos` CLI is the sanctioned
-  fallback ONLY when MCP tools are not attached.
+- **Command reference:** `mnemos --help`, and `mnemos <command> --help`
+  for any command (22 commands: init, wake, status, health, whats-new,
+  sql, query, validate, add, promote, archive, bridge, serve, index,
+  graph, forget, requests, prune, explore, explore-start,
+  explore-expand, explore-conclude).
+- **Tool inventory and what each is for:** the README's MCP Tools table,
+  or the connected server's tool descriptions.
+- **The capability model (who may do what, and why):** `mnemos://policy`.
+- **The self-model (who you are, how you work):** `mnemos://identity`.
+- **CLI fallback:** when the MCP tools are not attached, the `mnemos` CLI
+  speaks the same contracts — `mnemos wake`, `mnemos add`, `mnemos query`,
+  and the rest. It is the sanctioned fallback ONLY then.
