@@ -2,6 +2,44 @@
 
 ## [Unreleased]
 
+### Changed — wake resolves the project instead of asking (Eric's cold-session feedback, items 2-4)
+- **Resolve-first wake.** Without an explicit project, wake now scopes silently
+  when something names the project: config `wake.project_default`, then the
+  session directory via the new `wake.project_paths` bridge (exact or nested
+  match, longest wins, `~` expands), then a confident `hint="<phrase>"` via the
+  scope suggester. The question is the last resort — and when a hint was
+  ambiguous, the ranked suggestions ride INSIDE `project_choice_required`, so
+  the user's next utterance is the only round trip. Every silent scoping
+  carries a `resolution` block (method: path | default | hint, plus a note)
+  so the transcript shows how the scope was chosen.
+- **Recency alone never scopes silently.** A nonsense hint ("quantum
+  xylophone maintenance") cannot land a session in the most-recent project:
+  the silent path requires the hint's text to match the project's footprint
+  (the suggester's "mentions …" reasons) AND a 0.75-confidence sole leader.
+  Recency-only matches stay advisory — they ride inside the question.
+- **`path=` argument on the wake tool, `--path`/`--hint` on the CLI.** A
+  caller can point at the repository they mean from anywhere; a path that
+  matches nothing registered falls through to the question (a path alone
+  cannot conjure a project tag).
+- **Intent-first tool descriptions (item 1, retrieval half).** mnemos_wake
+  now opens with "OPEN the memory vault for a session — call this FIRST"
+  and carries the trigger phrases users actually say ("open the vault",
+  "wake", "boot"); mechanics moved to the end. mnemos_query_ranked leads
+  with "SEARCH memory", mnemos_query_similar with "FAST semantic search",
+  mnemos_explore with "EXPLORE memory along the wiki-link graph",
+  mnemos_warmth with "SEE what memory is already resonating". The Q-value/
+  PPR/RRF vocabulary now trails, where it belongs.
+- **Doctrine SESSION START retargeted** to the resolve-first contract; the
+  CLI wake `--help` carries the same intent-first wording; the scaffold
+  config ships a commented `wake.project_paths` example.
+- New test suite (tests/cli/wake-resolution.test.ts, 17 tests): the pure
+  path resolver (exact/nested/sibling-prefix/longest-match/tilde), explicit
+  tag precedence, silent scoping via default/path/hint, suggestions inside
+  the question, recency-never-decides, and the config boundary dropping
+  non-string entries. Verified live against the real vault: cwd from the
+  mnemos repo → `mnemos` silently; `--path ~/Desktop/AI Chat Project` →
+  `ai-flutter-chat` silently; entry removed → question restored.
+
 ### Changed — the operating manual deduplicated: the doctrine owns the contract, the manual is the section-addressed deep reference
 - **The manual no longer restates the command workflows, the quality bars,
   or the capability model.** Sections 1-4 (intended use, the three scopes,

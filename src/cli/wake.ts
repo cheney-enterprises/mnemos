@@ -3,11 +3,43 @@
  */
 import { findVaultRoot, getVaultPaths } from "../core/vault.js";
 import path from "node:path";
+import { homedir } from "node:os";
 import { loadConfig } from "../core/config.js";
 import { loadPolicy, policyLine } from "../core/policy.js";
 import { loadWakeSources, assembleWakeInputs, assembleProjectWake } from "../core/wake-sources.js";
 import { buildWakePayload } from "../core/wake.js";
 import { parseTemporal, classifyReminder } from "../core/temporal.js";
+
+/**
+ * The repo→project bridge (feedback item 2): resolve the session's working
+ * directory to a project tag via config `wake.project_paths` — exact match
+ * first, then nested (a repo subdirectory belongs to the repo's project).
+ * Longest path wins on nested overlap. Pure so it is unit-testable.
+ */
+export function resolveProjectByPath(
+  cwd: string,
+  prefixMatch: boolean,
+  projectPaths: Record<string, string>,
+): string | null {
+  const expanded: Array<{ path: string; project: string }> = Object.entries(projectPaths)
+    .map(([p, tag]) => ({ path: expandTilde(p), project: tag.trim() }))
+  .filter((e) => e.path.length > 0 && e.project.length > 0);
+  // Longest match wins: ~/dev/mnemos beats ~/dev for the same session dir.
+  expanded.sort((a, b) => b.path.length - a.path.length);
+  for (const { path: base, project } of expanded) {
+    if (cwd === base || (prefixMatch && cwd.startsWith(base + "/"))) {
+      return project;
+    }
+  }
+  return null;
+}
+
+/** ~/x → $HOME/x; a lone "~" expands to $HOME itself. */
+export function expandTilde(p: string): string {
+  if (p === "~" || p === "~/") return homedir();
+  if (p.startsWith("~/")) return path.join(homedir(), p.slice(2));
+  return p;
+}
 
 /**
  * Rank likely scopes for a fuzzy user reference ("the alarm app snooze
@@ -59,6 +91,8 @@ export async function runWake(
   startDir: string,
   budgetLines: number,
   project?: string,
+  hint?: string,
+  pathArg?: string,
 ): Promise<{
   success: boolean;
   lines: string[];
@@ -98,6 +132,14 @@ export async function runWake(
     projects: Array<{ project: string; notes: number }>;
     /** How conversational sessions get scoped: silently, from a description. */
     chat_session_hint?: string;
+    /** When a hint was supplied but confidence fell short, the likely projects ride here. */
+    suggestions?: Array<{ project: string; score: number; reasons: string[] }>;
+  };
+  /** Present when wake scoped silently: how it decided, for the transcript. */
+  resolution?: {
+    project: string;
+    method: "path" | "default" | "hint";
+    note: string;
   };
 }> {
   const vaultRoot = await findVaultRoot(startDir);
@@ -218,6 +260,15 @@ export async function runWake(
         config.promote.project_map_routing,
       ));
       result.projectWake = { project: effective, ...pw };
+      if (!chosen) {
+        // Scoped by the configured default, not by an explicit argument —
+        // record how, so the transcript can show the provenance.
+        result.resolution = {
+          project: effective,
+          method: "default",
+          note: `scoped by config default (wake.project_default = "${effective}")`,
+        };
+      }
     } else {
       // A named project that does not exist (or a default pointing at
       // nothing yet): report, name the fix, keep the roster as correction.
@@ -241,18 +292,96 @@ export async function runWake(
       };
     }
   } else {
-    // Forced choice: the payload stays global-only and names the decision.
-    // The agent presents this to the user verbatim — an agent must not pick
-    // a project on the user's behalf, and must not work unscoped.
-    result.project_choice_required = {
-      reason: "wake.project_required",
-      question:
-        "Which project is this session working in? Choose from the roster, name a NEW project (lowercase, hyphenated), or — for a conversational/chat session — say what it was about and I will name and create the scope silently (e.g. 'pirate-adventure'). Re-call mnemos_wake with project=<tag>.",
-      default_hint: config.wake.project_default || null,
-      projects: inputs.projects,
-      chat_session_hint:
-        "For a conversational/chat session, just describe what it was about — the agent deduces a name (e.g. 'pirate-adventure'), creates the scope silently, and confirms.",
-    };
+    // No explicit project. Resolve-first (Eric: the ask-first gate forced an
+    // interaction by design — the friction the tooling exists to remove).
+    // Order: config default, then the repo→project bridge (project_paths vs
+    // the session dir), then the question — which now carries suggestions
+    // when a hint was supplied, so a fuzzy reference still lands in one
+    // round trip. Resolve silently when confident; ask only on true
+    // ambiguity.
+    const effectiveDefault = (config.wake.project_default || "").trim();
+    // Explicit path= (MCP) points at the repo the caller means; otherwise
+    // the session's own directory is matched. Both go through the same
+    // registry — a path alone cannot conjure a project tag.
+    const dirForPath = pathArg?.trim() || startDir;
+    const byPath = resolveProjectByPath(dirForPath, true, config.wake.project_paths ?? {});
+    const byDefault = effectiveDefault || byPath;
+    if (byDefault) {
+      const known = inputs.projects.some((p) => p.project === byDefault);
+      if (known) {
+        const pw = await assembleProjectWake(vaultRoot, dbPath, byDefault, config.promote.project_map_routing);
+        result.projectWake = { project: byDefault, ...pw };
+        result.resolution = {
+          project: byDefault,
+          method: byPath && !effectiveDefault ? "path" : "default",
+          note:
+            byPath && !effectiveDefault
+              ? `scoped by directory: ${dirForPath} maps to "${byDefault}" (wake.project_paths)`
+              : `scoped by config default (wake.project_default = "${effectiveDefault}")`,
+        };
+      } else {
+        // Default/path names a project that does not exist: same repair as
+        // an explicit unknown project — report, name the fix. Wake never
+        // writes; the agent creates the map.
+        result.projectWake = {
+          project: byDefault,
+          map: null,
+          currentState: [],
+          daily: [],
+          recentNotes: [],
+          goals: [],
+          goalsFromFile: false,
+          reminders: [],
+          remindersFromFile: false,
+          warmNotes: [],
+        members: new Set(),
+          warning:
+            `no project "${byDefault}" in this vault — the roster lists the live ones. ` +
+            'If this is a new project, create it: mnemos_add("<tag> project map", type=moc, project=["<tag>"]) — the state files (ops/<tag>/goals|daily|reminders.md) are scaffolded automatically.',
+        };
+      }
+    } else {
+      // True ambiguity — the question is the last resort. When the caller
+      // passed a hint (what the session is about), run the suggester on it:
+      // a confident match resolves silently; a weak one rides INSIDE the
+      // question so the user's next utterance is the only round trip.
+      const roster = inputs.projects.map((p) => ({ project: p.project, notes: p.notes }));
+      const hintTrim = hint?.trim() ?? "";
+      let suggestions: Array<{ project: string; score: number; reasons: string[] }> = [];
+      if (hintTrim) {
+        suggestions = await suggestScopesForReference(vaultRoot, hintTrim, undefined);
+      }
+      const CONFIDENT = 0.75;
+      const runnerUpGap = 0.2;
+      const top = suggestions[0];
+      // A sole confident suggestion resolves silently. A close runner-up
+      // means real ambiguity — both ride inside the question instead.
+      // A sole confident suggestion resolves silently — but ONLY when the
+      // hint's TEXT matched the footprint (recency alone must never scope a
+      // session; "quantum xylophone" must not land you in the most-recent
+      // project). The suggester's reasons name the signals that fired.
+      const textBacked = top ? top.reasons.some((r) => r.startsWith("mentions ")) : false;
+      if (top && textBacked && top.score >= CONFIDENT && (suggestions[1] === undefined || suggestions[1].score < top.score - runnerUpGap)) {
+        const pw = await assembleProjectWake(vaultRoot, dbPath, top.project, config.promote.project_map_routing);
+        result.projectWake = { project: top.project, ...pw };
+        result.resolution = {
+          project: top.project,
+          method: "hint",
+          note: `scoped from hint "${hintTrim}" (suggester score ${top.score.toFixed(2)})`,
+        };
+      } else {
+        result.project_choice_required = {
+          reason: "wake.project_required",
+          question:
+            "Which project is this session working in? Choose from the roster, name a NEW project (existing tags or lowercase-hyphenated new ones). For a conversational/chat session, say what it was about and the scope is named and created silently (e.g. 'pirate-adventure'). Re-call mnemos_wake with project=<tag>.",
+          default_hint: null,
+          projects: roster,
+          chat_session_hint:
+            "For a conversational/chat session, just describe what it was about — the agent deduces a name (e.g. 'pirate-adventure'), creates the scope silently, and confirms.",
+          ...(suggestions.length > 0 ? { suggestions } : {}),
+        };
+      }
+    }
   }
 
   return result;

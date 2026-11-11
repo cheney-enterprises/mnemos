@@ -89,14 +89,17 @@ program
 program
   .command("wake")
   .description(
-    "Session boot. With --project <tag>: global context + that project's scoped context (map Current State, its daily lines, its recent notes) in ONE payload. " +
-      "Without a project: global-only + a project_choice_required prompt the agent relays to the USER (config wake.project_default can name a default; empty = forced choice). " +
+    "OPEN the memory vault — the session-start verb (wake/boot/orient). One call: identity, roster, policy, and — when the project is known — the project's full briefing in ONE payload. " +
+      "--project <tag> when the user names it; --path <dir> to match a repository to a project; --hint \"<phrase>\" for a loose description (\"the alarm snooze stuff\") — resolved or suggested automatically. " +
+      "Bare wake is the menu form: roster +, on true ambiguity, a project_choice_required question to relay to the user, then re-call with --project. " +
       "Run from inside a vault (or set MNEMOS_VAULT)."
   )
   .option("--budget <n>", "max lines (default 96)", "96")
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
+  .option("--path <dir>", "the repository directory to resolve to a project (overrides wake.project_paths matching)")
+  .option("--hint <phrase>", "a loose description of the session, used to resolve or suggest the project when --project is not given")
   .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
-  .action(async (options: { budget: string; project?: string; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
+  .action(async (options: { budget: string; project?: string; hint?: string; path?: string; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
     // Doctrine syntax alias. The MCP tool takes named arguments (project="<tag>"),
     // and the doctrine teaches that convention — but bare text on the CLI is a
     // positional. Accept the doctrine form here so the two surfaces can never
@@ -115,7 +118,7 @@ program
       );
       process.exit(1);
     }
-    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project);
+    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.hint, options.path);
     if (options.json === true) {
       console.log(JSON.stringify(result, null, 2));
     } else {

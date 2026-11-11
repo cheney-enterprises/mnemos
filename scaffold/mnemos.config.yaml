@@ -92,3 +92,12 @@ bm25:
 ips:
   enabled: true
   log_path: "ops/access.jsonl"
+
+# wake.project_paths — the repo→project bridge: map a repository directory to
+# the project tag a session in it should scope to. Exact match or nested
+# (longest path wins); "~" expands to your home directory. When the session's
+# directory matches, wake scopes silently — no project question. Example:
+# wake:
+#   project_paths:
+#     "~/dev/mnemos": mnemos
+#     "~/Desktop/AI Chat Project": ai-flutter-chat

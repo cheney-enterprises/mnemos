@@ -108,6 +108,12 @@ export type WakeConfig = {
    * keeps tooling residue out of the app projects.
    */
   project_default: string;
+  /**
+   * Repo directory → project tag. The wake resolver matches a session's
+   * working directory (exact or nested) against these paths and scopes
+   * silently — the repo→project bridge. "~" expands to the home dir.
+   */
+  project_paths: Record<string, string>;
   budget_lines: number;
 };
 
@@ -252,8 +258,21 @@ const DEFAULT_WAKE_CONFIG: WakeConfig = {
   // No default project: wake alone forces a choice. A vault that hosts a
   // specific tool's own notes sets this to that project (e.g. `mnemos`).
   project_default: "",
+  project_paths: {},
   budget_lines: 96,
 };
+
+/** Config-map boundary: keep only genuine string→string pairs, trimmed. */
+function parseStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v === "string" && k.trim().length > 0 && v.trim().length > 0) {
+      out[k.trim()] = v.trim();
+    }
+  }
+  return out;
+}
 
 const DEFAULT_WARMTH_CONFIG: WarmthConfig = {
   enabled: true,
@@ -440,6 +459,7 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
     },
     wake: {
       project_default: typeof rawWake?.project_default === "string" ? rawWake.project_default : DEFAULT_WAKE_CONFIG.project_default,
+      project_paths: parseStringRecord(rawWake?.project_paths),
       budget_lines: typeof rawWake?.budget_lines === "number" && rawWake.budget_lines > 0 ? rawWake.budget_lines : DEFAULT_WAKE_CONFIG.budget_lines,
     },
     warmth: {

@@ -531,18 +531,25 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
 
   server.tool(
     "mnemos_wake",
-    "Session boot, budget-capped. Two steps: (1) call with NO project — get identity, the " +
-      "project roster, and policy; (2) call again with project=<tag> — get that project's map " +
-      "Current State, its daily lines, and its recent notes. The second call is NOT optional: " +
-      "a session that skips it works without its project's state and retrieval is degraded " +
-      "until it happens. The roster feeds the ask-first gate; policy predicts removal " +
-      "refusals. On a vault with no identity yet it returns an onboarding script instead.",
+    "OPEN the memory vault for a session — call this FIRST, at session start, before any " +
+      "other memory tool (it is the wake/boot/orient call). One call returns the identity, " +
+      "the project roster, policy, and — when the project is known — that project's full " +
+      "briefing (map Current State, goals, daily, reminders, recent notes). Pass " +
+      "project=<tag> when the user or the repo names it; pass path=<dir> when the vault " +
+      "should be matched to a repository; pass hint=\"<phrase>\" when the user described " +
+      "the work loosely (\"the alarm snooze stuff\", \"the flutter chat\") and the likely " +
+      "project is resolved or suggested automatically. Bare wake (nothing passed) is the " +
+      "menu form: it returns the roster and, on true ambiguity, a project_choice_required " +
+      "question to relay to the user — then re-call with project=<tag> to load the scoped " +
+      "briefing. Retrieval tools are degraded until a wake happens.",
     {
       budget: z.number().optional().describe("Max lines (default 96)"),
-      project: z.string().optional().describe("Second call: the project tag whose scoped context to load (from the roster the first call returned)"),
+      project: z.string().optional().describe("The project tag whose scoped context to load — pass it when the user or the repo names the project and the FIRST call then returns the full briefing in one shot"),
+      path: z.string().optional().describe("The repository/session directory to resolve to a project (overrides config wake.project_paths matching)"),
+      hint: z.string().optional().describe("A loose description of what this session is about, used to suggest or resolve the project when project= is not given"),
     },
-    async ({ budget, project }) => {
-      const payload: Record<string, unknown> = await runWake(vaultDir, budget ?? 96, project);
+    async ({ budget, project, path: pathArg, hint }) => {
+      const payload: Record<string, unknown> = await runWake(vaultDir, budget ?? 96, project, hint, pathArg);
       wakeState = { scoped: Boolean(project?.trim()), project: project?.trim() || undefined };
       attachLearningResetNotice(payload);
       await attachWhatsNew(payload);
@@ -809,9 +816,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_query_ranked
   server.tool(
     "mnemos_query_ranked",
-    "Full ranked retrieval with Q-value reranking, co-occurrence PPR, and stage meta-learning. " +
-      "4 base signals (composite + keyword + graph + warmth) fused via RRF, then Phase B Q-value reranking. " +
-      "Excludes archived notes by default. Triggers spreading activation. " +
+    "SEARCH memory for notes matching a query — the default retrieval call (" +
+      "fuses semantic, keyword, graph, and recency signals, reranks by learned quality, returns titles + descriptions + content excerpts). " +
+      "Excludes archived notes by default. " +
       "Pass project to hard-scope to one project (results then name the other projects); omit to search the whole vault.",
     {
       query: z.string().describe("Natural language search query"),
@@ -907,9 +914,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_explore
   server.tool(
     "mnemos_explore",
-    "Deep memory exploration via PPR graph traversal. Propagates through wiki-links " +
-      "at exploration-tuned parameters (α=0.45), returns ranked notes with content snippets. " +
-      "Use for multi-hop questions, connection discovery, and deep recall. " +
+    "EXPLORE memory along the wiki-link graph — for multi-hop questions, connection discovery, " +
+      "and deep recall, and for when ranked search came back thin (" +
+      "propagates through links, returns ranked notes with content snippets). " +
       "Heavier than mnemos_query_ranked but finds notes flat retrieval misses. " +
       "Pass project to scope the ANSWER set (traversal crosses the whole graph; results are filtered + the other projects are named); omit to explore the whole vault.",
     {
@@ -999,7 +1006,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_warmth
   server.tool(
     "mnemos_warmth",
-    "Associative warmth field for the current context. Returns low-token note titles, scores, and sources showing what memory is resonating before and alongside retrieval. " +
+    "SEE what memory is already resonating with the current conversation — low-token note titles and scores " +
+      "surfaced before and alongside retrieval (call it when deciding what context to pull in next). " +
       "Pass project to scope the field to one project (the field names the others); omit to feel the whole vault.",
     {
       context: z.string().describe("Current conversation text or retrieval context"),
@@ -1027,7 +1035,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_query_similar
   server.tool(
     "mnemos_query_similar",
-    "Composite vector search only (semantic + metadata, no keyword/graph). Faster but single-signal. Excludes archived notes by default. " +
+    "FAST semantic search — a quicker, single-signal probe when ranked search is more than the question needs " +
+      "(semantic + metadata only; no keyword/graph fusion). Excludes archived notes by default. " +
       "Pass project to hard-scope to one project (results name the other projects); omit to search the whole vault.",
     {
       query: z.string().describe("Natural language search query"),
