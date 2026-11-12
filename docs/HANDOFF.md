@@ -1,137 +1,88 @@
 # Session Handoff — 2026-11-12
 
 Agent: Ori intern (z-ai/glm-5.3-flash), project mnemos. New sessions: read
-`docs/project-briefing.md` first — it is the standing system prompt for
-build sessions; this handoff is the delta since 2026-11-11.
+`docs/project-briefing.md` first; then note that **`docs/specs/session-scope-spec.md`
+is the fixed target** Eric blessed tonight — this handoff is the delta since
+the 2026-11-11 handoff and covers one very full day.
 
-## What this session accomplished
+## Daytime: the queue emptied (six commits, 1207/1207)
 
-Eric's direction: "that works" (CLI access; no MCP server running in this
-harness — OpenCode has no mnemos MCP configured) and "start on the proposed
-working queue." The queue came from the briefing + handoff + the codebase
-review; all five actionable items closed, one concern per commit, each
-physically verified before its commit was claimed. Eric then asked to bring
-the other projects' notes into rule compliance too — see item 6.
+1. **Map handoff debt closed first** — the missing 2026-11-11 session-end
+   line (bypass defense + briefing) written into the mnemos map via
+   `runUpdateFile`, verified.
+2. **Forget machinery / schema agreement (`52c31c0`)** — `released` joined
+   the status enum in scaffold AND live template (they move together;
+   `resolveTemplatePath` validates against the vault-local copy);
+   supersede replacements born schema-valid (`created` set, `project`
+   inherited, caller `-p` wins). First supersede tests ever.
+3. **Honest inboxCount (`892e04b`)** — `.md` only, agreeing with wake; the
+   stale-pinning sandbox tests corrected, not weakened.
+4. **Intent-first write-path descriptions (`487faee`)** — REMEMBER /
+   UPDATE the standing state / FORGET safely / WHICH PROJECT did the user
+   mean; closing item 1 of the wake arc. Contract text untouched.
+5. **Map-write hardening trio (`998bead`)** — shape check refuses
+   whole-note bodies (frontmatter delimiters / H1 / `##`) and empty ones,
+   refusals audited as `map_write_refused` and verified live (map
+   byte-untouched; first "map changed" report was my own unawaited-Promise
+   check bug); oversized bodies write with `argument_shape` in the audit;
+   promote refuses map-routed notes unless type=moc. **Root cause en
+   route: `moc` was missing from classify's VALID_TYPES** — explicit
+   `type: moc` was discarded and reclassified insight. Fixed; map-title
+   convention deduped into `mapstate.titleLooksLikeMap`.
+6. **All-vault rules audit (Eric's request: fix the other projects too)** —
+   now 0 schema violations, 0 dangling links vault-wide: igpu description
+   compressed under 200; two old supersede stubs given `created` +
+   completed descriptions (one stub's unclosed `[[wiki-link` WAS the lone
+   dangling link); 17 notes had `_bypass_warning` in body but not
+   frontmatter, exposing the add-path defect — `runAdd` built frontmatter
+   fresh and dropped the template's warning. **Fixed (`07041ed`)**: the
+   warning travels into every new note from birth (test pins it); live
+   vault repaired. Grep lesson: notes ABOUT the defense quote the warning
+   in their bodies — the frontmatter check is authoritative.
+7. **Briefing + handoff updated and committed (`76063ec` + later).**
 
-### 6. All-vault rules audit + the add-path warning defect (07041ed)
-- **Audit result: zero schema violations, zero dangling links vault-wide.**
-  Three pre-fix violations repaired by direct write (recorded in the
-  daily): the igpu-GPU-attribution note's 251-char description compressed
-  under the 200 limit; two old supersede stubs given their missing
-  `created` (2026-11-04 from file birth, 2026-11-11) and their truncated
-  mid-word descriptions completed. The second stub's unclosed
-  `[[wiki-link` had fused the rest of its frontmatter into the vault's one
-  dangling link — that repair cleared the dangling list.
-- **17 notes had `_bypass_warning` in their body but not their
-  frontmatter** — including every note born after the 2026-11-11
-  injection. Root cause: `runAdd` builds note frontmatter fresh and never
-  copied the warning out of the template's frontmatter, so the sign
-  stopped at the add path. Fixed: the template's wording now leads the
-  note's frontmatter from birth (promote preserves it via the spread);
-  live vault repaired; a test pins the travel. (First grep was fooled by
-  notes ABOUT the bypass defense quoting the warning in their bodies —
-  the frontmatter check is the authoritative one.)
-- Index rebuilt (76 scanned, 0 dangling); all three repaired notes
-  validate clean; scoped wake tolerates everything.
+## Evening: THE PIVOT (the important part)
 
-### 1. Map handoff debt closed first (vault write, no commit)
-The missing session-end line from the 2026-11-11 handoff (bypass defense
-b8a57e4 + the briefing f5270e8) was written into the mnemos map's Current
-State through `runUpdateFile` (the exact engine the MCP tool calls — same
-backup/audit semantics). Verified: section replaced with the 2026-11-12
-stamp, Key Notes and frontmatter untouched, `.history/` backup present.
+Eric asked how the original enforced project boundaries → research showed
+it didn't (write-time labels only; reads unscoped until `6f3e605`, and the
+relevance engine worked by scoring, not fences). Three dialogue rounds with
+Eric converged on the model and he blessed it:
 
-### 2. Forget machinery / note schema agreement (52c31c0)
-- `released` joined the status enum — in `scaffold/templates/note.md` AND
-  the live vault's `templates/note.md` (recorded repair): validation uses
-  the vault-local template (`resolveTemplatePath`), so both must move in
-  one change set.
-- `supersede` replacements are born schema-valid: `created` is set, and
-  the replacement inherits the replaced note's `project` (caller `-p`
-  still overrides). First supersede tests the file ever had, plus a
-  forget/schema-agreement pin validating `status: released` against the
-  scaffold template.
-
-### 3. `mnemos status` inboxCount honest (892e04b)
-Counts `.md` only (mirrors `wake-sources.countMd`) — the scaffold's
-`inbox/.gitkeep` no longer counts. The two sandbox tests that pinned the
-stale behavior were corrected, not weakened. Live check: vault reports
-inboxCount 0.
-
-### 4. Intent-first write-path descriptions (487faee)
-`mnemos_add` = "REMEMBER this — capture a durable note into the vault…";
-`mnemos_update` = "UPDATE the standing state — the session-end ritual's
-write verb…"; `mnemos_forget` = "FORGET memory the safe way…";
-`mnemos_suggest_scope` = "WHICH PROJECT did the user mean?…". CLI `mnemos
-add`/`mnemos forget` match (`update`/`suggest_scope` are MCP-only). No
-contract text moved — gates, dry-run defaults, purge propose-only law all
-verbatim. This closes item 1 from the wake arc.
-
-### 5. Map-write hardening trio (998bead)
-- **Whole-note shape check:** `updateMapCurrentState` refuses Current
-  State bodies containing frontmatter delimiters, an H1, or a `## `
-  heading (a `##` inside the stamped section becomes the boundary the
-  NEXT write matches — the tail of the old state is orphaned as a
-  pseudo-section), and refuses an empty body (compress, never wipe).
-  Every refusal is audited as `map_write_refused`.
-- **Argument-shape audit:** a valid-but-oversized body (>20k chars) still
-  writes, with `argument_shape` in the audit and the note in the response
-  — success:true never hides how a state came to be.
-- **type=moc validation at map creation:** promote refuses a note that
-  routes as a project map (routing config, or the resolveAreas
-  convention: title ends in "map" AND carries a detected project's slug —
-  "user plans a map" is not a map) unless type=moc, with the fix in the
-  reason.
-- **Root cause found en route:** `moc` was missing from the classifier's
-  `VALID_TYPES`, so an inbox map note's explicit `type: moc` was thrown
-  away and reclassified `insight` (low confidence) — the exact birth of
-  mis-typed maps. `moc` joined `NoteType`; the documented
-  `mnemos_add(<project> project map, type=moc)` flow promotes as a map.
-- Map-title convention deduped into `mapstate.titleLooksLikeMap` (one
-  routing truth shared by update and promote).
-- Live verification: a `##`-heading body refused against the real mnemos
-  map — refusal fired, map byte-untouched, audit line present. (First run
-  of that check reported "map changed" — my script had compared an
-  unawaited Promise to a string. The vault was fine; the check wasn't.
-  Re-ran properly before claiming.)
-
-## Session-end ritual (all through the tool surface, all backed up)
-- Session record note added + auto-promoted under the mnemos map:
-  `the-2026-11-12-hardening-session-the-forget-schema-agreed-…`.
-- Map Current State overwritten (compressed: 2026-11-12 lead entry, wake
-  contract + bypass/briefing condensed, next/blocked updated).
-- Daily written to `ops/mnemos/daily.md`; goals updated (item 1 and the
-  hardening trio removed; publish/sidecar/rename/honesty/harness remain).
-- Briefing updated and committed (76063ec): Known Defects records all
-  three fixes; the queue reflects what remains.
-
-## Verification
-- 1,206 tests green (83 files) at every commit; tsc clean; CHANGELOG
-  [Unreleased] carries all four change sets.
-- Commits: `52c31c0`, `892e04b`, `487faee`, `998bead`, `76063ec`, `07041ed`.
-- Working tree clean except untracked `.ori/` (runtime state).
-
-## Open items (next session)
-1. **npm publish** of 0.9.0+ — blocked only on Eric's npm auth ticket.
-2. **Restart MCP server processes** to pick up the new dist (no
-   hot-reload): intent-first descriptions, roots behavior, the map-write
-   shape check, and the add-path warning travel are stale until then.
-   Note: no mnemos MCP server is registered in the Ori/OpenCode harness
-   itself — wake ran through the CLI; if Eric wants MCP-surface testing
-   from this harness, register `node ~/dev/mnemos/dist/index.js serve
-   --mcp` there first.
-3. **Horizon:** Flutter HTTP sidecar (MCP tools mirrored 1:1, app-mediated
-   approval gesture); opaque-harness intake (source→project mapping at the
-   harness layer, no fuzzy logic in wake); `project rename` before the
-   FORGE rebrand.
-4. If a new defect appears: record it in the briefing's Known Defects
-   section with the date and live evidence.
+- **`docs/specs/session-scope-spec.md` (committed) is the fixed target.**
+  Scope ladder: session → lineage (`continues:`/`branched_from:` edges) →
+  project as firm-but-permeable partition → vault universal. Scope-distance
+  weighting post-fusion (never a filter); the forget matcher's rare-token
+  anchoring becomes the permeability rule ("that elegant method we used
+  there" must cross); tiered answers label cross-scope reach; session
+  records become retrieval seeds; two-tier capture (invisible auto stream
+  vs visible curated adds; forget laws untouched); scope-aware learning;
+  coverDaily-style lineage decay; zero migration.
+- **Process ruling:** spec-first, flagged behind
+  `retrieval.session_scope.enabled`, current contracts IN FORCE until the
+  benchmark gate (spec §9: dilution ≤ 5%, miss = 0) passes. Settle design
+  arguments by citing spec lines, not chat. Eric named the churn lesson
+  himself: ideas outpaced measurement; the spec is the antidote.
+- Vault-side: pivot record note added + auto-promoted
+  (`the-2026-11-12-evening-pivot-from-project-fences-to-the-scope-ladder-…`);
+  map Current State, daily, and goals all rewritten (evening arc + the
+  spec-driven plan; the ask-once-becomes-config ladder from the interim
+  discussion is superseded by the pivot — do not build it).
 
 ## Where things stand
-The queue from the 2026-11-11 handoff is empty. The vault's schema agrees
-with what the forget machinery writes; status and wake agree on the inbox;
-the tool descriptions sell intent first; the map write path refuses to
-accept a corrupted state and never lies in its audit. The whole vault is
-rule-compliant — zero schema violations, zero dangling links, the
-bypass-front sign in every note's frontmatter from birth. The package is
-0.9.0+Unreleased, six change sets deep, waiting on one npm token.
+Vault fully rule-compliant. Package 0.9.0+Unreleased, seven change sets
+today, waiting on one npm token. MCP servers need a restart to serve any of
+today's dist.
+
+## Open items (next session — building begins)
+1. **Phase 1 per the spec: session binding + lineage edges** behind
+   `retrieval.session_scope.enabled` — harness intake (`session=<id>`,
+   `parent=<id>`), constructive binding with no ask, `ops/sessions` stream
+   as graph nodes. Read spec §3–§4 first; cite spec lines in the work.
+2. **Phase 2: scope-distance weighting + anchor waiver + tiered surfaces**
+   (spec §5–§6), then build the benchmark cases from live vault data
+   (spec §8–§9; the "ai memory" phantom-blend is the canonical dilution
+   case). Numbers decide the flip — not enthusiasm.
+3. npm publish when Eric's auth ticket resolves; restart MCP server
+   processes for the new dist.
+4. If a new defect appears: record it in the briefing's Known Defects
+   section with the date and live evidence.

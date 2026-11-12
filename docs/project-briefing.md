@@ -158,10 +158,14 @@ new defect appears, record it here with the date and the live evidence.
 
 # Open work queue (verify against the map's Current State — it may have moved)
 
-npm publish when Eric's auth ticket resolves · restart MCP server processes
-to serve the 2026-11-12 dist (descriptions, roots behavior, and the
-map-write shape check are stale until then) · horizon: Flutter HTTP sidecar
-(MCP tools mirrored 1:1, app-mediated approval gesture — the absolute fix
-for the PTY ceiling), opaque-harness intake for ai-flutter-chat, and
-`project rename` (retag + map rename + ops move + tombstone) before the app
-renames to FORGE.
+**THE FIXED TARGET (blessed 2026-11-12 evening): `docs/specs/session-scope-spec.md`.**
+Eric pivoted the product's scoping model: session-as-unit, project-as-firm-
+but-permeable-metadata, invisible machinery, newb/pro parity — the scope
+ladder with scope-distance weighting and anchored permeability. Build
+against the spec; everything behind `retrieval.session_scope.enabled`;
+current contracts (including known-or-ask) remain IN FORCE until the
+benchmark gate in spec §9 passes (dilution ≤ 5%, miss = 0). Settle design
+arguments by citing spec lines, not by re-deriving intent. Then: npm
+publish when Eric's auth ticket resolves · restart MCP server processes to
+serve the current dist · horizon: Flutter HTTP sidecar, `project rename`
+before the FORGE rebrand.
