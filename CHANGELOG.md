@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Fixed — the forget machinery and the note schema agree (defects from the 2026-11-11 session cleanup)
+- **`status: released` is inside the note schema's status enum** (scaffold
+  template and the live vault's template — every released note used to flag
+  as a schema violation in `mnemos health` forever, because `forget release`
+  wrote a status the schema didn't know). Pinned by
+  tests/core/forget.test.ts ("forget/schema agreement").
+- **Supersede replacements are born schema-valid.** The replacement note now
+  carries `created` (schema-required; it was missing) and inherits the
+  replaced note's `project` (the operator's `-p` still overrides).
+- Vault-local templates are the validation source (`resolveTemplatePath`
+  resolves inside the vault), so the scaffold and the live vault moved
+  together in one change set.
+
 ### Changed — the wake contract simplified: known-or-ask, no fuzzy layer (Eric's call)
 - **Wake resolves from *intent signals only*, and asks otherwise.** Silent
   scoping happens from an explicit `project=`, a registered session directory

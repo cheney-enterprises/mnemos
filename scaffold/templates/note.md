@@ -35,6 +35,7 @@ _schema:
       - completed
       - superseded
       - archived
+      - released
     confidence:
       - speculative
       - promising

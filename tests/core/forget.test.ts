@@ -2,8 +2,10 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { matchForForget, release, purge, ForgetBlastRadiusError } from "../../src/core/forget.js";
+import { fileURLToPath } from "node:url";
+import { matchForForget, release, purge, supersede, ForgetBlastRadiusError } from "../../src/core/forget.js";
 import { isForgotten, FORGOTTEN_STATUSES } from "../../src/core/status.js";
+import { validateNoteAgainstSchema } from "../../src/core/schema.js";
 import type { EngineConfig } from "../../src/core/config.js";
 
 // Matching is the whole difficulty of forgetting: over-match and you destroy
@@ -148,5 +150,72 @@ describe("blast radius", () => {
     manyMatching();
     const r = await release(notes, "Grace paella preferences", config, { apply: true, maxForget: Infinity });
     expect(r.count).toBeGreaterThan(10);
+  });
+});
+
+describe("supersede", () => {
+  it("the replacement is born schema-valid: created is set and the project is inherited", async () => {
+    // Defect found during the 2026-11-11 session cleanup: the replacement note
+    // was written without created (schema-required), and without project
+    // unless the operator passed -p — every replacement was born invalid.
+    const withProject = (slug: string, text: string, project: string) => {
+      writeFileSync(
+        join(notes, `${slug}.md`),
+        `---\ndescription: ${text}\ntype: insight\nproject:\n  - ${project}\nstatus: active\ncreated: 2026-01-01\n---\n\n${text}\n`,
+        "utf8",
+      );
+    };
+    withProject("uma", "Uma works at OpenAI.", "career");
+    note("coffee", "Bob likes iced coffee in the afternoon.");
+    let written: Record<string, unknown> | undefined;
+    const r = await supersede(
+      notes,
+      "Uma job employer",
+      "Uma now works at Anthropic as of November.",
+      config,
+      async (_slug, _text, fm) => { written = fm; },
+      { apply: true },
+    );
+    expect(r.count).toBe(1);
+    expect(readFileSync(join(notes, "uma.md"), "utf8")).toContain("status: superseded");
+    expect(written?.created).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(written?.project).toEqual(["career"]);
+    expect(written?.supersedes).toEqual(["uma"]);
+  });
+
+  it("a replaced note without a project still yields a replacement — caller may add project", async () => {
+    note("uma", "Uma works at OpenAI.");
+    let written: Record<string, unknown> | undefined;
+    const r = await supersede(
+      notes,
+      "Uma job employer",
+      "Uma now works at Anthropic as of November.",
+      config,
+      async (_slug, _text, fm) => { written = fm; },
+      { apply: true },
+    );
+    expect(r.count).toBe(1);
+    expect(written?.created).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(written && "project" in written).toBe(false);
+  });
+});
+
+describe("forget/schema agreement", () => {
+  const scaffoldNoteTemplate = fileURLToPath(
+    new URL("../../scaffold/templates/note.md", import.meta.url),
+  );
+
+  it("status: released is inside the note schema enum", async () => {
+    // `release` sets status: released and keeps the file; the schema used to
+    // disagree, so every released note flagged as a schema violation forever.
+    const file = join(notes, "otp.md");
+    writeFileSync(
+      file,
+      "---\ndescription: Session OTP for Bob\ntype: insight\nproject:\n  - ops\nstatus: released\ncreated: 2026-11-11\n---\n\nbody\n",
+      "utf8",
+    );
+    const result = await validateNoteAgainstSchema(file, scaffoldNoteTemplate);
+    expect(result.errors).toEqual([]);
+    expect(result.valid).toBe(true);
   });
 });

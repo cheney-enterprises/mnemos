@@ -347,7 +347,16 @@ export async function supersede(
   const matched = await matchForForget(notesDir, oldQuery, config, { limit: 1 });
   if (!opts.apply) return { matched, count: 0 }; // dry run is the default
   const replaced = matched.map((m) => m.slug);
+  // The replacement inherits the replaced note's project: project is a
+  // schema-required field, and the caller (cli) only supplies it when the
+  // operator passed -p. A replacement born without one is schema-invalid.
+  let inheritedProject: unknown;
   for (const m of matched) {
+    const parsed = await readFrontmatterFile(m.file);
+    const project = (parsed.data as Record<string, unknown> | undefined)?.project;
+    const present =
+      typeof project === "string" ? project.trim() !== "" : Array.isArray(project) && project.length > 0;
+    if (present) inheritedProject = project;
     await setStatus(m.file, "superseded", { superseded_by_query: oldQuery });
   }
   const slug =
@@ -357,6 +366,10 @@ export async function supersede(
     description: newText.slice(0, 160),
     type: "decision",
     status: "active",
+    // Schema-required; supersedes previously wrote replacements without it,
+    // so every replacement flagged as a schema violation from birth.
+    created: new Date().toISOString().slice(0, 10),
+    ...(inheritedProject !== undefined ? { project: inheritedProject } : {}),
     ...(replaced.length ? { supersedes: replaced } : {}),
   });
   return { matched, count: matched.length };
