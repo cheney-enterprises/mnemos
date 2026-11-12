@@ -14,6 +14,12 @@
 - Vault-local templates are the validation source (`resolveTemplatePath`
   resolves inside the vault), so the scaffold and the live vault moved
   together in one change set.
+- **`mnemos status` `inboxCount` counts markdown only.** The scaffold's
+  `inbox/.gitkeep` counted as an inbox item, so a fresh vault reported
+  `inboxCount: 1` forever and the number could disagree with the
+  `inboxCount` wake reports (which counts `.md` only). Both surfaces now
+  agree; the tests that pinned the stale behavior were corrected, not
+  weakened.
 
 ### Changed — the wake contract simplified: known-or-ask, no fuzzy layer (Eric's call)
 - **Wake resolves from *intent signals only*, and asks otherwise.** Silent

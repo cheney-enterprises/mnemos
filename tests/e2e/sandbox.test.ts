@@ -389,8 +389,10 @@ describe("mnemos status", () => {
 
     expect(result.success).toBe(true);
     expect(result.data.noteCount).toBe(1); // index.md
-    // .gitkeep in inbox/ counts as a file in the scaffold
-    expect(result.data.inboxCount).toBe(1);
+    // Only markdown counts — the scaffold's inbox/.gitkeep is not a note.
+    // (Was 1: the count included .gitkeep and disagreed with wake's
+    // vaultStats.inboxCount, which counts .md only.)
+    expect(result.data.inboxCount).toBe(0);
   });
 
   it("counts inbox items correctly", async () => {
@@ -418,8 +420,9 @@ describe("mnemos status", () => {
 
     const result = await runStatus(tmpDir);
 
-    // 2 added notes + .gitkeep from scaffold
-    expect(result.data.inboxCount).toBe(3);
+    // 2 added notes — markdown only; .gitkeep from the scaffold doesn't count
+    // (the count used to disagree with wake's vaultStats.inboxCount).
+    expect(result.data.inboxCount).toBe(2);
   });
 });
 

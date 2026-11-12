@@ -29,7 +29,7 @@ export async function runStatus(
       throw err;
     }
   }
-  const inboxCount = inboxEntries.filter((e) => e.isFile()).length;
+  const inboxCount = inboxEntries.filter((e) => e.isFile() && e.name.endsWith(".md")).length;
 
   return {
     success: true,
