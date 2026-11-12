@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Changed — intent-first tool descriptions for the write path (item 1 remainder)
+- The write-path tools now lead with the intent the way the retrieval five
+  already do — mechanics trail: `mnemos_add` = "REMEMBER this — capture a
+  durable note into the vault…", `mnemos_update` = "UPDATE the standing
+  state — the session-end ritual's write verb…", `mnemos_forget` = "FORGET
+  memory the safe way…", `mnemos_suggest_scope` = "WHICH PROJECT did the
+  user mean?…". Tool descriptions are the agents' discovery surface; a
+  cold agent scanning the tool list now reads what each verb is *for*
+  before how it is called. CLI descriptions of the same commands match
+  (`mnemos add`, `mnemos forget`; `update` and `suggest_scope` are
+  MCP-only). No contract text moved — gates, dry-run defaults, and the
+  purge propose-only law all stay verbatim.
+
 ### Fixed — the forget machinery and the note schema agree (defects from the 2026-11-11 session cleanup)
 - **`status: released` is inside the note schema's status enum** (scaffold
   template and the live vault's template — every released note used to flag

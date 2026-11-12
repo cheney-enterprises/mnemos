@@ -652,9 +652,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // backups are enforced there so every future transport inherits them.
   server.tool(
     "mnemos_update",
-    "Update agent files: identity, goals, methodology (self/), daily, reminders (ops/), " +
-      "or file=map to overwrite a project map's Current State section (the SESSION END ritual; " +
-      "requires project; replace semantics — Key Notes and frontmatter untouched). " +
+    "UPDATE the standing state — the session-end ritual's write verb: daily lines, goals, reminders, " +
+      "self files (identity/goals/methodology), or file=map to overwrite a project map's Current State " +
+      "(what is done, the next action, what is blocked — compress, never append). " +
       "Auto-backs up the previous version before writing. Policy gates apply.",
     {
       file: z.enum(["identity", "goals", "methodology", "daily", "reminders", "map"])
@@ -677,8 +677,8 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // stuff"). Read-only, no gates.
   server.tool(
     "mnemos_suggest_scope",
-    "Rank which projects the user most likely means by a vague reference. " +
-      "Use when the user says things like 'our crazy chat from the other night' or 'the alarm app stuff' — " +
+    "WHICH PROJECT did the user mean? Rank the likely projects behind a vague reference — " +
+      "use it when the user says things like 'our crazy chat from the other night' or 'the alarm app stuff': " +
       "pass their words as reference; get ranked projects with reasons. Then search the suggested scope " +
       "(mnemos_query_ranked with project=<tag>) or re-call mnemos_wake with project=<tag> to switch. " +
       "Also use it BEFORE creating a conversational scope to check the topic doesn't already have a project.",
@@ -706,7 +706,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // mnemos_add
   server.tool(
     "mnemos_add",
-    "Create a note in inbox. Always pass description and project: you know them now. " +
+    "REMEMBER this — capture a durable note into the vault, the write verb for anything a future " +
+      "session would otherwise have to rediscover (the earlier you capture, the less you re-derive). " +
+      "Always pass description and project: you know them now. " +
       "If you cannot determine the project, the response asks you to — present the question " +
       "and the project roster to the user, get an answer (existing project, or a new one and " +
       "its name), then re-call with project set. Never guess a project.",
@@ -1118,8 +1120,9 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // hard-delete vault records — a human types `mnemos forget purge` in a shell.
   server.tool(
     "mnemos_forget",
-    "Removal operations. op=release: soft-evict matched notes (status=released, files kept, never recalled) — reversible. " +
-      "op=supersede: mark the single best match superseded and write a replacement note (requires new_text). " +
+    "FORGET memory the safe way — soft-remove what a query addresses (op=release: soft-evict, " +
+      "status=released, files kept, never recalled — reversible; op=supersede: mark the single best match " +
+      "superseded and write a replacement note, requires new_text). " +
       "Dry-run by default — set apply=true after reviewing the match list. Refuses when the query addresses more than max_forget notes. " +
       "op=purge: HARD DELETE — slug-addressed only (pass slugs, never a query). This tool can only PROPOSE a purge: " +
       "it records a pending intent and returns the command the USER must run to execute it. Never tell the user a purge happened.",

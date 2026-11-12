@@ -273,7 +273,7 @@ program
 
 program
   .command("add")
-  .description("Capture a note to inbox (auto-promotes when configured; a note without a project is staged, not filed - the ask-first gate returns the roster)")
+  .description("REMEMBER a note — capture it into the vault's inbox (auto-promotes when configured; a note without a project is staged, not filed - the ask-first gate returns the roster)")
   .argument("<title>", "note title")
   .option("-t, --type <type>", "note type", "insight")
   .option("-c, --content <content>", "note body content (replaces template placeholder)")
@@ -568,7 +568,7 @@ program
 
 program
   .command("forget")
-  .description("Soft removal: release (soft-evict), supersede (replace). Hard delete is slug-addressed and user-approved.")
+  .description("FORGET — release (soft-evict) or supersede (replace) what a query addresses. Hard delete is slug-addressed and user-approved.")
   .argument("<op>", "release | supersede | purge")
   .argument("[query]", "release/supersede only — matched by rare-token anchor + embedding similarity")
   .option("--slugs <slugs>", "purge only: comma-separated exact note slugs (no matching)")
