@@ -4,7 +4,8 @@ export type NoteType =
   | "learning"
   | "insight"
   | "blocker"
-  | "opportunity";
+  | "opportunity"
+  | "moc";
 
 const VALID_TYPES: Set<string> = new Set([
   "idea",
@@ -13,6 +14,7 @@ const VALID_TYPES: Set<string> = new Set([
   "insight",
   "blocker",
   "opportunity",
+  "moc",
 ]);
 
 export type ClassificationResult = {

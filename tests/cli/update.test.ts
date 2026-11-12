@@ -177,6 +177,52 @@ describe("runUpdateFile — file=map (the ritual)", () => {
   });
 });
 
+describe("map-write hardening (2026-11-09 corruption incident)", () => {
+  const auditLines = (): string[] => {
+    try { return readFileSync(join(vault, "ops", "forget-audit.jsonl"), "utf8").trim().split("\n"); }
+    catch { return []; }
+  };
+
+  it("refuses a whole-note body: frontmatter delimiters, H1, and ## headings", async () => {
+    const before = readFileSync(join(vault, "notes", "roust-project-map.md"), "utf8");
+    const cases = [
+      "---\ndescription: smuggled frontmatter\n---\n\n- done: x",
+      "# A New Note Title\n\n- done: x",
+      "## A New Section\n\n- done: x",
+    ];
+    for (const content of cases) {
+      const res = await runUpdateFile({ startDir: vault, file: "map", project: "roust", content });
+      expect(res.success).toBe(false);
+      expect(res.data.violations.length).toBeGreaterThan(0);
+    }
+    // Nothing was written, and the refusals are on the audit trail.
+    expect(readFileSync(join(vault, "notes", "roust-project-map.md"), "utf8")).toBe(before);
+    expect(auditLines().some((l) => l.includes('"map_write_refused"'))).toBe(true);
+  });
+
+  it("refuses an empty body — compress, never wipe", async () => {
+    const res = await runUpdateFile({ startDir: vault, file: "map", project: "roust", content: "   " });
+    expect(res.success).toBe(false);
+    expect(res.warnings.join(" ")).toContain("empty body");
+  });
+
+  it("an oversized but structurally sound body writes, and the audit records the shape", async () => {
+    const content = `- done: x\n- detail: ${"word ".repeat(4000)}`;
+    const res = await runUpdateFile({ startDir: vault, file: "map", project: "roust", content });
+    expect(res.success).toBe(true);
+    expect(res.warnings.join(" ")).toContain("Argument-shape note");
+    const written = auditLines().at(-1);
+    expect(written).toContain('"argument_shape"');
+    expect(written).toContain('"oversized":true');
+  });
+
+  it("a normal section body is unblocked and carries no shape audit", async () => {
+    const res = await runUpdateFile({ startDir: vault, file: "map", project: "roust", content: "- done: fine" });
+    expect(res.success).toBe(true);
+    expect(auditLines().at(-1)).not.toContain('"argument_shape"');
+  });
+});
+
 describe("runUpdateFile — map backup", () => {
   it("backs up the map before overwriting", async () => {
     await runUpdateFile({ startDir: vault, file: "map", project: "roust", content: "- done: v2" });

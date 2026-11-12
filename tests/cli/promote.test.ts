@@ -34,6 +34,7 @@ async function scaffoldVault(root: string) {
       "      - insight",
       "      - blocker",
       "      - opportunity",
+      "      - moc",
       "    status:",
       "      - inbox",
       "      - active",
@@ -90,6 +91,38 @@ async function markdownIn(dir: string): Promise<string[]> {
   const entries = await fs.readdir(path.join(tmpDir, dir));
   return entries.filter((e) => e.endsWith(".md")).sort();
 }
+
+describe("map-creation gate (2026-11-09 corruption incident)", () => {
+  async function inboxMapNote(type: string) {
+    await fs.writeFile(
+      path.join(tmpDir, "inbox", "kite-project-map.md"),
+      inboxNote({
+        description: "Map of the kite project",
+        type,
+        project: ["kite"],
+        status: "inbox",
+        created: "2026-11-12",
+      }),
+      "utf8"
+    );
+  }
+
+  it("a map-titled note without type=moc is refused with guidance, still in inbox", async () => {
+    await inboxMapNote("insight");
+    const result = await runPromote({ startDir: tmpDir, noteName: "kite-project-map" });
+    expect(result.data.promoted).toHaveLength(0);
+    expect(result.data.skipped).toHaveLength(1);
+    expect(result.data.skipped[0].reason).toContain("type=moc");
+    expect((await fs.readdir(path.join(tmpDir, "inbox")))).toContain("kite-project-map.md");
+  });
+
+  it("type=moc promotes — the documented map flow is unblocked", async () => {
+    await inboxMapNote("moc");
+    const result = await runPromote({ startDir: tmpDir, noteName: "kite-project-map" });
+    expect(result.data.promoted).toHaveLength(1);
+    expect(result.data.skipped).toHaveLength(0);
+  });
+});
 
 describe("runPromote", () => {
   it("moves note from inbox to notes", async () => {

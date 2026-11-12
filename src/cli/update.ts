@@ -16,7 +16,7 @@ import { findVaultRoot, getVaultPaths, listNoteTitles, type VaultPaths } from ".
 import { loadConfig } from "../core/config.js";
 import { loadPolicy, PolicyError, audit } from "../core/policy.js";
 import { readFrontmatterFile, writeFrontmatterFile } from "../core/frontmatter.js";
-import { replaceCurrentStateSection } from "../core/mapstate.js";
+import { replaceCurrentStateSection, titleLooksLikeMap } from "../core/mapstate.js";
 import { slugify } from "../core/slug.js";
 
 export type UpdatableFile =
@@ -232,6 +232,40 @@ async function runUpdateFileInner(options: UpdateFileOptions): Promise<UpdateFil
 }
 
 /**
+ * (Map-write hardening, from the 2026-11-09 corruption incident) The Current
+ * State body is a SECTION body — bullets of done/next/blocked — not a whole
+ * note. A body that carries note structure (frontmatter delimiters, an H1,
+ * a ## heading) silently breaks the map: `## ` inside the stamped section
+ * becomes the section boundary the NEXT write matches, so the tail of the
+ * old state is orphaned as a pseudo-section and replacement never reaches
+ * it. These are refused before any write; the audit trail records why.
+ */
+export function currentStateShapeViolations(content: string): string[] {
+  const violations: string[] = [];
+  if (!content.trim()) {
+    violations.push(
+      "empty body — Current State carries done/next/blocked; compress the existing state instead of wiping it",
+    );
+  }
+  if (/^---\s*$/m.test(content)) {
+    violations.push(
+      "a frontmatter delimiter (--- on its own line) — the body is a section body, not a whole note",
+    );
+  }
+  if (/^#\s+\S/m.test(content)) {
+    violations.push(
+      "an H1 heading — the map already has one; the section body adds no note structure",
+    );
+  }
+  if (/^##\s/m.test(content)) {
+    violations.push(
+      "a ## heading — Current State is one section; express sub-structure with bullets, not headings",
+    );
+  }
+  return violations;
+}
+
+/**
  * file=map: overwrite the target map's `## Current State` section.
  * The map is resolved project → config routing → `<slug>…map` convention,
  * exactly promote's chain — one routing truth.
@@ -277,7 +311,7 @@ async function updateMapCurrentState(
   const routingHit = routing && titles.includes(routing) ? routing : undefined;
   const conventionHit = routingHit
     ? undefined
-    : titles.find((t) => /(^|[-\s])map$/i.test(t.trim()) && slugify(t).includes(slugify(project)));
+    : titles.find((t) => titleLooksLikeMap(t) && slugify(t).includes(slugify(project)));
 
   const mapTitle = routingHit ?? conventionHit;
   if (!mapTitle) {
@@ -302,6 +336,35 @@ async function updateMapCurrentState(
   }
 
   const today = new Date().toISOString().slice(0, 10);
+
+  // (a) Whole-note shape check: refuse before any write, audit the refusal.
+  const violations = currentStateShapeViolations(options.content);
+  if (violations.length > 0) {
+    await audit(vaultRoot, {
+      event: "map_write_refused",
+      project,
+      map: mapTitle,
+      reason: "shape",
+      violations,
+    });
+    return {
+      success: false,
+      data: { file: "map", project, map: mapTitle, violations },
+      warnings: [
+        "Refused: the Current State body is a section body, not a whole note. Nothing was written.",
+        ...violations.map((v) => `- ${v}`),
+        "Pass just the section body: bullets of what is done, the next action, what is blocked.",
+      ],
+    };
+  }
+
+  // (b) Argument-shape audit on degenerate calls: a valid but unusual body
+  // still writes, and the audit records the shape so success:true never
+  // hides HOW the state came to be.
+  const OVERSIZED = 20_000;
+  const oversized = options.content.length > OVERSIZED;
+  const argumentShape = oversized ? { oversized: true, bytes: options.content.length } : undefined;
+
   const replaced = replaceCurrentStateSection(parsed.body, options.content, today);
 
   await backupBeforeOverwrite(mapPath, mapTitle, await safeReadFile(mapPath));
@@ -312,6 +375,7 @@ async function updateMapCurrentState(
     project,
     map: mapTitle,
     section_created: replaced.created,
+    ...(argumentShape ? { argument_shape: argumentShape } : {}),
   });
 
   return {
@@ -328,6 +392,7 @@ async function updateMapCurrentState(
     },
     warnings: [
       "Current State overwritten (never appended) — Key Notes and frontmatter untouched.",
+      ...(oversized ? [`Argument-shape note: the body exceeded ${OVERSIZED} chars (${options.content.length}); recorded in the audit. Compress — the section carries done/next/blocked.`] : []),
       ...(replaced.created ? ["No Current State section existed — one was created at the end of the map."] : []),
       ...(!/^type:\s*moc/m.test(JSON.stringify(parsed.data)) && parsed.data.type !== "moc"
         ? [`Warning: ${mapTitle} is not a type=moc note; it matched the map convention but may not be a real map.`]

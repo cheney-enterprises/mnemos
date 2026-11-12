@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Changed — map-write hardening trio (from the 2026-11-09 corruption incident)
+- **Whole-note shape check in the `file=map` write path.** The Current State
+  body is a section body, not a whole note: a body carrying frontmatter
+  delimiters, an H1, or a `## ` heading is REFUSED before any write (a `## `
+  inside the stamped section becomes the boundary the next write matches,
+  orphaning the tail of the old state as a pseudo-section). An empty body is
+  refused too — compress, never wipe. Every refusal is audited
+  (`map_write_refused`).
+- **Argument-shape audit on degenerate calls.** A valid but unusual body
+  (oversized, > 20k chars) still writes — and the audit records the shape
+  (`argument_shape`), so `success:true` never hides HOW the state came to
+  be. The response carries the note too.
+- **`type=moc` validation at map creation.** A note that routes as a project
+  map (config routing names it, or the title ends in "map" and carries a
+  detected project's slug — the `resolveAreas` rule, so a note merely ABOUT
+  maps like "user plans a map" is untouched) is refused at promote unless
+  its type is `moc`, with the fix in the reason. Root cause found on the
+  way: `moc` was missing from the classifier's VALID_TYPES, so an inbox map
+  note's explicit `type: moc` was discarded and re-classified as
+  `insight` (low confidence) — the exact birth of mis-typed maps. `moc`
+  joins `NoteType`; the documented `mnemos_add(<project> project map,
+  type=moc)` flow now promotes as a map.
+- tests/cli/update.test.ts: the hardening describe (four cases);
+  tests/cli/promote.test.ts: the map-creation gate (refused + unblocked).
+  1206/1206.
+
 ### Changed — intent-first tool descriptions for the write path (item 1 remainder)
 - The write-path tools now lead with the intent the way the retrieval five
   already do — mechanics trail: `mnemos_add` = "REMEMBER this — capture a

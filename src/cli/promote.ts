@@ -10,6 +10,8 @@ import {
 import { buildGraph } from "../core/graph.js";
 import { validateNoteAgainstSchema } from "../core/schema.js";
 import { computePromotion, isTemplatePlaceholder, type PromoteResult } from "../core/promote.js";
+import { titleLooksLikeMap } from "../core/mapstate.js";
+import { slugify } from "../core/slug.js";
 import type { VaultIndex } from "../core/linkdetect.js";
 import type { ProjectKeywordConfig } from "../core/classify.js";
 import {
@@ -287,6 +289,33 @@ export async function runPromote(
     }
 
     const destPath = path.join(paths.notes, result.destinationFilename);
+
+    // Map-creation gate (from the 2026-11-09 corruption incident): a note
+    // that routes as a project map must be type=moc — the session-end
+    // ritual overwrites a map's Current State section, and a mis-typed map
+    // silently absorbs those writes with the wrong semantics. Gate at
+    // creation here, so update-time routing never has to rescue it.
+    // "Routes as a map" is resolveAreas' rule, not just a map-sounding
+    // title: config routing names the title, or the title ends in "map"
+    // AND carries a detected project's slug — a note merely ABOUT maps
+    // ("user plans a map") is not a map.
+    const finalTitle = titleFromFilename(result.destinationFilename);
+    const finalSlug = slugify(finalTitle);
+    const routingTitles = Object.values(mapRouting ?? {});
+    const detectedProjects = Array.isArray(result.updatedFrontmatter.project)
+      ? (result.updatedFrontmatter.project as unknown[]).filter((p): p is string => typeof p === "string")
+      : [];
+    const conventionMap =
+      titleLooksLikeMap(finalTitle) &&
+      detectedProjects.some((p) => finalSlug.includes(slugify(p)));
+    const looksLikeMap = routingTitles.includes(finalTitle) || conventionMap;
+    if (looksLikeMap && result.classification.type !== "moc") {
+      skipped.push({
+        path: inboxPath,
+        reason: `Title routes as a project map but type is "${result.classification.type}" — a map is type=moc (it carries the session-end ritual's Current State writes). Re-promote with -t moc.`,
+      });
+      continue;
+    }
 
     // Collision check
     try {

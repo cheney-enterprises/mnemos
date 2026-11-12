@@ -23,6 +23,15 @@ export interface CurrentStateResult {
 }
 
 /**
+ * Does this title claim to be a project map? The "<project>…map" naming
+ * convention: one truth shared by update.ts's map resolution and promote's
+ * map-creation gate.
+ */
+export function titleLooksLikeMap(title: string): boolean {
+  return /(^|[-\s])map$/i.test(title.trim());
+}
+
+/**
  * Replace (or create) the `## Current State` section in a map body.
  *
  * Section = the matched `## ... current state ...` heading line through the
