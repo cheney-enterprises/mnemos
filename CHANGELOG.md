@@ -2,6 +2,19 @@
 
 ## [Unreleased]
 
+### Fixed — the bypass-front sign travels into every new note
+- **`mnemos add` carries the template's `_bypass_warning` into the note's
+  frontmatter.** The 2026-11-11 injection put the STOP sign into 61 existing
+  files and the templates — but the add path builds note frontmatter fresh,
+  so every note born after the injection (and every future one) greeted a
+  bypassing agent with no warning in the file it opened. The template's
+  wording now travels with the note from birth (promote preserves it via
+  the frontmatter spread). Found by the 2026-11-12 all-vault rules audit:
+  17 notes had the warning in their body (several are *about* the defense
+  and quote it) but not in their frontmatter. Live vault repaired by direct
+  write (recorded in the daily); pinned by a test in
+  tests/cli/add-description-project.test.ts.
+
 ### Changed — map-write hardening trio (from the 2026-11-09 corruption incident)
 - **Whole-note shape check in the `file=map` write path.** The Current State
   body is a section body, not a whole note: a body carrying frontmatter

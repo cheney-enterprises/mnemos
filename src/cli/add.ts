@@ -169,6 +169,13 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
   const description = options.description?.trim() ?? "";
   const project = (options.project ?? []).map((t) => t.trim()).filter((t) => t.length > 0);
   const frontmatter = {
+    // The vault-front STOP sign travels inside every file an agent opens
+    // (the 2026-11-11 bypass defense). The template carries the wording —
+    // a note composed here must not silently drop it, or every note born
+    // after the injection greets a bypassing agent without a warning.
+    ...(templateParsed.data?._bypass_warning
+      ? { _bypass_warning: templateParsed.data._bypass_warning }
+      : {}),
     description,
     type,
     project,

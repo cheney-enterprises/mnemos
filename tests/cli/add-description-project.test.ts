@@ -44,6 +44,15 @@ const TITLE = "agents know the description at creation time";
 const DESC = "Agents have the context when they write the note, so they should supply it then";
 
 describe("mnemos add with description and project (#39)", () => {
+  it("the template's _bypass_warning travels into the new note (bypass defense)", async () => {
+    // The 2026-11-11 bypass defense puts the vault-front STOP sign in the
+    // templates; a note composed by add must not be born without it.
+    const r = await runAdd({ startDir: vault, title: TITLE, content: "Real content.", project: ["mnemos"] });
+    const data = await fm(String(r.data.path));
+    expect(String(data._bypass_warning)).toContain("Direct edits corrupt the vault");
+    expect(String(data._bypass_warning)).toContain("See AGENT.md at the vault root");
+  });
+
   it("auto-promoted note carries both fields and passes validation", async () => {
     const r = await runAdd({ startDir: vault, title: TITLE, content: "Real content.", description: DESC, project: ["mnemos"] });
     const p = String(r.data.path);
