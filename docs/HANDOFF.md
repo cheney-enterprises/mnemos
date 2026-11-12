@@ -10,7 +10,29 @@ Eric's direction: "that works" (CLI access; no MCP server running in this
 harness — OpenCode has no mnemos MCP configured) and "start on the proposed
 working queue." The queue came from the briefing + handoff + the codebase
 review; all five actionable items closed, one concern per commit, each
-physically verified before its commit was claimed.
+physically verified before its commit was claimed. Eric then asked to bring
+the other projects' notes into rule compliance too — see item 6.
+
+### 6. All-vault rules audit + the add-path warning defect (07041ed)
+- **Audit result: zero schema violations, zero dangling links vault-wide.**
+  Three pre-fix violations repaired by direct write (recorded in the
+  daily): the igpu-GPU-attribution note's 251-char description compressed
+  under the 200 limit; two old supersede stubs given their missing
+  `created` (2026-11-04 from file birth, 2026-11-11) and their truncated
+  mid-word descriptions completed. The second stub's unclosed
+  `[[wiki-link` had fused the rest of its frontmatter into the vault's one
+  dangling link — that repair cleared the dangling list.
+- **17 notes had `_bypass_warning` in their body but not their
+  frontmatter** — including every note born after the 2026-11-11
+  injection. Root cause: `runAdd` builds note frontmatter fresh and never
+  copied the warning out of the template's frontmatter, so the sign
+  stopped at the add path. Fixed: the template's wording now leads the
+  note's frontmatter from birth (promote preserves it via the spread);
+  live vault repaired; a test pins the travel. (First grep was fooled by
+  notes ABOUT the bypass defense quoting the warning in their bodies —
+  the frontmatter check is the authoritative one.)
+- Index rebuilt (76 scanned, 0 dangling); all three repaired notes
+  validate clean; scoped wake tolerates everything.
 
 ### 1. Map handoff debt closed first (vault write, no commit)
 The missing session-end line from the 2026-11-11 handoff (bypass defense
@@ -86,18 +108,18 @@ verbatim. This closes item 1 from the wake arc.
 ## Verification
 - 1,206 tests green (83 files) at every commit; tsc clean; CHANGELOG
   [Unreleased] carries all four change sets.
-- Commits: `52c31c0`, `892e04b`, `487faee`, `998bead`, `76063ec`.
-- Working tree clean except untracked `.ori/` (runtime state) and this
-  handoff until committed.
+- Commits: `52c31c0`, `892e04b`, `487faee`, `998bead`, `76063ec`, `07041ed`.
+- Working tree clean except untracked `.ori/` (runtime state).
 
 ## Open items (next session)
 1. **npm publish** of 0.9.0+ — blocked only on Eric's npm auth ticket.
 2. **Restart MCP server processes** to pick up the new dist (no
-   hot-reload): intent-first descriptions, roots behavior, and the
-   map-write shape check are stale until then. Note: no mnemos MCP server
-   is registered in the Ori/OpenCode harness itself — wake ran through the
-   CLI; if Eric wants MCP-surface testing from this harness, register
-   `node ~/dev/mnemos/dist/index.js serve --mcp` there first.
+   hot-reload): intent-first descriptions, roots behavior, the map-write
+   shape check, and the add-path warning travel are stale until then.
+   Note: no mnemos MCP server is registered in the Ori/OpenCode harness
+   itself — wake ran through the CLI; if Eric wants MCP-surface testing
+   from this harness, register `node ~/dev/mnemos/dist/index.js serve
+   --mcp` there first.
 3. **Horizon:** Flutter HTTP sidecar (MCP tools mirrored 1:1, app-mediated
    approval gesture); opaque-harness intake (source→project mapping at the
    harness layer, no fuzzy logic in wake); `project rename` before the
@@ -109,5 +131,7 @@ verbatim. This closes item 1 from the wake arc.
 The queue from the 2026-11-11 handoff is empty. The vault's schema agrees
 with what the forget machinery writes; status and wake agree on the inbox;
 the tool descriptions sell intent first; the map write path refuses to
-accept a corrupted state and never lies in its audit. The package is
-0.9.0+Unreleased, five change sets deep, waiting on one npm token.
+accept a corrupted state and never lies in its audit. The whole vault is
+rule-compliant — zero schema violations, zero dangling links, the
+bypass-front sign in every note's frontmatter from birth. The package is
+0.9.0+Unreleased, six change sets deep, waiting on one npm token.
