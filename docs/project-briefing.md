@@ -148,24 +148,20 @@ you persisted. Update this briefing only if a *durable* contract changed
 6. The manual's live copy drifts if you edit the scaffold and forget the
    sync — the drift-guard test catches it, but save the round trip.
 
-# Known product defects (recorded, not yet fixed — verify before working)
+# Known product defects
 
-- The `forget` machinery and the note schema disagree: `status: released`
-  is outside the note schema's status enum, so every released note flags
-  as a schema violation in `mnemos health` forever.
-- `mnemos forget supersede` writes its replacement note without a
-  `created` field.
-- `mnemos status` `inboxCount` can disagree with the actual inbox
-  directory contents (stale read observed once).
+All three defects recorded on 2026-11-11 were fixed on 2026-11-12 (commit
+`52c31c0` / `892e04b`): `released` is inside the note schema's status enum,
+supersede replacements carry `created` (and inherit `project`), and
+`mnemos status` `inboxCount` counts markdown only, agreeing with wake. If a
+new defect appears, record it here with the date and the live evidence.
 
 # Open work queue (verify against the map's Current State — it may have moved)
 
-Intent-first descriptions for the write-path tools (add / update /
-forget / suggest_scope — the retrieval five are done) · map-write
-hardening trio (whole-note shape check in `updateMapCurrentState`,
-argument-shape audit on degenerate calls, `type=moc` validation at map
-creation) · the forget-machinery schema fixes above · `mnemos status`
-stale inboxCount · npm publish when Eric's auth ticket resolves ·
-horizon: Flutter HTTP sidecar (MCP tools mirrored 1:1, app-mediated
-approval gesture — the absolute fix for the PTY ceiling) and
-opaque-harness intake for ai-flutter-chat.
+npm publish when Eric's auth ticket resolves · restart MCP server processes
+to serve the 2026-11-12 dist (descriptions, roots behavior, and the
+map-write shape check are stale until then) · horizon: Flutter HTTP sidecar
+(MCP tools mirrored 1:1, app-mediated approval gesture — the absolute fix
+for the PTY ceiling), opaque-harness intake for ai-flutter-chat, and
+`project rename` (retag + map rename + ops move + tombstone) before the app
+renames to FORGE.
