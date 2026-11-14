@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Added — the §9 gate, measured on the live vault: `bench/session-scope-bench.ts`
+- **The flip criterion now has its instrument.** Two legs: baseline (live
+  vault in place, read-only, flag off) and weighted (temp copy, flag
+  flipped there — the live vault is never mutated). Focus cases (dilution)
+  and curated reach cases (miss) drawn from real vault content and recorded
+  in the file — the bench is the record of what the gate judged.
+- **`--sweep`: the constant search §5 sanctions.** The §5 constants are now
+  config-tunable (`retrieval.session_scope.{lineage_decay,
+  unlinked_floor, other_scope_multiplier, waive_floor}` — spec starting
+  values as defaults; a config-defaults bug that dropped them was caught by
+  the sweep being flat). The sweep table drives the flip decision.
+- **Measured today (83-note vault, 9 focus + 3 reach cases):** baseline
+  dilution **23%** — the phantom is real ("ai memory" from mnemos: 80%).
+  Weighted: **9% at P_other = 0.15**, miss **0% at every setting** down to
+  P = 0.05 (the no-miss guarantee has enormous headroom). The canonical
+  phantom, drawn in its historical direction (aifc scope), is **cured: 0/10
+  cross-scope**.
+- **The honest verdict: GATE NOT MET (9% > 5%) — corpus-limited, not
+  ranking-limited.** The residual cross-scope hits are hub-style notes
+  (session records, project maps) whose raw scores ride centrality 10–20×
+  above weak own-project tails; constants can't fix corpus composition.
+  These self-resolve as the vault densifies. The flag stays OFF until the
+  bench says ≤5% / 0 — and the bench now makes that a five-minute re-check.
+
 ### Added — §5 scope-distance weighting (behind the flag; the probe measures it)
 - **`src/core/scopeweight.ts`** — the no-dilution guarantee, built to spec
   §5 as amended in the decision log (2026-11-15): `M(n) = L(hops) × P`,

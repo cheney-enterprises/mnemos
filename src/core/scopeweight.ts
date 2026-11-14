@@ -34,6 +34,31 @@ export const SCOPE_FLOOR = 0.8;
 export const SCOPE_OTHER = 0.75;
 export const WAIVE_FLOOR = 0.95;
 
+/** The §5 constants as configured — spec starting values by default, tunable
+ * by the benchmark (config retrieval.session_scope.*; the measured baseline
+ * showed the starting P cannot reorder real topical gaps, so the sweep in
+ * bench/session-scope-bench.ts drives the flip decision). */
+export type ScopeConstants = {
+  decay: number;
+  floor: number;
+  other: number;
+  waiveFloor: number;
+};
+
+export function scopeConstantsFrom(sessionScope: {
+  lineage_decay?: number;
+  unlinked_floor?: number;
+  other_scope_multiplier?: number;
+  waive_floor?: number;
+} | undefined): ScopeConstants {
+  return {
+    decay: sessionScope?.lineage_decay ?? SCOPE_DECAY,
+    floor: sessionScope?.unlinked_floor ?? SCOPE_FLOOR,
+    other: sessionScope?.other_scope_multiplier ?? SCOPE_OTHER,
+    waiveFloor: sessionScope?.waive_floor ?? WAIVE_FLOOR,
+  };
+}
+
 export type ScopeBand = "own" | "lineage" | "project" | "other" | "reach";
 
 export type ScopeTrace = {
@@ -59,6 +84,8 @@ export type ScopeWeightInput = {
   engineConfig: EngineConfig;
   /** The full candidate list with fused scores, pre-multiplier. */
   candidates: Array<{ title: string; score: number }>;
+  /** §5 constants — defaults to the spec's starting values. */
+  constants?: ScopeConstants;
 };
 
 type SessionRecord = {
@@ -199,6 +226,7 @@ export async function computeScopeWeights(
   }
 
   const frontmatterCache = new Map<string, Record<string, unknown> | null>();
+  const K = input.constants ?? scopeConstantsFrom(undefined);
   const readFrontmatter = async (slug: string) => {
     if (!frontmatterCache.has(slug)) {
       try {
@@ -219,7 +247,7 @@ export async function computeScopeWeights(
     // L: lineage gradient — 1.0 for the reading session's own notes, 0.92
     // per hop, the floor for everything the lineage graph doesn't know.
     let hops: number | null = null;
-    let l = SCOPE_FLOOR;
+    let l = K.floor;
     if (scope.session) {
       let bestHops: number | undefined;
       for (const [sessionId, h] of dist) {
@@ -230,7 +258,7 @@ export async function computeScopeWeights(
       }
       if (bestHops !== undefined) {
         hops = bestHops;
-        l = Math.pow(SCOPE_DECAY, bestHops);
+        l = Math.pow(K.decay, bestHops);
       } else if (graph.get(scope.session)?.linkedSlugs.has(candidate.title)) {
         hops = 0;
         l = 1.0;
@@ -238,17 +266,17 @@ export async function computeScopeWeights(
     } else {
       // Project-scoped reading (no session): no lineage gradient to apply —
       // the project band carries the whole signal.
-      l = SCOPE_FLOOR;
+      l = K.floor;
     }
 
-    const p = sameProject ? 1.0 : SCOPE_OTHER;
+    const p = sameProject ? 1.0 : K.other;
 
     let band: ScopeBand;
     let multiplier = l * p;
     let waived = false;
     if (anchored.has(candidate.title) && candidate.score >= decileThreshold) {
       waived = true;
-      multiplier = Math.max(multiplier, WAIVE_FLOOR);
+      multiplier = Math.max(multiplier, K.waiveFloor);
       band = sameProject ? "project" : "reach";
     } else if (hops === 0) {
       band = "own";

@@ -11,6 +11,7 @@ import { projectMemberSlugs } from "../core/wake-sources.js";
 import { openSyncedIndex, cachedGraphMetrics } from "../core/indexstore.js";
 import { buildGraph, type LinkGraph } from "../core/graph.js";
 import { loadConfig } from "../core/config.js";
+import { scopeConstantsFrom } from "../core/scopeweight.js";
 import { classifyIntent } from "../core/intent.js";
 import {
   buildIndex,
@@ -325,6 +326,7 @@ export async function runExplore(
         ? { session: options.scopeSession, project: options.scopeProject }
         : undefined,
       engineConfigForScope: config.engine,
+      scopeConstants: scopeConstantsFrom(config.retrieval.session_scope),
     });
   }
 

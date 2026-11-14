@@ -328,10 +328,12 @@ export async function explore(params: {
   /** The vault's engine config — the anchor waiver reuses the forget
    * matcher, which needs it. */
   engineConfigForScope?: import("./config.js").EngineConfig;
+  /** §5 constants from the vault config (tunable by the benchmark). */
+  scopeConstants?: import("./scopeweight.js").ScopeConstants;
 }): Promise<ExploreOutput> {
   const {
     linkGraph, notesDir, warmthSignals, flatResults, config, qValueLookup, graphMetrics,
-    scope, engineConfigForScope,
+    scope, engineConfigForScope, scopeConstants,
   } = params;
 
   const limit = Math.min(config.default_limit, config.max_limit);
@@ -436,6 +438,7 @@ export async function explore(params: {
         query: params.query,
         scope,
         engineConfig: engineConfigForScope as Parameters<typeof computeScopeWeights>[0]["engineConfig"],
+        constants: scopeConstants,
         candidates: allCandidates.map((c) => ({ title: c.title, score: c.score })),
       });
       for (const c of allCandidates) {

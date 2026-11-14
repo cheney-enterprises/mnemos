@@ -75,6 +75,20 @@ export type RetrievalConfig = {
    */
   session_scope: {
     enabled: boolean;
+    /**
+     * §5 constants — starting values from the spec, TUNABLE BY THE
+     * BENCHMARK (§9: the flip happens on measured numbers, so the numbers
+     * must be adjustable without code edits). The measured live-vault
+     * baseline (2026-11-15, bench/session-scope-bench.ts) showed the spec's
+     * starting P (0.75) yields only a 1.33× effective cross/own ratio —
+     * mathematically unable to reorder real topical gaps of 1.5-3x. The
+     * sweep lives in the bench; these defaults are the spec's starting
+     * values, not the gate-passing values.
+     */
+    lineage_decay?: number;
+    unlinked_floor?: number;
+    other_scope_multiplier?: number;
+    waive_floor?: number;
   };
 };
 
@@ -223,7 +237,13 @@ const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
   exploration_budget: 0.10,
   stage_time_budget_ms: 500,
   stage_soft_cutoff: 0.8,
-  session_scope: { enabled: false },
+  session_scope: {
+    enabled: false,
+    lineage_decay: 0.92,
+    unlinked_floor: 0.8,
+    other_scope_multiplier: 0.75,
+    waive_floor: 0.95,
+  },
 };
 
 /**
@@ -445,6 +465,10 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
       stage_soft_cutoff: rawRetrieval?.stage_soft_cutoff ?? DEFAULT_RETRIEVAL_CONFIG.stage_soft_cutoff,
       session_scope: {
         enabled: rawRetrieval?.session_scope?.enabled ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.enabled,
+        lineage_decay: rawRetrieval?.session_scope?.lineage_decay ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.lineage_decay,
+        unlinked_floor: rawRetrieval?.session_scope?.unlinked_floor ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.unlinked_floor,
+        other_scope_multiplier: rawRetrieval?.session_scope?.other_scope_multiplier ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.other_scope_multiplier,
+        waive_floor: rawRetrieval?.session_scope?.waive_floor ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.waive_floor,
       },
     },
     bm25: {
