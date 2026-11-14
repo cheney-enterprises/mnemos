@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Added — `mnemos probe`: operational tests anyone can run
+- **The product now ships its own operational verification.** `mnemos probe`
+  builds a hostile-but-fair fixture vault generated with the package (47
+  notes, 3 vocabulary-collision projects, a superseded-note trap, rare-token
+  anchors, a session lineage graph), copies it to a temp directory, and runs
+  the case manifest through the same entries a client uses (recall, wake,
+  bind, supersede, release). Your vault is never touched (Eric's ruling: the
+  challenging vault must be designed, shipped, and deterministic — not any
+  user's live vault).
+- **Two levels, by design.** `hard` cases are shipped behavior and a
+  regression guard — failure exits 1 (today: 9/9 pass). `gate` cases report
+  the spec-§9 numbers as measurements, not verdicts, until the benchmark
+  gate flips: **baseline dilution 30%** (target ≤ 5% — the fixture's
+  phantom-blend trap: a software "memory leak" query pulls terra's
+  "vernalization memory" into the top-5), **gate miss 0%** (target 0).
+  Quantified disease first, so Phase 2's weighting shows its delta.
+- Fixture invariants are tested too: every generated note passes the
+  product's own schema validator (which caught a real fixture bug — map
+  notes need the scaffold's `moc → map.md` template mapping), lineage edges
+  round-trip, two runs agree (determinism). 8 new tests; 1,240/1,240.
+
 ### Added — the CLI help teaches setup
 - **`mnemos --help` opens with the four-command setup path** (init → boot →
   bridge → wake), names every bridge client plus `generic` for unknown MCP

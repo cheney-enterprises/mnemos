@@ -1,0 +1,17 @@
+{
+  "mcp": {
+    "mnemos": {
+      "type": "local",
+      "command": [
+        "mnemos",
+        "serve",
+        "--mcp",
+        "--vault",
+        "/Users/eric/ori-memory-vault"
+      ],
+      "environment": {
+        "MNEMOS_VAULT": "/Users/eric/ori-memory-vault"
+      }
+    }
+  }
+}

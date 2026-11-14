@@ -75,6 +75,21 @@ registered:
 - Something registered → one line acknowledging it, with the command to add
   or re-wire.
 
+One more check, and it needs no vault at all:
+
+```bash
+mnemos probe
+```
+
+Runs the operational probe suite against a hostile fixture vault that ships
+with the package — vocabulary-collision projects, a superseded-note trap, a
+session lineage graph. It answers "does the product behave as intended, not
+just compile": recall finds the right notes across projects, wake carries only
+the scoped project's state, supersede/release round-trips hold. Hard cases
+must pass (a failure exits 1); gate cases report the benchmark numbers the
+roadmap is measured against. Your own vault is never touched — everything runs
+in a temp copy of the fixture.
+
 ## 5. The config (when you want to tune, not before)
 
 `mnemos.config.yaml` sits at the vault root and is scaffolded fully commented —

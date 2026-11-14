@@ -10,6 +10,7 @@ import path from "node:path";
 import { runInitInteractive } from "./cli/init.js";
 import { runStatus } from "./cli/status.js";
 import { runHealth } from "./cli/health.js";
+import { runProbe } from "./probe/run.js";
 import {
   runQueryBacklinks,
   runQueryDangling,
@@ -669,6 +670,60 @@ program
       actor: "cli",
     });
     await emit(result, result.success ? 0 : 1);
+  });
+
+program
+  .command("probe")
+  .description(
+    "Operational probes on a shipped hostile fixture vault — does the product behave as intended? " +
+      "Never touches your vault; runs in a temp copy of the built-in fixture. Hard cases are shipped " +
+      "behavior (failure = regression, exit 1); gate cases report spec-§9 numbers (dilution %, miss %)."
+  )
+  .addHelpText(
+    "after",
+    `
+  mnemos probe                    full suite: hard cases + gate numbers
+  mnemos probe --level hard       just the shipped-behavior regression guard
+  mnemos probe --case <id>        one case (ids in the JSON report)
+  mnemos probe --json             machine-readable report
+  mnemos probe --keep             keep the temp fixture copies for inspection
+
+The fixture is generated and shipped with the package — deterministic notes,
+vocabulary-collision projects, a superseded-note trap, and a session lineage
+graph designed to challenge the machinery. Your vault is never touched.`
+  )
+  .option("--level <level>", "hard | gate | all (default all)")
+  .option("--case <id>", "run a single case by id")
+  .option("--json", "machine-readable report")
+  .option("--keep", "keep the temp fixture copies for inspection")
+  .action(async (options: { level?: string; case?: string; json?: boolean; keep?: boolean }) => {
+    const level = options.level === "hard" || options.level === "gate" ? options.level : "all";
+    const report = await runProbe({ level, only: options.case, keep: options.keep });
+    if (options.json) {
+      const code = report.headline.hard_all_passed ? 0 : 1;
+      await emit({ success: true, data: report, warnings: [] }, code);
+      return;
+    }
+    const { headline } = report;
+    console.log(`mnemos probe — fixture vault (${report.fixture.notes} notes, ${report.fixture.sessions} sessions)\n`);
+    for (const c of report.cases) {
+      const mark = c.passed === null ? "NUM " : c.passed ? "PASS" : "FAIL";
+      console.log(`  [${mark}] ${c.level.padEnd(4)} ${c.id}`);
+      if (!c.passed) console.log(`          ${c.detail}`);
+    }
+    console.log(
+      `\n  hard: ${headline.hard_passed}/${headline.hard_total} passed` +
+        `   gate dilution: ${headline.gate_dilution_pct}%   gate miss: ${headline.gate_miss_pct}%
+  (gate targets, spec §9: dilution <= 5%, miss = 0)\n`,
+    );
+    await disposeEmbedder();
+    await maybeNotifyUpdate();
+    // Same exit contract as emit(): a settle window before exit — an
+    // immediate process.exit() races the onnx runtime's teardown threads
+    // (mutex lock failed) and kills the process after the report printed.
+    process.stdout.write("", () => {
+      setTimeout(() => process.exit(headline.hard_all_passed ? 0 : 1), 4000).unref();
+    });
   });
 
 program
