@@ -24,7 +24,7 @@ import { runSql } from "./cli/sqlcmd.js";
 import { runAdd } from "./cli/add.js";
 import { runPromote } from "./cli/promote.js";
 import { runArchive } from "./cli/archive.js";
-import { runBridgeClaudeCode, runBridgeClaudeCodeGlobal, runBridgeCodex, runBridgeCursor, runBridgeGeneric, runBridgeHermes, runBridgeOpenCode, runBridgeOri, runBridgeProjects, runBridgeStatus } from "./cli/bridge.js";
+import { runBridgeClaudeCode, runBridgeClaudeCodeGlobal, runBridgeCodex, runBridgeCursor, runBridgeGeneric, runBridgeHermes, runBridgeInstructionsOnly, runBridgeOpenCode, runBridgeOri, runBridgeProjects, runBridgeStatus } from "./cli/bridge.js";
 import { runServeMcp } from "./cli/serve.js";
 import { runQueryRanked, runQuerySimilar, runQueryWarmthAudit } from "./cli/search.js";
 import { runWake } from "./cli/wake.js";
@@ -417,19 +417,25 @@ What each target writes (the client's own config files — mnemos never asks you
   status        report what is registered where, per client and scope
 
 Examples:
-  mnemos bridge opencode --vault ~/my-memory        wire OpenCode (plugin + MCP + AGENTS.md)
-  mnemos bridge claude-code --vault ~/my-memory     wire Claude Code (project scope by default)
-  mnemos bridge claude-code --scope global --vault ~/my-memory
+  mnemos bridge opencode --vault ~/my-memory        wire OpenCode GLOBALLY (default scope —
+                                                    one registration covers every project)
+  mnemos bridge opencode --vault ~/my-memory --project ~/work/app --project ~/work/site
+                                                    project-only: wire just those directories
+  mnemos bridge opencode --vault ~/my-memory --project
+                                                    project-only: just the current directory
+  mnemos bridge opencode --instructions-only        stamp only AGENTS.md here (MCP already wired?)
+  mnemos bridge opencode --instructions-only --project ~/work/app ~/work/site
+                                                    stamp only those dirs' AGENTS.md
   mnemos bridge generic --vault ~/my-memory         unknown client? print the JSON to paste
   mnemos bridge opencode --uninstall                remove the wiring for that target/scope
   mnemos bridge status                              what is registered, and where
 
-More projects, one vault?  Wire them from wherever you stand:
-  mnemos bridge opencode --vault ~/my-memory \
-      --project ~/work/app --project ~/work/site
-  (full wiring into each dir: MCP config + AGENTS.md; idempotent. Global-only
-  clients like codex/ori instead take --scope global — one registration
-  covers every project.)
+Scope model: the vault is global by nature — the default wires the client
+globally (one registration, every project). Use --project when you
+deliberately want a project isolated to its own wiring. --instructions-only
+stamps just the client's instructions file (never touches MCP config) — for
+projects wired after the fact or repos where you only want the boot pointer.
+Project installs override global when both exist (runtime precedence).
 
 Not sure which client you have, or it's not listed?  'generic' prints the
 registration block — any MCP-compatible client works over stdio. 'status'
@@ -445,14 +451,18 @@ server. Verify any time with: mnemos status`
   .option("--activation <activation>", "activation mode: auto | manual")
   .option("--vault <path>", "explicit vault path")
   .option(
-    "--project <dirs...>",
-    "wire additional project DIRECTORIES from here (repeatable): full project wiring — the client's MCP config + instructions block — into each dir, no cd needed. Idempotent. Pass --vault explicitly; projects rarely sit near the vault."
+    "--project [dirs...]",
+    "purposeful PROJECT-ONLY scoping: wire just these directories (repeatable), or just the current one when given with no values — instead of the default global registration"
+  )
+  .option(
+    "--instructions-only",
+    "stamp ONLY the client's instructions block (AGENTS.md / CLAUDE.md / HERMES.md) — for when the MCP server is already wired (usually globally). Current dir, or the --project dirs. Never touches MCP config."
   )
   .option("--uninstall", "remove Mnemos bridge config for this target/scope")
   .option("--json", "output JSON for install planning")
   .action(async (
     target: string,
-    options: { global?: boolean; scope?: string; activation?: string; vault?: string; project?: string[]; uninstall?: boolean; json?: boolean }
+    options: { global?: boolean; scope?: string; activation?: string; vault?: string; project?: string[] | boolean; instructionsOnly?: boolean; uninstall?: boolean; json?: boolean }
   ) => {
     if (target !== "claude-code" && target !== "cursor" && target !== "codex" && target !== "hermes" && target !== "generic" && target !== "opencode" && target !== "ori" && target !== "status") {
       throw new Error(`Unknown bridge target: ${target}`);
@@ -528,11 +538,65 @@ server. Verify any time with: mnemos status`
 
     const request = {
       global: options.global,
-      scope: assertBridgeScope(options.scope),
+      // Bare --project (no dirs): purposeful project-only wiring of the
+      // current directory — the old default behavior, still reachable.
+      scope: options.project === true ? "project" as const : assertBridgeScope(options.scope),
       activation: assertBridgeActivation(options.activation),
       vault: options.vault,
       uninstall: options.uninstall,
     };
+
+    // --instructions-only: stamp just the client's instructions block — for
+    // projects where the MCP server is already wired (usually globally now,
+    // the default scope). Current dir, or the --project dirs. The MCP
+    // registration is checked (global + project) so the tool can warn when
+    // the block would point at a server that is not reachable here.
+    if (options.instructionsOnly === true) {
+      if (target === "cursor" || target === "codex" || target === "ori") {
+        throw new Error(
+          `"${target}" has no instructions file to stamp — its wiring is MCP config only` +
+            (target === "cursor" ? "" : " (global)") +
+            ". If the MCP is registered, nothing else is needed."
+        );
+      }
+      if (target === "generic") {
+        throw new Error(`--instructions-only does not apply to "${target}".`);
+      }
+      const dirs = options.project === true
+        ? [process.cwd()]
+        : Array.isArray(options.project) && options.project.length > 0
+          ? options.project
+          : [process.cwd()];
+      const outcome = await runBridgeInstructionsOnly(
+        target as "opencode",
+        dirs,
+        assertBridgeActivation(options.activation) ?? "manual",
+      );
+      if (!options.json) {
+        for (const s of outcome.stamps) {
+          console.log(`\n${s.project}`);
+          console.log(`  ${s.mutation} → ${s.instructionsPath}`);
+          if (!s.mcpRegistered) {
+            console.log(
+              "  NOTE: no mnemos MCP registration found for this client (global or project) —\n" +
+                "  agents here will see the block but not the server. Wire it:\n" +
+                `    mnemos bridge ${target} --vault <vault>            (global, default)\n` +
+                `    mnemos bridge ${target} --vault <vault> --project "${s.project}"`,
+            );
+          }
+        }
+      }
+      if (options.json) {
+        await emit({ success: true, data: outcome, warnings: [] });
+        return;
+      }
+      await disposeEmbedder();
+      await maybeNotifyUpdate();
+      process.stdout.write("", () => {
+        setTimeout(() => process.exit(0), 4000).unref();
+      });
+      return;
+    }
 
     // --project <dir>: wire OTHER project directories from here. Full project
     // wiring (the client's MCP config + instructions block, and plugin where
@@ -540,7 +604,7 @@ server. Verify any time with: mnemos status`
     // from inside that dir does, without the cd. Idempotent. Reason it wires
     // the MCP too: an instructions block pointing at a server the project
     // can't reach is worse than none.
-    if (options.project?.length) {
+    if (Array.isArray(options.project)) {
       if (target === "generic") {
         throw new Error(`--project does not apply to "${target}".`);
       }

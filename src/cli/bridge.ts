@@ -1414,3 +1414,65 @@ export async function runBridgeProjects(
   }
   return { client: target, projects };
 }
+
+// ---------------------------------------------------------------------------
+// Instructions-only stamping (`bridge --instructions-only`): write ONLY the
+// client's instructions block — for projects where the MCP server is already
+// wired (usually globally). Never touches MCP config, plugins, or hooks.
+// ---------------------------------------------------------------------------
+
+export type BridgeInstructionStamp = {
+  project: string;
+  instructionsPath: string;
+  mutation: BridgeMutationKind;
+  /** Whether an mnemos MCP registration exists for this client (global or in this project). */
+  mcpRegistered: boolean;
+};
+
+export type BridgeInstructionsTarget = "claude-code" | "hermes" | "opencode";
+
+export async function runBridgeInstructionsOnly(
+  target: BridgeInstructionsTarget,
+  dirs: string[],
+  activation: BridgeActivation = "manual",
+): Promise<{ client: string; stamps: BridgeInstructionStamp[] }> {
+  const stamps: BridgeInstructionStamp[] = [];
+  for (const dir of dirs) {
+    const abs = path.resolve(dir);
+    let instructionsPath: string;
+    let mutation: BridgeMutationKind;
+    let mcpRegistered: boolean;
+    if (target === "opencode") {
+      const paths = getOpenCodeProjectPaths(abs);
+      instructionsPath = paths.instructionsPath;
+      mutation = await appendOpenCodeInstructions(instructionsPath, activation);
+      const [g, p] = await Promise.all([
+        inspectOpenCodeInstall(abs, "global"),
+        inspectOpenCodeInstall(abs, "project"),
+      ]);
+      mcpRegistered = hasMcpRegistration(g) || hasMcpRegistration(p);
+    } else if (target === "claude-code") {
+      const paths = getClaudeProjectPaths(abs);
+      instructionsPath = paths.instructionsPath;
+      mutation = await appendClaudeInstructions(instructionsPath, activation);
+      const [g, p] = await Promise.all([
+        inspectClaudeInstall(abs, "global"),
+        inspectClaudeInstall(abs, "project"),
+      ]);
+      mcpRegistered = hasMcpRegistration(g) || hasMcpRegistration(p);
+    } else {
+      const paths = getHermesProjectPaths(abs);
+      instructionsPath = paths.instructionsPath;
+      mutation = await appendHermesInstructions(instructionsPath, activation);
+      const g = await inspectHermesInstall();
+      mcpRegistered = hasMcpRegistration(g);
+    }
+    stamps.push({ project: abs, instructionsPath, mutation, mcpRegistered });
+  }
+  return { client: target, stamps };
+}
+
+/** The MCP registration is the part that must exist for the block to mean anything. */
+function hasMcpRegistration(status: BridgeInstallStatus): boolean {
+  return Boolean(status.details.some((d) => d.includes("MCP config present")));
+}

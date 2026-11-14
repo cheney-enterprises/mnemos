@@ -42,7 +42,13 @@ export function selectPreferredBridgePlan(plans: Array<BridgePlan | null | undef
 
 export function resolveBridgeScope(request: Pick<BridgeRequest, "scope" | "global">): BridgeScope {
   if (request.scope) return request.scope;
-  return request.global ? "global" : "project";
+  // Default GLOBAL (Eric's ruling, 2026-11-15): the vault is global by
+  // nature — one registration covers every project, which matches how the
+  // memory is actually used. Project wiring is the purposeful narrow case
+  // (--project). The old project-by-default default bit Eric exactly once:
+  // he assumed the MCP registration was global when it was project-scoped
+  // to one directory, so every other project silently had no server.
+  return "global";
 }
 
 export async function resolveBridgePlan(request: BridgeRequest): Promise<BridgePlan> {

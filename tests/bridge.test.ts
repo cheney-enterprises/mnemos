@@ -11,6 +11,7 @@ import {
   getOpenCodeGlobalPaths,
   getOpenCodeProjectPaths,
   resolveBridgePlan,
+  resolveBridgeScope,
   selectPreferredBridgePlan,
 } from "../src/core/bridge.js";
 import {
@@ -28,6 +29,7 @@ import {
   runBridgeCodex,
   runBridgeCursor,
   runBridgeHermes,
+  runBridgeInstructionsOnly,
   runBridgeOri,
   runBridgeOpenCode,
   runBridgeProjects,
@@ -760,6 +762,44 @@ describe("hermes adapter", () => {
 });
 
 describe("opencode adapter", () => {
+  it("defaults to GLOBAL scope (Eric's ruling 2026-11-15: the vault is global by nature)", async () => {
+    const cwd = await makeTempDir();
+    expect(resolveBridgeScope({})).toBe("global");
+    expect(resolveBridgeScope({ global: true })).toBe("global");
+    expect(resolveBridgeScope({ scope: "project" })).toBe("project");
+    // Project wiring is the purposeful narrow case; it must stay explicit.
+    const plan = await resolveBridgePlan({ target: "opencode", startDir: cwd });
+    expect(plan.scope).toBe("global");
+  });
+
+  it("runBridgeInstructionsOnly stamps the block and never touches MCP config", async () => {
+    const dir = await makeTempDir();
+    const outcome = await runBridgeInstructionsOnly("opencode", [dir], "manual");
+    expect(outcome.stamps).toHaveLength(1);
+    const stamp = outcome.stamps[0];
+    expect(stamp.instructionsPath).toBe(path.join(dir, "AGENTS.md"));
+    expect(stamp.mcpRegistered).toBe(false); // nothing wired in this test
+    const instructions = await readFile(stamp.instructionsPath, "utf8");
+    expect(instructions).toContain("<!-- mnemos-bridge:opencode -->");
+    // The point of the mode: MCP config must not exist.
+    await expect(readFile(path.join(dir, "opencode.json"))).rejects.toThrow();
+    // Idempotent.
+    const again = await runBridgeInstructionsOnly("opencode", [dir], "manual");
+    expect(again.stamps[0].mutation).toBe("noop");
+    const reread = await readFile(stamp.instructionsPath, "utf8");
+    expect(reread.split("<!-- mnemos-bridge:opencode -->").length - 1).toBe(1);
+  });
+
+  it("runBridgeInstructionsOnly sees a global MCP registration", async () => {
+    await withTempHome(async (home) => {
+      const vault = await makeTempDir();
+      await runBridgeOpenCode(home, { vault, scope: "global" }); // wire globally
+      const dir = await makeTempDir();
+      const outcome = await runBridgeInstructionsOnly("opencode", [dir], "manual");
+      expect(outcome.stamps[0].mcpRegistered).toBe(true);
+    });
+  });
+
   it("uses the expected project and global config paths", async () => {
     const cwd = await makeTempDir();
     expect(getOpenCodeProjectPaths(cwd).configPath).toBe(path.join(cwd, "opencode.json"));

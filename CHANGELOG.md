@@ -2,6 +2,30 @@
 
 ## [Unreleased]
 
+### Changed — bridge defaults to GLOBAL scope (Eric's ruling, 2026-11-15)
+- **The vault is global by nature; the bridge now defaults to global.**
+  `mnemos bridge opencode --vault ~/my-memory` wires the client once,
+  everywhere. The old project-by-default default bit Eric exactly once: he
+  assumed the MCP registration was global when it was project-scoped to one
+  directory — every other project silently had no server.
+- **`--project` is now the purposeful narrow case**: `--project <dir>...`
+  wires just those directories (no global registration); `--project` with no
+  values wires just the current directory — the old default behavior, still
+  reachable. `--scope project` remains as the explicit spelling.
+- **`--instructions-only`**: stamp ONLY the client's instructions block
+  (OpenCode → AGENTS.md, Claude Code → CLAUDE.md, Hermes → HERMES.md) — for
+  projects wired after the fact, or repos where the MCP is already global
+  and you just want the boot pointer. Current dir by default, or the
+  `--project` dirs. Never touches MCP config. When no mnemos MCP
+  registration exists for that client (global or project), the stamp
+  succeeds but the output says so and gives the wiring command — a pointer
+  to a server that isn't reachable is worse than none, and the tool now
+  says when it wrote one.
+- Cursor/codex/ori reject `--instructions-only` with the reason (no
+  instructions file — if the MCP is registered, nothing else is needed).
+  Runtime precedence unchanged: project installs override global when both
+  exist. 3 new tests; 1,246/1,246.
+
 ### Fixed — the top-level command list is scannable again
 - The teaching-help arc made every entry in `mnemos --help`'s Commands list a
   paragraph — `bridge` was listed but effectively unfindable (Eric hit this).
