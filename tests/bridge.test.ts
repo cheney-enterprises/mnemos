@@ -30,6 +30,7 @@ import {
   runBridgeHermes,
   runBridgeOri,
   runBridgeOpenCode,
+  runBridgeProjects,
   runBridgeStatus,
 } from "../src/cli/bridge.js";
 
@@ -767,6 +768,33 @@ describe("opencode adapter", () => {
     expect(getOpenCodeGlobalPaths().configPath).toBe(path.join(os.homedir(), ".config", "opencode", "opencode.json"));
     expect(getOpenCodeGlobalPaths().pluginDir).toBe(path.join(os.homedir(), ".config", "opencode", "plugins"));
     expect(getOpenCodeGlobalPaths().instructionsPath).toBe(path.join(os.homedir(), ".config", "opencode", "AGENTS.md"));
+  });
+
+  it("runBridgeProjects wires several project directories from one call", async () => {
+    const vault = await makeTempDir();
+    const one = await makeTempDir();
+    const two = await makeTempDir();
+    const outcome = await runBridgeProjects("opencode", [one, two], { vault });
+    expect(outcome.client).toBe("opencode");
+    expect(outcome.projects.map((p) => p.project)).toEqual([one, two]);
+    for (const p of outcome.projects) {
+      const config = JSON.parse(await readFile(path.join(p.project, "opencode.json"), "utf8"));
+      expect(Object.keys(config.mcp ?? {})).toContain("mnemos");
+      const instructions = await readFile(path.join(p.project, "AGENTS.md"), "utf8");
+      expect(instructions).toContain("<!-- mnemos-bridge:opencode -->");
+      expect(p.resolvedVault).toBe(vault);
+    }
+  });
+
+  it("runBridgeProjects is idempotent: one block after a re-run", async () => {
+    const vault = await makeTempDir();
+    const dir = await makeTempDir();
+    await runBridgeProjects("opencode", [dir], { vault });
+    await runBridgeProjects("opencode", [dir], { vault });
+    const instructions = await readFile(path.join(dir, "AGENTS.md"), "utf8");
+    expect(instructions.split("<!-- mnemos-bridge:opencode -->").length - 1).toBe(1);
+    const config = JSON.parse(await readFile(path.join(dir, "opencode.json"), "utf8"));
+    expect(Object.keys(config.mcp ?? {})).toEqual(["mnemos"]);
   });
 
   it("merges OpenCode MCP config without clobbering unrelated servers", async () => {

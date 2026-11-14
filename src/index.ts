@@ -24,7 +24,7 @@ import { runSql } from "./cli/sqlcmd.js";
 import { runAdd } from "./cli/add.js";
 import { runPromote } from "./cli/promote.js";
 import { runArchive } from "./cli/archive.js";
-import { runBridgeClaudeCode, runBridgeClaudeCodeGlobal, runBridgeCodex, runBridgeCursor, runBridgeGeneric, runBridgeHermes, runBridgeOpenCode, runBridgeOri, runBridgeStatus } from "./cli/bridge.js";
+import { runBridgeClaudeCode, runBridgeClaudeCodeGlobal, runBridgeCodex, runBridgeCursor, runBridgeGeneric, runBridgeHermes, runBridgeOpenCode, runBridgeOri, runBridgeProjects, runBridgeStatus } from "./cli/bridge.js";
 import { runServeMcp } from "./cli/serve.js";
 import { runQueryRanked, runQuerySimilar, runQueryWarmthAudit } from "./cli/search.js";
 import { runWake } from "./cli/wake.js";
@@ -117,10 +117,22 @@ derived and safe to delete (mnemos index build recreates it).`
 
 program
   .command("wake")
-  .description(
-    "OPEN the memory vault — the session-start verb (wake/boot/orient). One call: identity, roster, policy, and — when the project is known — the project's full briefing in ONE payload. " +
-      "--project <tag> when the user names it. A bare wake scopes itself when the session directory is registered in wake.project_paths or wake.project_default is set (every silent scoping carries a resolution note); otherwise it ASKS: a project_choice_required question (roster + new-project option) to relay to the user, then re-call with --project. " +
-      "Run from inside a vault (or set MNEMOS_VAULT)."
+  .description("OPEN the memory vault — the session-start verb. One call: identity, roster, policy, project briefing")
+  .addHelpText(
+    "after",
+    `
+Project scoping (how wake knows which project this session is):
+  --project <tag>      the user named it — always pass it when they do
+  bare wake            scopes itself when the session directory is registered
+                       in wake.project_paths (or wake.project_default is set);
+                       every silent scoping carries a resolution note
+  otherwise            it ASKS: a project_choice_required question (roster +
+                       new-project option) to relay to the user, then re-call
+                       with --project
+
+One payload: identity, roster, policy, and — when the project is known — the
+project's full briefing. Run from inside a vault (or set MNEMOS_VAULT).
+Session intake: --session/--parent/--lineage (deterministic; flag-gated).`
   )
   .option("--budget <n>", "max lines (default 96)", "96")
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
@@ -249,7 +261,7 @@ program
 
 program
   .command("query")
-  .description("Vault queries: orphans, dangling, backlinks, cross-project, ranked, similar, important, fading, warmth-audit (see also: memory_sql over MCP)")
+  .description("Vault queries: orphans | dangling | backlinks | cross-project | ranked | similar | important | fading")
   .argument("<kind>", "orphans | dangling | backlinks | cross-project | ranked | similar | important | fading | warmth-audit")
   .argument("[note]", "note title for backlinks, query text for ranked/similar, or query filter for warmth-audit")
   .option("--limit <n>", "max results", "10")
@@ -315,7 +327,7 @@ program
 
 program
   .command("add")
-  .description("REMEMBER a note — capture it into the vault's inbox (auto-promotes when configured; a note without a project is staged, not filed - the ask-first gate returns the roster)")
+  .description("REMEMBER — capture a note into the vault's inbox (auto-promotes when configured)")
   .argument("<title>", "note title")
   .option("-t, --type <type>", "note type", "insight")
   .option("-c, --content <content>", "note body content (replaces template placeholder)")
@@ -390,10 +402,7 @@ program
 
 program
   .command("bridge")
-  .description(
-    "Register the mnemos MCP server in an agent client's own config — the one step that connects an agent to the vault. " +
-      "Targets: claude-code | cursor | codex | hermes | opencode | ori | generic | status. Idempotent; --uninstall reverses."
-  )
+  .description("Connect an agent client to the vault — register the MCP server (full wiring guide: bridge --help)")
   .addHelpText(
     "after",
     `
@@ -415,6 +424,13 @@ Examples:
   mnemos bridge opencode --uninstall                remove the wiring for that target/scope
   mnemos bridge status                              what is registered, and where
 
+More projects, one vault?  Wire them from wherever you stand:
+  mnemos bridge opencode --vault ~/my-memory \
+      --project ~/work/app --project ~/work/site
+  (full wiring into each dir: MCP config + AGENTS.md; idempotent. Global-only
+  clients like codex/ori instead take --scope global — one registration
+  covers every project.)
+
 Not sure which client you have, or it's not listed?  'generic' prints the
 registration block — any MCP-compatible client works over stdio. 'status'
 never modifies anything.
@@ -428,11 +444,15 @@ server. Verify any time with: mnemos status`
   .option("--scope <scope>", "install scope: project | global")
   .option("--activation <activation>", "activation mode: auto | manual")
   .option("--vault <path>", "explicit vault path")
+  .option(
+    "--project <dirs...>",
+    "wire additional project DIRECTORIES from here (repeatable): full project wiring — the client's MCP config + instructions block — into each dir, no cd needed. Idempotent. Pass --vault explicitly; projects rarely sit near the vault."
+  )
   .option("--uninstall", "remove Mnemos bridge config for this target/scope")
   .option("--json", "output JSON for install planning")
   .action(async (
     target: string,
-    options: { global?: boolean; scope?: string; activation?: string; vault?: string; uninstall?: boolean; json?: boolean }
+    options: { global?: boolean; scope?: string; activation?: string; vault?: string; project?: string[]; uninstall?: boolean; json?: boolean }
   ) => {
     if (target !== "claude-code" && target !== "cursor" && target !== "codex" && target !== "hermes" && target !== "generic" && target !== "opencode" && target !== "ori" && target !== "status") {
       throw new Error(`Unknown bridge target: ${target}`);
@@ -513,6 +533,52 @@ server. Verify any time with: mnemos status`
       vault: options.vault,
       uninstall: options.uninstall,
     };
+
+    // --project <dir>: wire OTHER project directories from here. Full project
+    // wiring (the client's MCP config + instructions block, and plugin where
+    // applicable) against each named dir — exactly what running the bridge
+    // from inside that dir does, without the cd. Idempotent. Reason it wires
+    // the MCP too: an instructions block pointing at a server the project
+    // can't reach is worse than none.
+    if (options.project?.length) {
+      if (target === "generic") {
+        throw new Error(`--project does not apply to "${target}".`);
+      }
+      if (target === "codex" || target === "ori") {
+        throw new Error(
+          `--project does not apply to "${target}": it is global-only. ` +
+            `One registration covers every project: mnemos bridge ${target} --vault <vault> --scope global`,
+        );
+      }
+      const outcome = await runBridgeProjects(
+        target as "opencode",
+        options.project,
+        request,
+      );
+      if (!options.json) {
+        for (const p of outcome.projects) {
+          console.log(`\n${p.project}`);
+          console.log(`  ${p.mutation ?? "done"}`);
+          if (p.mcpPath) console.log(`  MCP config: ${p.mcpPath}`);
+          if (p.instructionsPath) console.log(`  Instructions: ${p.instructionsPath}`);
+          if (p.resolvedVault) console.log(`  Vault: ${p.resolvedVault}`);
+        }
+        console.log(
+          `\nWired ${target} into ${outcome.projects.length} project(s). ` +
+            "Each agent session in those directories now reaches the vault.",
+        );
+      }
+      if (options.json) {
+        await emit({ success: true, data: outcome, warnings: [] });
+        return;
+      }
+      await disposeEmbedder();
+      await maybeNotifyUpdate();
+      process.stdout.write("", () => {
+        setTimeout(() => process.exit(0), 4000).unref();
+      });
+      return;
+    }
 
     const result = target === "claude-code"
       ? options.global
@@ -642,7 +708,7 @@ program
 
 program
   .command("forget")
-  .description("FORGET — release (soft-evict) or supersede (replace) what a query addresses. Hard delete is slug-addressed and user-approved.")
+  .description("FORGET — release (soft-evict) or supersede (replace) what a query addresses; hard delete is user-approved")
   .argument("<op>", "release | supersede | purge")
   .argument("[query]", "release/supersede only — matched by rare-token anchor + embedding similarity")
   .option("--slugs <slugs>", "purge only: comma-separated exact note slugs (no matching)")
@@ -674,11 +740,7 @@ program
 
 program
   .command("probe")
-  .description(
-    "Operational probes on a shipped hostile fixture vault — does the product behave as intended? " +
-      "Never touches your vault; runs in a temp copy of the built-in fixture. Hard cases are shipped " +
-      "behavior (failure = regression, exit 1); gate cases report spec-§9 numbers (dilution %, miss %)."
-  )
+  .description("Operational probes on a shipped hostile fixture vault — never touches your vault (probe --help for levels)")
   .addHelpText(
     "after",
     `

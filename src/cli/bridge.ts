@@ -1369,3 +1369,48 @@ export async function runBridgeOpenCode(startDir: string, request: Omit<BridgeRe
     warnings,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Multi-project wiring (Eric's need, 2026-11-15: after the bridge has been
+// run once, wire ADDITIONAL project directories without cd-ing into them).
+//
+// Each named dir gets the full project wiring — the client's MCP config +
+// instructions block (+ plugin where applicable) — exactly what running the
+// bridge from inside that dir does. Idempotent. The MCP config is wired too,
+// not just the instructions block: a block pointing at a server the project
+// cannot reach is worse than none.
+// ---------------------------------------------------------------------------
+
+export type BridgeProjectTarget = "claude-code" | "cursor" | "hermes" | "opencode";
+
+export type BridgeProjectResult = {
+  project: string;
+  mutation?: string;
+  mcpPath?: string;
+  configPath?: string;
+  instructionsPath?: string;
+  resolvedVault?: string | null;
+  instructions?: string[];
+};
+
+export async function runBridgeProjects(
+  target: BridgeProjectTarget,
+  dirs: string[],
+  request: Omit<BridgeRequest, "target" | "startDir"> = {},
+): Promise<{ client: string; projects: BridgeProjectResult[] }> {
+  const projects: BridgeProjectResult[] = [];
+  for (const dir of dirs) {
+    const abs = path.resolve(dir);
+    const run = target === "claude-code"
+      ? runBridgeClaudeCode
+      : target === "cursor"
+        ? runBridgeCursor
+        : target === "hermes"
+          ? runBridgeHermes
+          : runBridgeOpenCode;
+    const result = await run(abs, { ...request, global: false, scope: "project" });
+    const data = (result.data ?? {}) as Omit<BridgeProjectResult, "project">;
+    projects.push({ project: abs, ...data });
+  }
+  return { client: target, projects };
+}

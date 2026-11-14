@@ -2,6 +2,26 @@
 
 ## [Unreleased]
 
+### Fixed — the top-level command list is scannable again
+- The teaching-help arc made every entry in `mnemos --help`'s Commands list a
+  paragraph — `bridge` was listed but effectively unfindable (Eric hit this).
+  The five paragraph-length descriptions (wake, add, bridge, probe, forget,
+  query) are now one line each; wake's full project-scoping contract moved to
+  `mnemos wake --help`, where it belongs.
+
+### Added — `bridge --project`: wire additional projects from anywhere
+- **`mnemos bridge <client> --project <dir> [--project <dir>...]`** wires
+  OTHER project directories without cd-ing into them — the client's MCP
+  config + instructions block (+ plugin where applicable) into each dir,
+  idempotent, exactly what running the bridge inside that dir does. The MCP
+  config is wired too, not just the instructions block: a block pointing at
+  a server the project cannot reach is worse than none.
+- Global-only clients (codex, ori) reject `--project` with the one-command
+  alternative (`--scope global` covers every project). Generic has no project
+  surface and rejects cleanly.
+- Example: `mnemos bridge opencode --vault ~/my-memory --project ~/work/app
+  --project ~/work/site`. 2 new tests; 1,243/1,243.
+
 ### Added — `mnemos probe`: operational tests anyone can run
 - **The product now ships its own operational verification.** `mnemos probe`
   builds a hostile-but-fair fixture vault generated with the package (47
