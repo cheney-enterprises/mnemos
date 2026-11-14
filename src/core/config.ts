@@ -68,6 +68,14 @@ export type RetrievalConfig = {
   stage_time_budget_ms?: number;
   /** Fraction of budget to use as soft cutoff (issue #34). Default: 0.8. */
   stage_soft_cutoff?: number;
+  /**
+   * Session-scope retrieval (docs/specs/session-scope-spec.md §10): session
+   * binding + lineage edges first, scope weighting later. Off until the
+   * benchmark gate (spec §9) passes — every current contract stays in force.
+   */
+  session_scope: {
+    enabled: boolean;
+  };
 };
 
 export type BM25Config = {
@@ -215,6 +223,7 @@ const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
   exploration_budget: 0.10,
   stage_time_budget_ms: 500,
   stage_soft_cutoff: 0.8,
+  session_scope: { enabled: false },
 };
 
 /**
@@ -434,6 +443,9 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
       exploration_budget: rawRetrieval?.exploration_budget ?? DEFAULT_RETRIEVAL_CONFIG.exploration_budget,
       stage_time_budget_ms: rawRetrieval?.stage_time_budget_ms ?? DEFAULT_RETRIEVAL_CONFIG.stage_time_budget_ms,
       stage_soft_cutoff: rawRetrieval?.stage_soft_cutoff ?? DEFAULT_RETRIEVAL_CONFIG.stage_soft_cutoff,
+      session_scope: {
+        enabled: rawRetrieval?.session_scope?.enabled ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.enabled,
+      },
     },
     bm25: {
       k1: rawBM25?.k1 ?? DEFAULT_BM25_CONFIG.k1,

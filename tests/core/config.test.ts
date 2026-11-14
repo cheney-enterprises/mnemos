@@ -196,3 +196,30 @@ describe("retrieval stage budget defaults (#34)", () => {
     expect(cfg.retrieval.stage_soft_cutoff).toBe(0.5);
   });
 });
+
+describe("retrieval.session_scope flag (session-scope spec §10)", () => {
+  it("defaults off — current contracts stay in force until the flip", () => {
+    const cfg = applyConfigDefaults({});
+    expect(cfg.retrieval.session_scope.enabled).toBe(false);
+  });
+
+  it("preserves the user's flag value", () => {
+    const on = applyConfigDefaults({
+      retrieval: { session_scope: { enabled: true } },
+    } as any);
+    expect(on.retrieval.session_scope.enabled).toBe(true);
+
+    const explicitOff = applyConfigDefaults({
+      retrieval: { session_scope: { enabled: false } },
+    } as any);
+    expect(explicitOff.retrieval.session_scope.enabled).toBe(false);
+  });
+
+  it("survives a partial session_scope block", () => {
+    // A YAML block like `session_scope: {}` must not crash or flip the flag.
+    const partial = applyConfigDefaults({
+      retrieval: { session_scope: {} },
+    } as any);
+    expect(partial.retrieval.session_scope.enabled).toBe(false);
+  });
+});
