@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added — the CLI help teaches setup
+- **`mnemos --help` opens with the four-command setup path** (init → boot →
+  bridge → wake), names every bridge client plus `generic` for unknown MCP
+  clients, points at `mnemos status` as the "where do I stand?" check, and
+  links the guides (getting-started / how-it-works / library).
+- **`mnemos bridge --help` is now a complete wiring reference**: what each
+  target writes (per client, in the client's own config files), copy-paste
+  examples including `--scope`, `--uninstall`, and `generic`, and the
+  "unknown client" guidance. The one surface every CLI user sees now carries
+  the setup knowledge the docs held (Eric's ruling: the help itself must
+  guide setup, not just list commands).
+- `mnemos init --help` shows the init → boot → bridge sequence and the
+  markdown-is-the-truth note. 1,233/1,233.
+
 ### Added — onboarding hints: the tool tells the human the next step
 - **`mnemos status` and `mnemos init` now report client wiring.** Both carry
   `clients_registered` (which MCP clients point at mnemos, detected via the

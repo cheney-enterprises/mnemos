@@ -60,6 +60,18 @@ program
     "after",
     `
 
+First time? Setup is four commands:
+  1. mnemos init ~/my-memory              scaffold the vault (markdown, config, ops/)
+  2. mnemos boot ~/my-memory              optional: interactive identity setup
+  3. mnemos bridge <client> --vault ~/my-memory
+                                          register the MCP server in your agent client
+                                          clients: claude-code | cursor | codex | hermes | opencode | ori
+                                          any other MCP client: mnemos bridge generic
+  4. start using it — agents call wake first; from a shell: cd ~/my-memory && mnemos wake
+
+  Not sure where you stand?  mnemos status   (reports vault health AND which
+  clients are registered, with the next command to run)
+
 Vault resolution (where your memory is found):
   1. MNEMOS_VAULT env var                  explicit - wins over everything
   2. walk up from the current directory    a dir with a .mnemos marker or mnemos.config.yaml
@@ -72,12 +84,27 @@ MCP note: agents connect through the registered server (its config carries
 --vault), so MCP sessions always know the vault. The CLI only knows it if
 you stand inside it or set MNEMOS_VAULT.
 
-Docs: https://github.com/cheney-enterprises/mnemos#readme`
+Guides: mnemos bridge --help (client wiring) | docs/getting-started.md (setup)
+        docs/how-it-works.md (the mental model) | docs/library.md (embed without MCP)
+        https://github.com/cheney-enterprises/mnemos#readme`
   );
 
 program
   .command("init")
-  .description("Scaffold a new vault (notes/, self/, ops/, templates/, mnemos.config.yaml)")
+  .description(
+    "Scaffold a new vault (notes/, self/, ops/, templates/, mnemos.config.yaml). " +
+      "The result carries next_steps — including the bridge command that wires your agent client."
+  )
+  .addHelpText(
+    "after",
+    `
+  mnemos init ~/my-memory       scaffold
+  mnemos boot ~/my-memory       optional interactive identity setup
+  mnemos bridge <client> --vault ~/my-memory   then wire an agent client (see: mnemos bridge --help)
+
+The vault is a directory of markdown you own; the index under .mnemos/ is
+derived and safe to delete (mnemos index build recreates it).`
+  )
   .argument("[dir]", "target directory", ".")
   .option("--json", "output JSON only (skip interactive)")
   .action(async (dir: string, options: { json?: boolean }) => {
@@ -362,7 +389,39 @@ program
 
 program
   .command("bridge")
-  .description("Register the mnemos MCP server for a client: claude-code | cursor | codex | hermes | opencode | ori | generic")
+  .description(
+    "Register the mnemos MCP server in an agent client's own config — the one step that connects an agent to the vault. " +
+      "Targets: claude-code | cursor | codex | hermes | opencode | ori | generic | status. Idempotent; --uninstall reverses."
+  )
+  .addHelpText(
+    "after",
+    `
+What each target writes (the client's own config files — mnemos never asks you to hand-edit them):
+  claude-code   hooks + MCP registration + CLAUDE.md teaching (project or global scope)
+  cursor        .cursor/mcp.json (MCP registration)
+  codex         ~/.codex/config.toml (global only)
+  hermes        ~/.hermes/config.yaml + a native plugin (auto activation)
+  opencode      lifecycle plugin (.opencode/plugins/lifecycle.js: onboarding, capture, validate) + MCP + AGENTS.md
+  ori           ~/.ori/mcp.json (global only — Ori carries its own session lifecycle)
+  generic       prints the config block to paste — for ANY MCP-compatible client not on this list
+  status        report what is registered where, per client and scope
+
+Examples:
+  mnemos bridge opencode --vault ~/my-memory        wire OpenCode (plugin + MCP + AGENTS.md)
+  mnemos bridge claude-code --vault ~/my-memory     wire Claude Code (project scope by default)
+  mnemos bridge claude-code --scope global --vault ~/my-memory
+  mnemos bridge generic --vault ~/my-memory         unknown client? print the JSON to paste
+  mnemos bridge opencode --uninstall                remove the wiring for that target/scope
+  mnemos bridge status                              what is registered, and where
+
+Not sure which client you have, or it's not listed?  'generic' prints the
+registration block — any MCP-compatible client works over stdio. 'status'
+never modifies anything.
+
+After wiring, agents reach the vault automatically: the session starts with
+mnemos_wake, capture/retrieval/forgetting all go through the registered
+server. Verify any time with: mnemos status`
+  )
   .argument("<target>", "claude-code | cursor | codex | hermes | opencode | ori | generic | status")
   .option("--global", "legacy shorthand for --scope global")
   .option("--scope <scope>", "install scope: project | global")
