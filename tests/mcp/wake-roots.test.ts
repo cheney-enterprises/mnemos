@@ -61,7 +61,8 @@ describe("wake over MCP with client roots", () => {
     const original = await fs.readFile(configPath, "utf8");
     await fs.writeFile(
       configPath,
-      original + `\nwake:\n  project_paths:\n    "${repoDir}": roots-bridge\n`,
+      // Forward slashes — backslash paths are invalid YAML escapes on Windows.
+      original + `\nwake:\n  project_paths:\n    "${repoDir.replace(/\\/g, "/")}": roots-bridge\n`,
       "utf8",
     );
     try {
@@ -89,7 +90,7 @@ describe("wake over MCP with client roots", () => {
     await fs.writeFile(
       configPath,
       original +
-        `\nwake:\n  project_paths:\n    "${repoDir}": roots-bridge\n    "${otherRepoDir}": vault-project\n`,
+        `\nwake:\n  project_paths:\n    "${repoDir.replace(/\\/g, "/")}": roots-bridge\n    "${otherRepoDir.replace(/\\/g, "/")}": vault-project\n`,
       "utf8",
     );
     try {

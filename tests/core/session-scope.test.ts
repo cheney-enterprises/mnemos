@@ -24,7 +24,9 @@ let flagOnVault: string;
 
 async function setSessionScopeFlag(vaultDir: string, enabled: boolean) {
   const configPath = path.join(vaultDir, "mnemos.config.yaml");
-  const content = await fs.readFile(configPath, "utf8");
+  // Normalize CRLF → LF first: a Windows checkout may deliver the scaffold
+  // with CRLF line endings, and the match below is line-ending shaped.
+  const content = (await fs.readFile(configPath, "utf8")).replace(/\r\n/g, "\n");
   // The scaffolded config carries the flag commented out (spec §10: off
   // until the flip). Uncomment — or, when disabling, remove the block.
   const next = enabled

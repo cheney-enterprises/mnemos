@@ -418,8 +418,10 @@ export async function buildProbeVault(dir: string): Promise<FixtureSummary> {
     "    enabled: false",
     "wake:",
     "  project_paths:",
-    `    "${path.join(dir, "repos", "helios")}": helios`,
-    `    "${path.join(dir, "repos", "terra")}": terra`,
+    // Forward slashes — backslash paths are invalid YAML escapes on Windows,
+    // and Node's path resolution accepts forward slashes on Windows too.
+    `    "${path.join(dir, "repos", "helios").replace(/\\/g, "/")}": helios`,
+    `    "${path.join(dir, "repos", "terra").replace(/\\/g, "/")}": terra`,
   ].join("\n");
   await fs.writeFile(path.join(dir, "mnemos.config.yaml"), config + "\n");
 

@@ -147,7 +147,10 @@ describe("the repo->project bridge (wake.project_paths)", () => {
     const configPath = path.join(vaultDir, "mnemos.config.yaml");
     const original = await fs.readFile(configPath, "utf8");
     try {
-      await fs.writeFile(configPath, original + `\nwake:\n  project_paths:\n    "${vaultDir}": alpha\n`);
+      // Forward slashes: YAML double-quoted scalars treat backslash as an
+      // escape, so a Windows path ("C:\Users\...") is invalid YAML — and
+      // Node's path resolution accepts forward slashes on Windows too.
+      await fs.writeFile(configPath, original + `\nwake:\n  project_paths:\n    "${vaultDir.replace(/\\/g, "/")}": alpha\n`);
       const r = await runWake(vaultDir, 96);
       expect(r.projectWake?.project).toBe("alpha");
       expect(r.resolution?.method).toBe("path");
@@ -161,7 +164,7 @@ describe("the repo->project bridge (wake.project_paths)", () => {
     const configPath = path.join(vaultDir, "mnemos.config.yaml");
     const original = await fs.readFile(configPath, "utf8");
     try {
-      await fs.writeFile(configPath, original + `\nwake:\n  project_paths:\n    "${otherDir}": beta\n`);
+      await fs.writeFile(configPath, original + `\nwake:\n  project_paths:\n    "${otherDir.replace(/\\/g, "/")}": beta\n`);
       // pathArg points at otherDir (registered to beta) while startDir is
       // the vault itself (unregistered) — the explicit argument wins.
       const r = await runWake(vaultDir, 96, undefined, otherDir);
