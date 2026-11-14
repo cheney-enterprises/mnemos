@@ -773,21 +773,27 @@ describe("opencode adapter", () => {
   });
 
   it("runBridgeInstructionsOnly stamps the block and never touches MCP config", async () => {
-    const dir = await makeTempDir();
-    const outcome = await runBridgeInstructionsOnly("opencode", [dir], "manual");
-    expect(outcome.stamps).toHaveLength(1);
-    const stamp = outcome.stamps[0];
-    expect(stamp.instructionsPath).toBe(path.join(dir, "AGENTS.md"));
-    expect(stamp.mcpRegistered).toBe(false); // nothing wired in this test
-    const instructions = await readFile(stamp.instructionsPath, "utf8");
-    expect(instructions).toContain("<!-- mnemos-bridge:opencode -->");
-    // The point of the mode: MCP config must not exist.
-    await expect(readFile(path.join(dir, "opencode.json"))).rejects.toThrow();
-    // Idempotent.
-    const again = await runBridgeInstructionsOnly("opencode", [dir], "manual");
-    expect(again.stamps[0].mutation).toBe("noop");
-    const reread = await readFile(stamp.instructionsPath, "utf8");
-    expect(reread.split("<!-- mnemos-bridge:opencode -->").length - 1).toBe(1);
+    // Temp HOME: the mcpRegistered check inspects the GLOBAL opencode config,
+    // and a machine where mnemos is wired globally (as Eric's now is) would
+    // otherwise leak into this assertion — the exact machine-state
+    // dependence the probe suite exists to prevent.
+    await withTempHome(async () => {
+      const dir = await makeTempDir();
+      const outcome = await runBridgeInstructionsOnly("opencode", [dir], "manual");
+      expect(outcome.stamps).toHaveLength(1);
+      const stamp = outcome.stamps[0];
+      expect(stamp.instructionsPath).toBe(path.join(dir, "AGENTS.md"));
+      expect(stamp.mcpRegistered).toBe(false); // nothing wired in this temp home
+      const instructions = await readFile(stamp.instructionsPath, "utf8");
+      expect(instructions).toContain("<!-- mnemos-bridge:opencode -->");
+      // The point of the mode: MCP config must not exist.
+      await expect(readFile(path.join(dir, "opencode.json"))).rejects.toThrow();
+      // Idempotent.
+      const again = await runBridgeInstructionsOnly("opencode", [dir], "manual");
+      expect(again.stamps[0].mutation).toBe("noop");
+      const reread = await readFile(stamp.instructionsPath, "utf8");
+      expect(reread.split("<!-- mnemos-bridge:opencode -->").length - 1).toBe(1);
+    });
   });
 
   it("runBridgeInstructionsOnly sees a global MCP registration", async () => {
