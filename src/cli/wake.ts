@@ -9,6 +9,8 @@ import { loadPolicy, policyLine } from "../core/policy.js";
 import { loadWakeSources, assembleWakeInputs, assembleProjectWake } from "../core/wake-sources.js";
 import { buildWakePayload } from "../core/wake.js";
 import { parseTemporal, classifyReminder } from "../core/temporal.js";
+import { bindSession } from "../core/sessionscope.js";
+import type { SessionIntake, SessionBinding } from "../core/sessionscope.js";
 
 /**
  * The repo→project bridge (feedback item 2): resolve the session's working
@@ -113,6 +115,7 @@ export async function runWake(
   project?: string,
   pathArg?: string,
   ask?: boolean,
+  sessionIntake?: SessionIntake,
 ): Promise<{
   success: boolean;
   lines: string[];
@@ -161,9 +164,18 @@ export async function runWake(
     method: "path" | "default";
     note: string;
   };
+  /**
+   * Present ONLY when retrieval.session_scope.enabled (session-scope spec
+   * §3, Phase 1): the bound session. Flag off → the field is absent and
+   * nothing about the wake changes (§10 contract freeze).
+   */
+  session_binding?: Omit<SessionBinding, "enabled">;
 }> {
   const vaultRoot = await findVaultRoot(startDir);
   const config = await loadConfig(getVaultPaths(vaultRoot).config);
+  // Session binding (session-scope spec §3) — constructive, never a
+  // question. Flag off this is a structural no-op.
+  const binding = await bindSession(vaultRoot, config, sessionIntake ?? {});
   const sources = loadWakeSources(config as never);
   // db_path is config-owned (engine.db_path); resolve it the same way the
   // engine does so warm notes read the actual live index.
@@ -260,6 +272,14 @@ export async function runWake(
       note: "Operating manual (deep reference; read only the section you need): §1 what belongs in the vault, §2-4 scope/tagging/naming rules, §5 vault layout. The doctrine above is the always-present contract — command workflows and quality bars live there, not in the manual.",
     },
   };
+  if (binding.enabled) {
+    result.session_binding = {
+      id: binding.id,
+      ephemeral: binding.ephemeral,
+      record: binding.record,
+      lineage: binding.lineage,
+    };
+  }
 
   // Project resolution — the wake contract (Eric's design). NOTE: the
   // config default applies to the MCP path the same way as the CLI arg —

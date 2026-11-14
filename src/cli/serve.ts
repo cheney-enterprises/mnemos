@@ -139,7 +139,12 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
   // Retrieval is refused while null and warned while unscoped — queries are
   // not blocked on the unscoped state (cross-project retrieval is legal)
   // but the agent is told what it skipped.
-  let wakeState: { scoped: boolean; project?: string } | null = null;
+  let wakeState: {
+    scoped: boolean;
+    project?: string;
+    /** The bound session (session-scope spec §3), for continuity between calls. */
+    session_binding?: { id: string; ephemeral: boolean };
+  } | null = null;
 
   // Open persistent DB for intelligence layers
   const intelligenceDbPath = path.resolve(vaultDir, ".mnemos", "embeddings.db");
@@ -549,8 +554,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
       project: z.string().optional().describe("The project tag whose scoped context to load — pass it when the user or the repo names the project and the FIRST call then returns the full briefing in one shot"),
       path: z.string().optional().describe("The repository/session directory to resolve to a project (overrides config wake.project_paths matching)"),
       ask: z.boolean().optional().describe("Force the project-choice question even when the project could be resolved silently (ask=true) — for when the user must choose"),
+      session: z.string().optional().describe("The harness session id — deterministic session-graph intake: the harness knows its own session; mnemos accepts it and binds the session constructively (never a question). Omitting it still binds an ephemeral identity, so binding works for every caller"),
+      parent: z.string().optional().describe("The parent session id when this session continues or branches from one — written as the lineage edge the scope ladder follows (spec: continued and branched sessions pick up context one edge away)"),
+      lineage: z.enum(["continues", "branched_from"]).optional().describe("Which lineage edge parent= is (default continues)"),
     },
-    async ({ budget, project, path: pathArg, ask }) => {
+    async ({ budget, project, path: pathArg, ask, session, parent, lineage }) => {
       // The MCP server is bound to the vault root, so startDir inside runWake
       // is the vault, never the user's repo — the cwd bridge cannot fire over
       // MCP. Roots close that gap: when the client advertises the roots
@@ -577,8 +585,25 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         project,
         pathArg?.trim() || rootsDir,
         ask === true,
+        {
+          session,
+          parent,
+          lineage,
+          // Ephemeral continuity: a caller that never passes session= still
+          // binds ONE identity per MCP connection, not one per call.
+          ephemeralId: wakeState?.session_binding?.ephemeral ? wakeState.session_binding.id : undefined,
+        },
       );
-      wakeState = { scoped: Boolean(project?.trim()), project: project?.trim() || undefined };
+      wakeState = {
+        scoped: Boolean(project?.trim()),
+        project: project?.trim() || undefined,
+        session_binding: payload.session_binding
+          ? {
+              id: (payload.session_binding as { id: string }).id,
+              ephemeral: (payload.session_binding as { ephemeral: boolean }).ephemeral,
+            }
+          : undefined,
+      };
       attachLearningResetNotice(payload);
       await attachWhatsNew(payload);
 

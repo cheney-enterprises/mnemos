@@ -5,6 +5,7 @@ import { checkForUpdate } from "./core/update-check.js";
 import { disposeEmbedder } from "./core/engine.js";
 import { runForget, runRequestsList, runRequestDecide } from "./cli/forget.js";
 import { readFileSync } from "node:fs";
+import path from "node:path";
 
 import { runInitInteractive } from "./cli/init.js";
 import { runStatus } from "./cli/status.js";
@@ -97,8 +98,11 @@ program
   .option("--project <tag>", "the project this session works in (global + scoped context in one payload)")
   .option("--path <dir>", "the repository directory to resolve to a project (overrides wake.project_paths matching)")
   .option("--ask", "force the project-choice question even when the project could be resolved silently")
+  .option("--session <id>", "the harness session id (deterministic intake; binds a session record in ops/sessions/ when retrieval.session_scope is enabled)")
+  .option("--parent <id>", "the parent session id when this session continues or branches from one (writes the lineage edge)")
+  .option("--lineage <edge>", "which lineage edge --parent is: continues (default) or branched_from")
   .option("--json", "machine-readable payload (includes the full projectWake / project_choice_required objects)")
-    .action(async (options: { budget: string; project?: string; path?: string; ask?: boolean; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
+    .action(async (options: { budget: string; project?: string; path?: string; ask?: boolean; session?: string; parent?: string; lineage?: string; json?: boolean }, cmd?: { remainingArgs?: string[]; args?: string[] }) => {
     // Doctrine syntax alias. The MCP tool takes named arguments (project="<tag>"),
     // and the doctrine teaches that convention — but bare text on the CLI is a
     // positional. Accept the doctrine form here so the two surfaces can never
@@ -117,11 +121,21 @@ program
       );
       process.exit(1);
     }
-    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.path, options.ask === true);
+    const result = await runWake(process.cwd(), parseInt(options.budget, 10), options.project, options.path, options.ask === true, {
+      session: options.session,
+      parent: options.parent,
+      lineage: options.lineage,
+    });
     if (options.json === true) {
       console.log(JSON.stringify(result, null, 2));
     } else {
       console.log(result.lines.join("\n"));
+      if (result.session_binding) {
+        const sb = result.session_binding;
+        console.log(
+          `\n[session] ${sb.id}${sb.ephemeral ? " (ephemeral — no record until first capture)" : sb.record ? ` (record: ${path.relative(process.cwd(), sb.record)})` : ""}`,
+        );
+      }
       if (result.projectWake) {
         const pw = result.projectWake;
         if (pw.warning) console.log(`\n[project] ${pw.warning}`);

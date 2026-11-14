@@ -72,6 +72,12 @@ retrieval:
     graph: 0.26
     warmth: 0.20
   exploration_budget: 0.10
+  # Session-scope retrieval (docs/specs/session-scope-spec.md): session
+  # binding + lineage edges (Phase 1); scope weighting + tiered answers
+  # (Phase 2). Off until the benchmark gate (spec §9: dilution <= 5%,
+  # miss = 0) passes — every current contract stays in force until then.
+  # session_scope:
+  #   enabled: true
 
 warmth:
   enabled: true

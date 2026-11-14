@@ -2,6 +2,35 @@
 
 ## [Unreleased]
 
+### Added — session binding + lineage edges (session-scope spec Phase 1)
+- **`retrieval.session_scope.enabled` (default `false`).** The session-scope
+  spec's implementation flag (docs/specs/session-scope-spec.md §10). Phase 1
+  ships session binding and lineage edges behind it; every current contract
+  stays in force until the benchmark gate (§9: dilution ≤ 5%, miss = 0)
+  passes. Partial `session_scope:` blocks cannot crash or flip the flag.
+- **Constructive session binding, zero questions (spec §3).** `mnemos_wake`
+  (and CLI `wake --session/--parent/--lineage`) accept deterministic
+  harness intake: `session=<id>` binds durably — a record is created or
+  updated idempotently in `ops/sessions/`; `parent=<id>` writes the lineage
+  edge (`continues:` by default, `branched_from:` via `lineage=`). A caller
+  with no metadata binds an EPHEMERAL identity — one per MCP connection via
+  wake-state continuity, and its record is created on first capture (the
+  Phase 3 automatic stream), never by wake itself. No ask is ever issued;
+  binding is invisible unless you look for `session_binding` in the payload.
+- **Lineage records live in `ops/sessions/` (spec §7).** Outside `notes/` and
+  therefore outside the note schema and the note index — the stream is the
+  machinery nobody sees, at the ops 3.0× metabolic rate. Zero migration
+  (§8): records without lineage fields are retroactively lineage roots; the
+  live vault needs no re-tagging pass. Re-binding preserves `created`, body,
+  and any existing lineage edge (harnesses may pass parentage only on the
+  first call); the harness's latest explicit metadata is authoritative.
+- Scaffold config carries the flag documented and commented off; scaffold
+  `ops/sessions/.gitkeep` anticipates the stream location.
+- Tests: tests/core/session-scope.test.ts (flag no-op contract, durable
+  binding, both lineage edges, idempotence, ephemeral identities, wake
+  integration) and tests/mcp/wake-session.test.ts (deterministic intake,
+  fork edge, ephemeral continuity across calls). 1,228/1,228.
+
 ### Fixed — the bypass-front sign travels into every new note
 - **`mnemos add` carries the template's `_bypass_warning` into the note's
   frontmatter.** The 2026-11-11 injection put the STOP sign into 61 existing
