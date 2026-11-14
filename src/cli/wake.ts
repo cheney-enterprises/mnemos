@@ -23,17 +23,37 @@ export function resolveProjectByPath(
   prefixMatch: boolean,
   projectPaths: Record<string, string>,
 ): string | null {
+  // Normalize both sides with path.resolve: on Windows a config key written
+  // with forward slashes ("C:/Users/x" — the only YAML-safe spelling) must
+  // match a cwd that path.join built with backslashes ("C:\Users\x"). Raw
+  // string equality matched on posix only — the path bridge has never
+  // actually worked on Windows. Relative entries keep their old semantics
+  // (compared as written, never resolved against an arbitrary cwd).
+  const cwdResolved = path.isAbsolute(cwd) ? path.resolve(cwd) : cwd;
   const expanded: Array<{ path: string; project: string }> = Object.entries(projectPaths)
-    .map(([p, tag]) => ({ path: expandTilde(p), project: tag.trim() }))
+    .map(([p, tag]) => {
+      const e = expandTilde(p);
+      return { path: path.isAbsolute(e) ? path.resolve(e) : e, project: tag.trim() };
+    })
   .filter((e) => e.path.length > 0 && e.project.length > 0);
   // Longest match wins: ~/dev/mnemos beats ~/dev for the same session dir.
   expanded.sort((a, b) => b.path.length - a.path.length);
   for (const { path: base, project } of expanded) {
-    if (cwd === base || (prefixMatch && cwd.startsWith(base + "/"))) {
+    if (cwdResolved === base || (prefixMatch && isWithinPath(cwdResolved, base))) {
       return project;
     }
   }
   return null;
+}
+
+/** Containment that works on every platform's separators (the old
+ * `cwd.startsWith(base + "/")` hardcoded the posix separator). */
+function isWithinPath(child: string, parent: string): boolean {
+  if (!path.isAbsolute(parent) || !path.isAbsolute(child)) {
+    return child.startsWith(parent + "/");
+  }
+  const rel = path.relative(parent, child);
+  return rel !== "" && !rel.startsWith("..") && !path.isAbsolute(rel);
 }
 
 /** ~/x → $HOME/x; a lone "~" expands to $HOME itself. */
