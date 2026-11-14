@@ -78,7 +78,10 @@ function cosine(a: Float32Array, b: Float32Array): number {
  * identifier is the query's identifier with a suffix, so exact token equality
  * never fires and only a substring test connects them.
  */
-function richTokens(text: string): { tokens: Set<string>; longs: string[] } {
+// Exported for the §5 anchor waiver (scopeweight) — spec session-scope §5:
+// "reuse the forget matcher's richTokens/anchoring machinery". Same
+// identifier-shaped-token insight, second consumer.
+export function richTokens(text: string): { tokens: Set<string>; longs: string[] } {
   const tokens = new Set(tokenize(text));
   const longs: string[] = [];
   // An identifier, not merely a long word. The distinction is load-bearing:

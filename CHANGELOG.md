@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Added — §5 scope-distance weighting (behind the flag; the probe measures it)
+- **`src/core/scopeweight.ts`** — the no-dilution guarantee, built to spec
+  §5 as amended in the decision log (2026-11-15): `M(n) = L(hops) × P`,
+  applied **post-fusion, pre-trim** in the explore pipeline. Ladder: own
+  session 1.0 > lineage 0.92^hops > unlinked floor 0.8 > cross-scope 0.6
+  (0.8 × 0.75). Rank order *within* the unlinked band is untouched (uniform
+  multiplier); cross-scope falls below own-scope context; lineage adjacency
+  rises above the mass. No hard filter anywhere — the §10 promise holds.
+- **Anchor waiver (the no-miss guarantee):** candidates matched by the
+  forget matcher's anchoring (the same IDF-weighted rare-token machinery —
+  `richTokens` now exported) whose fused score sits in the top decile get
+  the penalty waived (≥ 0.95) and surface in the **reach** band. Every
+  weighted result carries `{band, hops, multiplier, waived}`.
+- **Scope context plumbing:** `ExploreOptions.scopeSession/scopeProject` —
+  the seeded default path, distinct from `project` (the deliberate narrow
+  hard-filter, unchanged per §6). Passed only when
+  `retrieval.session_scope.enabled`; null scope = structural no-op.
+- **Probe measures the flip world:** dilution cases run §9's definition
+  (top-10, other-scope, excluding waived); three new no-miss cases re-run
+  the curated cross-boundary cases with the reader scoped to the OTHER
+  project — the weighting may not manufacture misses. **Fixture gate
+  numbers with the weighting live: dilution 20% → 15%** (phantom-blend
+  #3-equivalent → rank 7 of 10), miss 0%, hard 9/9. The fixture's tail
+  density is the remaining gap — the §9 gate itself is judged on the live
+  vault bench (next build). Fixture enriched to realistic mid-tail mass
+  (the thin tail was a measurement artifact, both directions).
+- Spec decision log carries the day's rulings: Eric's blessing clarified
+  (lineage = asserted session-id edges, not topic; topic relatedness is the
+  retrieval layer), the floor design (amended from the first reading after
+  §5's own sentence ruled it out), and lineage-sparseness accepted.
+
 ### Fixed — Windows CI green again; the path bridge now actually works on Windows
 - Windows CI regressed with the Phase 1 + probe commits (it had been green
   through Nov 8 — this fork actively maintains Windows). Three layers, each

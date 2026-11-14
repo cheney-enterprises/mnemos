@@ -56,6 +56,12 @@ export interface ExploreOptions {
   /** Hard-filter RESULTS to one project (traversal stays global — the graph
    * is honest; only the answer set is scoped). Unset = whole vault. */
   project?: string;
+  /** §5 scope context: the reading session and/or project tag. Weighting
+   * applies ONLY when retrieval.session_scope.enabled (spec §10). This is
+   * the seeded default path — distinct from `project`, the deliberate
+   * narrow hard-filter that survives unchanged (§6). */
+  scopeSession?: string;
+  scopeProject?: string;
 }
 
 export type ExploreSearchResult = {
@@ -312,6 +318,13 @@ export async function runExplore(
       query, classified, linkGraph: graph, notesDir: paths.notes,
       warmthSignals, flatResults, config: exploreConfig, qValueLookup,
       graphMetrics: { communities: graphMetrics.communities },
+      // §5 scope weighting — flag-gated upstream (spec session-scope §10):
+      // without the flag this is undefined and the pipeline is unchanged.
+      scope: config.retrieval.session_scope.enabled &&
+          (options.scopeSession || options.scopeProject)
+        ? { session: options.scopeSession, project: options.scopeProject }
+        : undefined,
+      engineConfigForScope: config.engine,
     });
   }
 

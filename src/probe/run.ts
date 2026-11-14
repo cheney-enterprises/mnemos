@@ -268,10 +268,21 @@ async function runDilutionCase(
   vaultDir: string,
   c: Extract<ProbeCase, { kind: "dilution" }>,
 ): Promise<ProbeCaseResult> {
-  const result = await recall(vaultDir, c.query, { limit: c.topN });
+  // The dilution gate judges the FLIP-WORLD configuration: flag on, the
+  // query scoped to its intended project (what a project-scoped wake does).
+  // The scope makes the §5 P-band live; the metric then measures what the
+  // benchmark gate (§9) will see.
+  const result = await recall(vaultDir, c.query, {
+    limit: c.topN,
+    scopeProject: c.intendedProject,
+  });
   const results = result.data.results.slice(0, c.topN);
   const projectIndex = await buildProjectIndex(vaultDir);
+  // §9 verbatim: "the fraction of top-10 results that come from another
+  // scope band *without* anchor waiver" — waived reach results are the
+  // labeled tier-2, not dilution.
   const noise = results.filter((r) => {
+    if (r.scopeTrace?.waived) return false;
     const projects = projectIndex.get(r.title) ?? [];
     return !projects.includes(c.intendedProject);
   });
@@ -287,7 +298,11 @@ async function runLineageCase(
   vaultDir: string,
   c: Extract<ProbeCase, { kind: "lineage_retrieval" }>,
 ): Promise<ProbeCaseResult> {
-  const result = await recall(vaultDir, c.query, { limit: c.topN });
+  const result = await recall(vaultDir, c.query, {
+    limit: c.topN,
+    scopeSession: c.session,
+    scopeProject: c.readingProject,
+  });
   const titles = result.data.results.slice(0, c.topN).map((r) => r.title);
   const found = titles.includes(toSlug(c.expect));
   const passed = c.expectAbsent ? !found : found;

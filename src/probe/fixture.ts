@@ -153,6 +153,98 @@ const HELIOS: NoteSeed[] = [
     description: "New helios installers need the commissioning checklist before their first dashboard login is provisioned.",
     body: "Provisioning flow: commissioning checklist must be submitted BEFORE the first dashboard login is provisioned. Accounts created out of order get stuck in a half-activated state that support has to clear manually.",
   },
+  // Mid-tail mass (2026-11-15): a real project has dozens of on-topic notes
+  // between the leader and the long tail — without them the dilution metric
+  // measures a thin-tail artifact, not the weighting (the §9 gate reads
+  // top-10; a realistic dashboard project fills that band).
+  {
+    title: "helios dashboard refresh cadence",
+    type: "decision",
+    project: ["helios"],
+    created: "2026-06-14",
+    description: "Helios dashboards refresh on a 15 second cadence with a visible stale-data badge past 30 seconds.",
+    body: "Dashboard refresh decision: 15 second polling cadence; past 30 seconds without fresh data the dashboard shows a stale-data badge instead of silently aging numbers. Silent staleness was the support complaint that forced the badge.",
+  },
+  {
+    title: "helios telemetry ingest pipeline backpressure",
+    type: "learning",
+    project: ["helios"],
+    created: "2026-06-28",
+    description: "The helios telemetry ingest applies backpressure at 10k frames per second rather than dropping frames.",
+    body: "Telemetry ingest applies backpressure above 10k frames per second — the upstream panel buffers rather than the pipeline dropping frames. Dropping frames made the dashboards lie quietly; buffering made overload loud and visible.",
+  },
+  {
+    title: "helios chart threshold alerts design",
+    type: "decision",
+    project: ["helios"],
+    created: "2026-07-08",
+    description: "Helios chart threshold alerts evaluate on ingest, never on render — dashboards only display them.",
+    body: "Threshold alerts evaluate at ingest time, once per frame, never at dashboard render. Evaluating on render meant N dashboards ran N alert loops and flickered on races. The dashboard is a VIEW of alert state, not a computer of it.",
+  },
+  {
+    title: "helios panel voltage drift calibration",
+    type: "learning",
+    project: ["helios"],
+    created: "2026-07-22",
+    description: "Helios panel voltage readings drift ~2% per year; the calibration constant is annual.",
+    body: "Panel voltage drifts about 2% per year in the field. The calibration constant is applied annually during the maintenance window; mid-year recalibration fought the seasonal temperature curve and made readings worse.",
+  },
+  {
+    title: "helios dashboard dark mode contrast rules",
+    type: "insight",
+    project: ["helios"],
+    created: "2026-08-16",
+    description: "Helios dashboard dark mode keeps the same hue palette with raised luminance; never invert the brand colors.",
+    body: "Dark mode rule: keep the palette hues, raise luminance. Inverting the brand colors broke the color-coded panel states that field techs are trained on — the training cost of a hue change was higher than the design cost of luminance-only.",
+  },
+  {
+    title: "helios session idle timeout for dashboard users",
+    type: "decision",
+    project: ["helios"],
+    created: "2026-09-05",
+    description: "Helios dashboard sessions idle out at 8 hours, chosen over 30 minutes because field techs share tablets.",
+    body: "Dashboard sessions idle out at 8 hours. The 30-minute draft was rejected: field techs share tablets across shifts and a short timeout logged the next shift out mid-review. Long sessions made the memory-leak class of bugs visible, which is how the leak was caught.",
+  },
+  {
+    title: "helios websocket reconnect jitter rule",
+    type: "learning",
+    project: ["helios"],
+    created: "2026-09-18",
+    description: "Helos websocket reconnects use per-client jitter to avoid a thundering herd after gateway restarts.",
+    body: "After a gateway restart every helios dashboard reconnected simultaneously and flattened the API. The reconnect now carries per-client jitter in a 0-5 second window; the thundering herd became a gentle ramp. Jitter is also why the telemetry retry uses backoff-plus-jitter.",
+  },
+  {
+    title: "helios dashboard csv export limits",
+    type: "decision",
+    project: ["helios"],
+    created: "2026-09-22",
+    description: "Helios dashboard CSV export caps at 90 days per request and streams rather than buffering rows.",
+    body: "CSV export caps at 90 days per request and streams rows instead of buffering the whole set — buffering a year of telemetry exhausted memory on the export worker, the same failure class as the chart listener leak but server-side.",
+  },
+  {
+    title: "helios dashboard filter permissions model",
+    type: "decision",
+    project: ["helios"],
+    created: "2026-09-26",
+    description: "Helios dashboard filters are permission-scoped: a filter on an unreadable panel silently hides it.",
+    body: "Dashboard filters are permission-scoped. A filter referencing a panel the viewer cannot read silently hides that panel instead of erroring — the visibility model follows the viewer, and the support script lists effective panels per role.",
+  },
+  {
+    title: "helios chart tooltip precision rule",
+    type: "insight",
+    project: ["helios"],
+    created: "2026-09-30",
+    description: "Helios chart tooltips show full precision; axis labels stay rounded — the tooltip is the audit surface.",
+    body: "Tooltip precision is full; axis labels stay rounded. Field disputes resolve by hovering the tooltip — it is the audit surface — so it must never round. The chart data cache serves both from the same snapshot.",
+  },
+  {
+    title: "helios dashboard annotation sharing",
+    type: "insight",
+    project: ["helios"],
+    created: "2026-10-05",
+    description: "Helios dashboard annotations are per-team; sharing one across teams needs an explicit link.",
+    body: "Annotations belong to a team; cross-team sharing requires an explicit share link with an expiry. The default-private rule exists because an incident annotation once leaked a customer name across teams.",
+  },
 ];
 
 const TERRA: NoteSeed[] = [
@@ -227,6 +319,57 @@ const TERRA: NoteSeed[] = [
     created: "2026-09-15",
     description: "Terra water budgets are per bed, not per crop; mixed beds are budgeted by the thirstiest occupant.",
     body: "Water budgeting is per bed. Mixed beds get the thirstiest occupant's budget — the alternatives (averaging, per-plant) produced chronically dry corners.",
+  },
+  // Mid-tail mass (2026-11-15, same ruling as helios): a real garden planner
+  // carries dozens of on-topic notes between its leaders and the long tail —
+  // the thin-tail artifact made cross-project notes outrank same-project mass.
+  {
+    title: "terra frost date windows by zone",
+    type: "insight",
+    project: ["terra"],
+    created: "2026-06-30",
+    description: "Terra schedules sowing from the local last-frost date, never the calendar packet date.",
+    body: "Sowing windows key on the local last-frost date, not the seed packet's calendar guess. The packet dates assume a different zone; the frost-date table is the single scheduling input.",
+  },
+  {
+    title: "terra pest scouting routine",
+    type: "learning",
+    project: ["terra"],
+    created: "2026-07-12",
+    description: "Terra pest control is scouting-driven: twice-weekly leaf undersides before any spray decision.",
+    body: "Pest management is scouting first: twice weekly, leaf undersides, before any treatment decision. The one calendar spray year burned the pollinators and the aphids came back stronger.",
+  },
+  {
+    title: "terra seed storage viability table",
+    type: "insight",
+    project: ["terra"],
+    created: "2026-07-28",
+    description: "Terra stores seed lots cool and dry with a viability table; onion and parsnip seed is bought fresh yearly.",
+    body: "Seed viability table drives storage and rebuy: onion and parsnip germination collapses after one year — bought fresh annually — while tomato stores three seasons cool and dry. Cold rooms interact with the vernalization rules: chill-requiring lots must NOT sit beside ripening fruit.",
+  },
+  {
+    title: "terra harvest window discipline",
+    type: "decision",
+    project: ["terra"],
+    created: "2026-08-08",
+    description: "Terra harvests on a two-day window rule; a missed window downgrades the lot to compost stock.",
+    body: "Harvest windows are two days wide. A missed window downgrades the lot to compost stock — selling over-mature produce cost more reputation than the compost loss. The window rule feeds the rotation rule.",
+  },
+  {
+    title: "terra irrigation schedule by stage",
+    type: "decision",
+    project: ["terra"],
+    created: "2026-08-25",
+    description: "Terra irrigation follows growth stage — establishment daily, fruiting deep and infrequent.",
+    body: "Irrigation follows growth stage: establishment gets daily shallow water, fruiting gets deep-and-infrequent. Stage-blind watering produced blossom-end rot in the tomatoes and shallow-rooted lettuce.",
+  },
+  {
+    title: "terra cover crop rotation legume rule",
+    type: "learning",
+    project: ["terra"],
+    created: "2026-09-10",
+    description: "Terra beds get a legume cover crop after every heavy feeder; the nitrogen credit is logged per bed.",
+    body: "Every heavy-feeder bed gets a legume cover crop the following season; the nitrogen credit is logged per bed so the fertilizer budget shrinks where the cover earned it. The rotation rule and the cover rule are one system.",
   },
 ];
 

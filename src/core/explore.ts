@@ -25,6 +25,7 @@ import { parseFrontmatter } from "./frontmatter.js";
 import type { LlmProvider, ChatMessage } from "./llm.js";
 import { NullProvider } from "./llm.js";
 import { DEFAULT_Q } from "./qvalue.js";
+import { computeScopeWeights } from "./scopeweight.js";
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */
@@ -45,6 +46,8 @@ export interface ExploreNote {
   warmthScore: number | null;
   source: "seed" | "ppr" | "warmth" | "multi";
   snippet?: ExploreSnippet;
+  /** §5 scope trace — present only when the weighting ran (flag on + scope). */
+  scopeTrace?: import("./scopeweight.js").ScopeTrace;
 }
 
 export interface ExplorePath {
@@ -319,9 +322,16 @@ export async function explore(params: {
   qValueLookup: (title: string) => number;
   graphMetrics?: { communities: Map<string, number> };
   excludeArchived?: boolean;
+  /** §5 scope context — passed ONLY when retrieval.session_scope.enabled;
+   * null/absent = flag off, weighting is a structural no-op. */
+  scope?: import("./scopeweight.js").ReadingScope;
+  /** The vault's engine config — the anchor waiver reuses the forget
+   * matcher, which needs it. */
+  engineConfigForScope?: import("./config.js").EngineConfig;
 }): Promise<ExploreOutput> {
   const {
     linkGraph, notesDir, warmthSignals, flatResults, config, qValueLookup, graphMetrics,
+    scope, engineConfigForScope,
   } = params;
 
   const limit = Math.min(config.default_limit, config.max_limit);
@@ -412,6 +422,33 @@ export async function explore(params: {
       warmthScore: warmthSignals.get(title) ?? null,
       source: "ppr",
     });
+  }
+
+  // §5 scope-distance weighting — POST-FUSION, PRE-TRIM (spec session-scope
+  // §5). The caller passes scope only when retrieval.session_scope.enabled;
+  // null scope = the flag is off and this is a structural no-op (§10: current
+  // contracts stay in force until the benchmark-gated flip).
+  if (scope) {
+    try {
+      const traces = await computeScopeWeights({
+        notesDir,
+        sessionsDir: path.join(notesDir, "..", "ops", "sessions"),
+        query: params.query,
+        scope,
+        engineConfig: engineConfigForScope as Parameters<typeof computeScopeWeights>[0]["engineConfig"],
+        candidates: allCandidates.map((c) => ({ title: c.title, score: c.score })),
+      });
+      for (const c of allCandidates) {
+        const trace = traces.get(c.title);
+        if (trace) {
+          c.score = c.score * trace.multiplier;
+          c.scopeTrace = trace;
+        }
+      }
+    } catch {
+      // Weighting must never break retrieval — a failure here degrades to
+      // the unweighted ranking, which is always a valid answer.
+    }
   }
 
   // Sort by unified score, take top limit
