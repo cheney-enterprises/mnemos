@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Fixed — Windows CI green again; the path bridge now actually works on Windows
+- Windows CI regressed with the Phase 1 + probe commits (it had been green
+  through Nov 8 — this fork actively maintains Windows). Three layers, each
+  real:
+  1. **Generated YAML vs backslash paths** — YAML double-quoted scalars
+     treat `\` as an escape, so `path.join`'d Windows paths are invalid
+     YAML. Forward slashes everywhere (Node resolves them on Windows).
+  2. **CRLF vs the scaffold matcher** — normalize before matching.
+  3. **The real bug: `resolveProjectByPath` compared raw strings.** A
+     config key written with forward slashes (the only YAML-safe spelling)
+     could never match a Windows cwd with backslashes, and the nested
+     prefix check hardcoded `/` — **the repo→project bridge has never
+     actually worked on Windows**. Now: `path.resolve` both sides
+     (absolute entries only) and a `path.relative`-based containment check.
+
 ### Fixed — probe dilution metric uses frontmatter ground truth (Phase 2 step 0)
 - The dilution metric judged project membership by title prefix, which
   miscounted the lineage session notes (no project prefix) as other-project
