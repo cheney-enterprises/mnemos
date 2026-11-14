@@ -53,6 +53,15 @@ CLI and MCP paths always worked, and existing users were unaffected.
 the binary and spawn it rather than link against it. `require.resolve` on it
 is the intended use; importing it runs the CLI.
 
+## Guides
+
+- **[Getting started](docs/getting-started.md)** — install, create a vault,
+  wire a client (the bridge), verify, and what the config tunes.
+- **[How it works](docs/how-it-works.md)** — the mental model: wake, capture,
+  retrieval, forgetting, and the scope model.
+- **[Embedding mnemos](docs/library.md)** — universal memory in your own
+  harness, no MCP or CLI required.
+
 ## Benchmarks
 
 ### ForgetEval — Can It Forget On Command?
