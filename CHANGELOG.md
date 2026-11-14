@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added — onboarding hints: the tool tells the human the next step
+- **`mnemos status` and `mnemos init` now report client wiring.** Both carry
+  `clients_registered` (which MCP clients point at mnemos, detected via the
+  bridge inspectors) and `next_steps` (what to do about it). Zero registered
+  clients — the new-user moment — gets the full walk-through: every bridge
+  command by name, `bridge generic` for unknown MCP clients, and the CLI-only
+  start. Any registration gets a one-line acknowledgment with the command to
+  add more — a nudge, never a nag. Detection failure is non-fatal everywhere.
+- Surfaces the tool's own setup knowledge in-product instead of leaving it
+  in the README (Eric's ruling: "hey dev, you can run bridge — here is what
+  the commands are"). Found a stale registration live on the first run.
+- tests/cli/onboarding-hints.test.ts: hint text (pure), init/status field
+  presence, detection consistency (environment-agnostic). 1,233/1,233.
+
 ### Added — session binding + lineage edges (session-scope spec Phase 1)
 - **`retrieval.session_scope.enabled` (default `false`).** The session-scope
   spec's implementation flag (docs/specs/session-scope-spec.md §10). Phase 1

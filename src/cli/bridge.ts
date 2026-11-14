@@ -601,6 +601,58 @@ export async function runBridgeStatus(startDir: string) {
   };
 }
 
+export type ClientInstallSummary = {
+  registered: Array<{ client: string; scope: string; vault: string | null }>;
+};
+
+/**
+ * One-call "which clients already point at mnemos?" — the raw install map
+ * (runBridgeStatus) reduced to a flat registered list. Used by the
+ * onboarding hints in status and init: the tool telling the human the next
+ * step instead of the human reading docs to find it.
+ */
+export async function inspectClientInstalls(startDir: string): Promise<ClientInstallSummary> {
+  const status = await runBridgeStatus(startDir);
+  const registered: ClientInstallSummary["registered"] = [];
+  for (const [client, entry] of Object.entries(
+    status.data.clients as Record<string, unknown>,
+  )) {
+    // claude-code/cursor/opencode wrap { project, global, active }; codex,
+    // hermes, ori are the install object directly.
+    const active =
+      (entry as { active?: { installed?: boolean } }).active ?? entry;
+    if ((active as { installed?: boolean })?.installed) {
+      registered.push({
+        client,
+        scope: (active as { scope?: string }).scope ?? "unknown",
+        vault: (active as { resolvedVault?: string | null }).resolvedVault ?? null,
+      });
+    }
+  }
+  return { registered };
+}
+
+/**
+ * The onboarding hint, pure and testable: what a human should do next about
+ * client wiring, given what is already registered. Zero registered clients
+ * gets the full walk-through (the new-user moment); any registration gets a
+ * one-line acknowledgment with the command to add more — a nudge, never a nag.
+ */
+export function buildOnboardingNextSteps(registered: ClientInstallSummary["registered"]): string[] {
+  if (registered.length === 0) {
+    return [
+      "No MCP client is registered with this vault yet — agents reach memory through a client (MCP), the CLI, or the library.",
+      "Wire a known client (one command): mnemos bridge claude-code|cursor|codex|hermes|opencode|ori --vault <vault-dir>",
+      "Any other MCP client: mnemos bridge generic --vault <vault-dir> — prints the config block to paste.",
+      "CLI-only start (no client): run mnemos wake from the vault directory.",
+    ];
+  }
+  return [
+    `Registered clients: ${registered.map((r) => `${r.client} (${r.scope})`).join(", ")}. ` +
+      "Add or re-wire: mnemos bridge <client> --vault <vault-dir>; for any other MCP client: mnemos bridge generic.",
+  ];
+}
+
 export async function runBridgeClaudeCode(startDir: string, request: Omit<BridgeRequest, "target" | "startDir"> = {}) {
   const plan = await resolveBridgePlan({ ...request, target: "claude-code", startDir });
   const paths = plan.scope === "global" ? getClaudeGlobalPaths() : getClaudeProjectPaths(startDir);

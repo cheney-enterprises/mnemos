@@ -4,6 +4,7 @@ import { fileURLToPath } from "node:url";
 import { getVaultPaths } from "../core/vault.js";
 import { readState, isOnboarded } from "../core/state.js";
 import { runBootSequence } from "./boot.js";
+import { inspectClientInstalls, buildOnboardingNextSteps } from "./bridge.js";
 
 export type InitOptions = {
   targetDir: string;
@@ -12,6 +13,8 @@ export type InitOptions = {
 export type InitResult = {
   created: string[];
   skipped: string[];
+  /** What to do next (client wiring) — the new-user moment, post-scaffold. */
+  next_steps?: string[];
 };
 
 async function copyDir(src: string, dest: string, result: InitResult): Promise<void> {
@@ -60,6 +63,22 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
     result.created.push(paths.marker);
   }
 
+  return withNextSteps(result, target);
+}
+
+async function withNextSteps(result: InitResult, target: string): Promise<InitResult> {
+  // Post-scaffold is THE new-user moment: the vault exists, no client points
+  // at it, and nothing else in the product mentions `bridge`. Detection
+  // failure is non-fatal — a hint is a courtesy, never a blocker.
+  try {
+    const installs = await inspectClientInstalls(target);
+    result.next_steps = buildOnboardingNextSteps(installs.registered);
+  } catch {
+    result.next_steps = [
+      "Wire an agent client: mnemos bridge claude-code|cursor|codex|hermes|opencode|ori --vault <vault-dir>",
+      "Any other MCP client: mnemos bridge generic --vault <vault-dir>",
+    ];
+  }
   return result;
 }
 
