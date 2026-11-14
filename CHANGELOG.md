@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Fixed — probe dilution metric uses frontmatter ground truth (Phase 2 step 0)
+- The dilution metric judged project membership by title prefix, which
+  miscounted the lineage session notes (no project prefix) as other-project
+  noise — the garden case read 40% when the true figure was 20% (the misting
+  note is terra by frontmatter). Results are now labeled from the fixture's
+  frontmatter (slug → project map). Corrected baseline: **dilution 20%** vs
+  the ≤5% gate target — the disease is real, now measured honestly.
+- Reading the fixture's own files to label results is legitimate: the
+  black-box principle governs how we observe ranking, not whether we know
+  which project a note belongs to.
+
 ### Changed — bridge defaults to GLOBAL scope (Eric's ruling, 2026-11-15)
 - **The vault is global by nature; the bridge now defaults to global.**
   `mnemos bridge opencode --vault ~/my-memory` wires the client once,

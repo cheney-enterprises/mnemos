@@ -235,12 +235,34 @@ async function runReleaseCase(
 }
 
 /**
- * Dilution: fraction of the top-N that belongs to another project. The
- * fixture's convention makes project membership decidable from the result
- * alone: every fixture note title carries its project as the first word —
- * except the lineage session notes, which their owning project filed (and
- * which these queries do not pull). This is a fixture property, not a
- * product assumption.
+ * Project-membership ground truth for probe results, read from the fixture's
+ * own frontmatter. Recall results are slugs (the noteindex keys by filename),
+ * so we map slug → project tags once per vault copy. Reading the fixture's
+ * files to LABEL results is legitimate — the black-box principle governs how
+ * we observe RANKING, not whether we know which project a note belongs to.
+ * (The earlier title-prefix approximation miscounted the lineage session
+ * notes, which carry no project prefix, as other-project noise.)
+ */
+async function buildProjectIndex(vaultDir: string): Promise<Map<string, string[]>> {
+  const paths = getVaultPaths(vaultDir);
+  const index = new Map<string, string[]>();
+  for (const entry of await fs.readdir(paths.notes)) {
+    if (!entry.endsWith(".md")) continue;
+    const parsed = await readFrontmatterFile(path.join(paths.notes, entry));
+    const raw = parsed.data?.project;
+    const projects = Array.isArray(raw)
+      ? raw.filter((p): p is string => typeof p === "string")
+      : typeof raw === "string" && raw.trim() !== ""
+        ? [raw.trim()]
+        : [];
+    index.set(entry.replace(/\.md$/, ""), projects);
+  }
+  return index;
+}
+
+/**
+ * Dilution: fraction of the top-N that belongs to another project, judged by
+ * frontmatter ground truth (see buildProjectIndex).
  */
 async function runDilutionCase(
   vaultDir: string,
@@ -248,7 +270,11 @@ async function runDilutionCase(
 ): Promise<ProbeCaseResult> {
   const result = await recall(vaultDir, c.query, { limit: c.topN });
   const results = result.data.results.slice(0, c.topN);
-  const noise = results.filter((r) => !r.title.startsWith(`${c.intendedProject}-`));
+  const projectIndex = await buildProjectIndex(vaultDir);
+  const noise = results.filter((r) => {
+    const projects = projectIndex.get(r.title) ?? [];
+    return !projects.includes(c.intendedProject);
+  });
   const pct = Math.round((noise.length / Math.max(results.length, 1)) * 100);
   return {
     id: c.id, level: c.level, kind: c.kind, stresses: c.stresses, passed: null,
