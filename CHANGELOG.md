@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Fixed — `mnemos requests list` summarizes WHAT CHANGES, so a decision can be made
+- **What it was.** `list` showed a request's LABEL, not its EFFECT: an
+  identity rewrite showed a size in chars and the proposal's frontmatter
+  description — nothing about what would actually change; a purge showed
+  bare slugs that don't say what dies. You could not decide from the
+  listing; you had to trust the id.
+- **The decision aid.** `list` (and the bare-id flow) now carries vault
+  context (buildRequestContext, pre-read so the formatters stay pure):
+  - **identity_update → the DIFF against the current file.** A line-level
+    set diff (order-preserving, whitespace-normalized): what disappears,
+    what appears, true counts, capped per side at 6 with "… and N more".
+    The whole file diffs, frontmatter included — a description change is a
+    real change. Without a current file, falls back to the proposal's own
+    description. The live render now shows exactly the decision: the
+    project-agnostic rewrite reads "−3 lines, +1 lines" with the project
+    bullets leaving; the stale path-swap reads "−1 lines, +1 lines" with
+    the one path line changing.
+  - **purge → what the doomed notes ARE.** Each slug's description quoted
+    under the `forgets:` line (up to 5).
+- **Tests** (requests-render.test.ts): set-diff semantics (added/removed/
+  counts, cap with "… and N more"), the diff rendering (− side names the
+  dying line, no description fallback when the diff exists), the fallback
+  without context, purge descriptions quoted, and buildRequestContext
+  reading real files (self content + note descriptions, both blocks
+  rendering). Suite 1,351 → 1,357.
+
 ### Fixed — `mnemos requests`: the command is the answer (Eric's UX ruling)
 - **What it was.** `mnemos requests approve <id>` re-asked "[y/N] Approve?"
   — the question in the wrong place. Typing the verb AND the request id IS

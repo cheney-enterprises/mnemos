@@ -13,6 +13,9 @@ import {
   formatRequestList,
   formatRequestDecision,
   formatRequestItem,
+  formatRequestBlock,
+  summarizeLineDiff,
+  buildRequestContext,
   runRequestInteractive,
   runRequestDecide,
 } from "../../src/cli/forget.js";
@@ -217,5 +220,100 @@ describe("the decision UX (Eric: the command is the answer)", () => {
     const out = formatRequestItem(identityPending, NOW);
     expect(out).toContain("● rq-test-identity   identity_update");
     expect(out).toContain("approve:  mnemos requests approve rq-test-identity");
+  });
+});
+
+describe("the decision aid (Eric: list must summarize WHAT CHANGES)", () => {
+  it("summarizeLineDiff: what disappears, what appears, true counts", () => {
+    const d = summarizeLineDiff(
+      "keep\nold path here\nshared\nsecond removal",
+      "keep\nnew path there\nshared",
+    );
+    expect(d.removedCount).toBe(2);
+    expect(d.addedCount).toBe(1);
+    expect(d.removed).toContain("old path here");
+    expect(d.removed).toContain("second removal");
+    expect(d.added).toContain("new path there");
+  });
+
+  it("the diff is capped per side, and the cap says how many more", () => {
+    const current = Array.from({ length: 10 }, (_, i) => `gone ${i}`).join("\n");
+    const proposed = Array.from({ length: 10 }, (_, i) => `new ${i}`).join("\n");
+    const d = summarizeLineDiff(current, proposed, 3);
+    expect(d.removedCount).toBe(10);
+    expect(d.addedCount).toBe(10);
+    expect(d.removed.filter((l) => l.startsWith("−") || l.startsWith("gone")).length).toBeLessThanOrEqual(4);
+    expect(d.removed.join("\n")).toContain("… and 7 more");
+  });
+
+  it("an identity request renders its DIFF against the current file — the decision aid", () => {
+    const current = "---\ndescription: Agent identity — who I am, how I work\ntype: self\n---\n\n- **AI Flutter Chat** (`~/Desktop/AI Chat Project/`)\n";
+    const out = formatRequestList(
+      [identityPending],
+      NOW,
+      { selfCurrent: new Map([[identityPending.id, current]]) },
+    );
+    expect(out).toContain("changes: ");
+    expect(out).toMatch(/− - \*\*AI Flutter Chat\*\* \(`~\/Desktop\/AI Chat Project\/`\)/);
+    // The + side shows the proposed lines (the fixture's proposed content
+    // replaces the project line with prose).
+    expect(out).toMatch(/\+ /);
+    // No description fallback when the diff is present.
+    expect(out).not.toContain("what:     ");
+  });
+
+  it("without context it falls back to the proposal's description", () => {
+    const out = formatRequestList([identityPending], NOW);
+    expect(out).toContain('"Agent identity — who I am, how I work"');
+  });
+
+  it("a purge names what the doomed notes ARE (slug + description)", () => {
+    const out = formatRequestList(
+      [purgePending],
+      NOW,
+      { noteDescriptions: new Map([["stale-note-one", "The duplicate capture that muddied the trail"]]) },
+    );
+    expect(out).toContain("forgets:  stale-note-one, stale-note-two");
+    expect(out).toContain('"The duplicate capture that muddied the trail"');
+  });
+
+  it("buildRequestContext reads the current self file and note descriptions from the vault", async () => {
+    const root = mkdtempSync(join(tmpdir(), "mnemos-rqctx-"));
+    try {
+      mkdirSync(join(root, ".mnemos"), { recursive: true });
+      mkdirSync(join(root, "self"), { recursive: true });
+      mkdirSync(join(root, "notes"), { recursive: true });
+      writeFileSync(join(root, "self", "identity.md"), "CURRENT IDENTITY CONTENT\n");
+      writeFileSync(
+        join(root, "notes", "doomed.md"),
+        "---\ndescription: the doomed note's meaning\ntype: insight\n---\n\nBody.\n",
+        "utf8",
+      );
+      const intent: RemovalIntent = {
+        id: "rq-ctx", kind: "identity_update", slugs: [],
+        content: "PROPOSED IDENTITY CONTENT\n", selfFile: "identity",
+        reason: "r", session_id: "t",
+        created: "2026-11-15T00:00:00.000Z", expires: "2026-12-15T00:00:00.000Z",
+        status: "pending",
+      };
+      const purgeIntent: RemovalIntent = {
+        id: "rq-ctx-purge", kind: "purge", slugs: ["doomed"],
+        reason: "r", session_id: "t",
+        created: "2026-11-15T00:00:00.000Z", expires: "2026-12-15T00:00:00.000Z",
+        status: "pending",
+      };
+      const ctx = await buildRequestContext(root, [intent, purgeIntent]);
+      expect(ctx.selfCurrent?.get("rq-ctx")).toContain("CURRENT IDENTITY CONTENT");
+      expect(ctx.noteDescriptions?.get("doomed")).toContain("the doomed note's meaning");
+      // The identity block renders its diff…
+      const block = formatRequestBlock(intent, NOW, ctx).join("\n");
+      expect(block).toContain("− CURRENT IDENTITY CONTENT");
+      expect(block).toContain("+ PROPOSED IDENTITY CONTENT");
+      // …and the purge block says what the doomed note IS.
+      const purgeBlock = formatRequestBlock(purgeIntent, NOW, ctx).join("\n");
+      expect(purgeBlock).toContain('"the doomed note\'s meaning"');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

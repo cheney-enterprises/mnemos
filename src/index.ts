@@ -946,7 +946,7 @@ requestsCmd
       return;
     }
     const { formatRequestList } = await import("./cli/forget.js");
-    console.log(formatRequestList(result.data.intents));
+    console.log(formatRequestList(result.data.intents, new Date(), result.data.context));
   });
 
 requestsCmd

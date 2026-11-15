@@ -258,8 +258,48 @@ export async function runForget(options: ForgetRunOptions): Promise<ForgetRunRes
 
 export interface RequestListResult {
   success: boolean;
-  data: { intents: RemovalIntent[] };
+  data: { intents: RemovalIntent[]; context?: RequestContext };
   warnings: string[];
+}
+
+/**
+ * What `list` needs so a decision can actually be made: for identity
+ * rewrites, the CURRENT file content (the diff is the decision aid); for
+ * purges, what the doomed notes ARE (a slug alone doesn't say what dies).
+ * `runRequestsList` / `runRequestInteractive` pre-read these from the vault;
+ * the formatters stay pure.
+ */
+export interface RequestContext {
+  /** intent.id → current content of self/<selfFile>.md */
+  selfCurrent?: Map<string, string>;
+  /** slug → the note's description (what the purge would destroy) */
+  noteDescriptions?: Map<string, string>;
+}
+
+/**
+ * Line-level set diff for the identity proposal display. A set diff, not an
+ * LCS patch: the decision is about CONTENT presence (what disappears, what
+ * appears), not hunk ordering. Order-preserving; whitespace-normalized;
+ * capped per side with the true counts reported.
+ */
+export function summarizeLineDiff(
+  current: string,
+  proposed: string,
+  max = 6,
+): { removed: string[]; added: string[]; removedCount: number; addedCount: number } {
+  const norm = (s: string) => s.trim();
+  const currentLines = current.split("\n").map(norm).filter((l) => l.length > 0);
+  const proposedLines = proposed.split("\n").map(norm).filter((l) => l.length > 0);
+  const currentSet = new Set(currentLines);
+  const proposedSet = new Set(proposedLines);
+  const removed = currentLines.filter((l) => !proposedSet.has(l));
+  const added = proposedLines.filter((l) => !currentSet.has(l));
+  const clip = (arr: string[]) => {
+    const out = arr.slice(0, max).map((l) => (l.length > 98 ? `${l.slice(0, 98)}…` : l));
+    if (arr.length > max) out.push(`… and ${arr.length - max} more`);
+    return out;
+  };
+  return { removed: clip(removed), added: clip(added), removedCount: removed.length, addedCount: added.length };
 }
 
 /**
@@ -269,9 +309,17 @@ export interface RequestListResult {
  * identity, and the blob made it easier to approve blind than to read what
  * you were approving. Pending requests render in full (id, what, why, when,
  * the exact commands); decided/expired requests collapse to one line each.
- * `--json` keeps the machine form for scripts.
+ * `--json` keeps the machine form for scripts. `context` (built by the
+ * callers from the vault) carries WHAT CHANGES: the diff against the
+ * current self file for rewrites, the doomed notes' descriptions for
+ * purges — Eric: list must summarize what it is changing so a decision
+ * can be made.
  */
-export function formatRequestList(intents: RemovalIntent[], now = new Date()): string {
+export function formatRequestList(
+  intents: RemovalIntent[],
+  now = new Date(),
+  context?: RequestContext,
+): string {
   const pending = intents.filter((i) => i.status === "pending");
   const settled = intents.filter((i) => i.status !== "pending");
   const lines: string[] = [];
@@ -282,32 +330,7 @@ export function formatRequestList(intents: RemovalIntent[], now = new Date()): s
     lines.push(`Pending requests — ${pending.length}. Nothing executes until you approve.`);
     lines.push("");
     for (const intent of pending) {
-      lines.push(`● ${intent.id}   ${intent.kind}`);
-      lines.push(`  reason: ${intent.reason}`);
-      if (intent.kind === "identity_update") {
-        const size = intent.content?.length ?? 0;
-        lines.push(`  proposal: rewrite self/${intent.selfFile ?? "identity"}.md — ${size} chars`);
-        // The frontmatter description is what the proposal IS; a body's
-        // first line is usually a heading ("# Identity") that says nothing.
-        const content = intent.content ?? "";
-        const desc = content.match(/^description:\s*(.+)$/m)?.[1]?.trim();
-        const first = desc || content
-          .replace(/^---\n[\s\S]*?\n---\n?/, "")
-          .split("\n")
-          .map((l) => l.trim())
-          .find((l) => l.length > 0);
-        if (first) {
-          const preview = first.length > 110 ? `${first.slice(0, 110)}…` : first;
-          lines.push(`  what:     "${preview}"`);
-        }
-      } else if (intent.slugs.length > 0) {
-        lines.push(`  forgets:  ${intent.slugs.join(", ")}`);
-      }
-      const days = Math.round((new Date(intent.expires).getTime() - now.getTime()) / 86_400_000);
-      const rel = days >= 0 ? `in ${days}d` : `EXPIRED`;
-      lines.push(`  created ${intent.created.slice(0, 10)} · expires ${intent.expires.slice(0, 10)} (${rel})`);
-      lines.push(`  approve:  mnemos requests approve ${intent.id}`);
-      lines.push(`  deny:     mnemos requests deny ${intent.id}`);
+      lines.push(...formatRequestBlock(intent, now, context));
       lines.push("");
     }
     lines.pop(); // trailing blank
@@ -321,6 +344,95 @@ export function formatRequestList(intents: RemovalIntent[], now = new Date()): s
     }
   }
   return lines.join("\n");
+}
+
+/** The full block for ONE pending request (shared by list and the bare-id
+ * flow). */
+export function formatRequestBlock(
+  intent: RemovalIntent,
+  now: Date,
+  context?: RequestContext,
+): string[] {
+  const lines: string[] = [];
+  lines.push(`● ${intent.id}   ${intent.kind}`);
+  lines.push(`  reason: ${intent.reason}`);
+  if (intent.kind === "identity_update") {
+    const selfFile = intent.selfFile ?? "identity";
+    const size = intent.content?.length ?? 0;
+    lines.push(`  proposal: rewrite self/${selfFile}.md — ${size} chars`);
+    // THE decision aid: the diff against the file as it stands. What
+    // disappears and what appears — capped per side, true counts kept.
+    const current = context?.selfCurrent?.get(intent.id);
+    if (current !== undefined && intent.content) {
+      const diff = summarizeLineDiff(current, intent.content);
+      lines.push(`  changes: −${diff.removedCount} lines, +${diff.addedCount} lines`);
+      for (const l of diff.removed) lines.push(`    − ${l}`);
+      for (const l of diff.added) lines.push(`    + ${l}`);
+    } else {
+      // No current file readable — show the proposal's own description.
+      const desc = (intent.content ?? "").match(/^description:\s*(.+)$/m)?.[1]?.trim();
+      if (desc) {
+        const preview = desc.length > 110 ? `${desc.slice(0, 110)}…` : desc;
+        lines.push(`  what:     "${preview}"`);
+      }
+    }
+  } else if (intent.slugs.length > 0) {
+    lines.push(`  forgets:  ${intent.slugs.join(", ")}`);
+    // What ARE these notes? A slug alone doesn't say what dies.
+    for (const slug of intent.slugs.slice(0, 5)) {
+      const d = context?.noteDescriptions?.get(slug);
+      if (d) {
+        const preview = d.length > 98 ? `${d.slice(0, 98)}…` : d;
+        lines.push(`      "${preview}"`);
+      }
+    }
+  }
+  const days = Math.round((new Date(intent.expires).getTime() - now.getTime()) / 86_400_000);
+  const rel = days >= 0 ? `in ${days}d` : `EXPIRED`;
+  lines.push(`  created ${intent.created.slice(0, 10)} · expires ${intent.expires.slice(0, 10)} (${rel})`);
+  lines.push(`  approve:  mnemos requests approve ${intent.id}`);
+  lines.push(`  deny:     mnemos requests deny ${intent.id}`);
+  return lines;
+}
+
+/** Read the vault-side context the formatters need: the current self file
+ * per identity intent, and the descriptions of purge-targeted notes.
+ * Best-effort — a missing file just means the formatter falls back to the
+ * proposal's own description. */
+export async function buildRequestContext(
+  vaultRoot: string,
+  intents: RemovalIntent[],
+): Promise<RequestContext> {
+  const { getVaultPaths } = await import("../core/vault.js");
+  const { parseFrontmatter } = await import("../core/frontmatter.js");
+  const paths = getVaultPaths(vaultRoot);
+  const selfCurrent = new Map<string, string>();
+  const noteDescriptions = new Map<string, string>();
+  for (const intent of intents) {
+    if (intent.kind === "identity_update" && intent.status === "pending") {
+      const file = path.join(paths.self, `${intent.selfFile ?? "identity"}.md`);
+      try {
+        selfCurrent.set(intent.id, await fs.readFile(file, "utf8"));
+      } catch {
+        // No current file — the formatter falls back to the description.
+      }
+    }
+    for (const slug of intent.slugs) {
+      if (noteDescriptions.has(slug)) continue;
+      try {
+        const parsed = parseFrontmatter(
+          await fs.readFile(path.join(paths.notes, `${slug}.md`), "utf8"),
+        );
+        const d = parsed.data && typeof parsed.data === "object"
+          ? (parsed.data as Record<string, unknown>)["description"]
+          : null;
+        if (typeof d === "string" && d.length > 0) noteDescriptions.set(slug, d);
+      } catch {
+        // Already gone, or unreadable — the slug renders alone.
+      }
+    }
+  }
+  return { selfCurrent, noteDescriptions };
 }
 
 /** Human rendering of an approve/deny outcome. */
@@ -371,9 +483,15 @@ export async function runRequestsList(
   vaultOverride?: string,
 ): Promise<RequestListResult> {
   const vaultRoot = await findVaultRoot(startDir, vaultOverride);
+  const intents = await listIntents(vaultRoot);
   return {
     success: true,
-    data: { intents: await listIntents(vaultRoot) },
+    data: {
+      intents,
+      // The decision aid, resolved from the vault: current self content for
+      // identity diffs, doomed notes' descriptions for purges.
+      context: await buildRequestContext(vaultRoot, intents),
+    },
     warnings: [],
   };
 }
@@ -542,8 +660,12 @@ export async function runRequestDecide(
 
 /** The full detail block for ONE request — the bare `mnemos requests <id>`
  * flow's display, before the question. */
-export function formatRequestItem(intent: RemovalIntent, now = new Date()): string {
-  return formatRequestList([intent], now);
+export function formatRequestItem(
+  intent: RemovalIntent,
+  now = new Date(),
+  context?: RequestContext,
+): string {
+  return formatRequestList([intent], now, context);
 }
 
 /**
@@ -584,7 +706,7 @@ export async function runRequestInteractive(
     };
   }
 
-  console.log(formatRequestItem(intent));
+  console.log(formatRequestItem(intent, new Date(), await buildRequestContext(vaultRoot, [intent])));
   const choice = options.choose ? await options.choose() : await interactiveChoose();
   if (choice === "abort") {
     return { success: false, warnings: ["decided nothing — the request stays pending"] };
