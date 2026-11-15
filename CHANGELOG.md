@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Fixed — `mnemos requests` renders for humans (and lists its subcommands)
+- **What it was.** `mnemos requests list` dumped raw JSON — on the USER-ONLY
+  surface, whose whole job is legibility: you are about to approve the
+  destruction of notes or a rewrite of the agent's identity, and the blob
+  made it easier to approve blind than to read what you were approving.
+  The `-h` screen was in the same register: `action: list | approve | deny`
+  as a terse positional argument instead of visible commands.
+- **Subcommands.** `requests list | approve <id> | deny <id>` are real
+  commander subcommands now — `-h` lists them with descriptions, each takes
+  `--vault`. Invocation is unchanged (`mnemos requests approve rq-…`), and
+  the approve_command string the policy sheet and tools emit still matches.
+- **Human rendering by default, `--json` for scripts.** Pending requests
+  render in full: id, kind, reason, the proposal's frontmatter description
+  (not the `# Identity` heading — the first draft's preview said nothing),
+  exact purge targets ("forgets: a, b"), expiry with days remaining, and
+  the exact approve/deny commands. Decided/expired requests collapse to one
+  history line. Approve/deny outcomes render in words: what was rewritten
+  and where the backup is, or how many notes went to ops/.trash. The
+  refusal paths (no TTY, agent-ancestor, unknown id) keep their structured
+  output.
+- **Tests** (tests/cli/requests-render.test.ts): full pending rendering
+  (description preview, not the heading; purge targets named — approval
+  without naming is how the wrong notes die), expiry relative days and
+  EXPIRED, settled collapse, empty queue, identity/purge/denial decision
+  wordings. Suite 1,325 → 1,332.
+
 ### Fixed — a vault at a non-standard path is discoverable from anywhere (the vault registry)
 - **What it was.** `mnemos requests approve rq-…` — the USER-ONLY surface,
   the approval gate's whole point — failed with "No .mnemos marker found"

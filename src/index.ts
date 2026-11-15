@@ -876,24 +876,63 @@ graph designed to challenge the machinery. Your vault is never touched.`
     });
   });
 
-program
+const requestsCmd = program
   .command("requests")
-  .description("Manage pending removal/identity intents (user-only surface)")
-  .argument("[action]", "list | approve | deny")
-  .argument("[id]", "intent id (approve/deny)")
+  .description("Manage pending removal/identity intents (user-only surface)");
+
+requestsCmd
+  .command("list")
+  .description("Show pending requests (purge, release, identity rewrites)")
   .option("--vault <path>", "explicit vault path (default: cwd walk, then the vault registry)")
-  .action(async (action, id, options: { vault?: string }) => {
-    if (!action || action === "list") {
-      const result = await runRequestsList(process.cwd(), options.vault);
+  .option("--json", "machine-readable output")
+  .action(async (options: { vault?: string; json?: boolean }) => {
+    const result = await runRequestsList(process.cwd(), options.vault);
+    if (options.json) {
       await emit(result);
       return;
     }
-    if ((action === "approve" || action === "deny") && id) {
-      const result = await runRequestDecide(process.cwd(), id, action, { vaultOverride: options.vault });
+    const { formatRequestList } = await import("./cli/forget.js");
+    console.log(formatRequestList(result.data.intents));
+  });
+
+requestsCmd
+  .command("approve")
+  .description("Approve a pending request — executes it (identity rewrite / purge)")
+  .argument("<id>", "request id, e.g. rq-mwhacbcl-nktcbn (from 'mnemos requests list' or the tool's approve_command)")
+  .option("--vault <path>", "explicit vault path (default: cwd walk, then the vault registry)")
+  .option("--json", "machine-readable output")
+  .action(async (id: string, options: { vault?: string; json?: boolean }) => {
+    const result = await runRequestDecide(process.cwd(), id, "approved", { vaultOverride: options.vault });
+    if (options.json) {
       await emit(result, result.success ? 0 : 1);
       return;
     }
-    await emit({ success: false, warnings: ["usage: mnemos requests [list] | approve <id> | deny <id>"] }, 1);
+    const { formatRequestDecision } = await import("./cli/forget.js");
+    if (result.success && result.data) {
+      console.log(formatRequestDecision(id, "approved", result.data));
+    } else {
+      await emit(result, 1);
+    }
+  });
+
+requestsCmd
+  .command("deny")
+  .description("Deny a pending request — nothing executes, the intent is closed")
+  .argument("<id>", "request id, e.g. rq-mwhacbcl-nktcbn")
+  .option("--vault <path>", "explicit vault path (default: cwd walk, then the vault registry)")
+  .option("--json", "machine-readable output")
+  .action(async (id: string, options: { vault?: string; json?: boolean }) => {
+    const result = await runRequestDecide(process.cwd(), id, "denied", { vaultOverride: options.vault });
+    if (options.json) {
+      await emit(result, result.success ? 0 : 1);
+      return;
+    }
+    const { formatRequestDecision } = await import("./cli/forget.js");
+    if (result.success && result.data) {
+      console.log(formatRequestDecision(id, "denied", result.data));
+    } else {
+      await emit(result, 1);
+    }
   });
 
 program

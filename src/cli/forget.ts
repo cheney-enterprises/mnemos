@@ -262,6 +262,86 @@ export interface RequestListResult {
   warnings: string[];
 }
 
+/**
+ * Human rendering of `mnemos requests list`. The raw JSON went straight to
+ * the terminal — and the user-only surface's whole job is legibility: you
+ * are about to approve the destruction of notes or a rewrite of the agent's
+ * identity, and the blob made it easier to approve blind than to read what
+ * you were approving. Pending requests render in full (id, what, why, when,
+ * the exact commands); decided/expired requests collapse to one line each.
+ * `--json` keeps the machine form for scripts.
+ */
+export function formatRequestList(intents: RemovalIntent[], now = new Date()): string {
+  const pending = intents.filter((i) => i.status === "pending");
+  const settled = intents.filter((i) => i.status !== "pending");
+  const lines: string[] = [];
+
+  if (pending.length === 0) {
+    lines.push(`No pending requests (${settled.length} decided/expired in history — use --json to see them).`);
+  } else {
+    lines.push(`Pending requests — ${pending.length}. Nothing executes until you approve.`);
+    lines.push("");
+    for (const intent of pending) {
+      lines.push(`● ${intent.id}   ${intent.kind}`);
+      lines.push(`  reason: ${intent.reason}`);
+      if (intent.kind === "identity_update") {
+        const size = intent.content?.length ?? 0;
+        lines.push(`  proposal: rewrite self/${intent.selfFile ?? "identity"}.md — ${size} chars`);
+        // The frontmatter description is what the proposal IS; a body's
+        // first line is usually a heading ("# Identity") that says nothing.
+        const content = intent.content ?? "";
+        const desc = content.match(/^description:\s*(.+)$/m)?.[1]?.trim();
+        const first = desc || content
+          .replace(/^---\n[\s\S]*?\n---\n?/, "")
+          .split("\n")
+          .map((l) => l.trim())
+          .find((l) => l.length > 0);
+        if (first) {
+          const preview = first.length > 110 ? `${first.slice(0, 110)}…` : first;
+          lines.push(`  what:     "${preview}"`);
+        }
+      } else if (intent.slugs.length > 0) {
+        lines.push(`  forgets:  ${intent.slugs.join(", ")}`);
+      }
+      const days = Math.round((new Date(intent.expires).getTime() - now.getTime()) / 86_400_000);
+      const rel = days >= 0 ? `in ${days}d` : `EXPIRED`;
+      lines.push(`  created ${intent.created.slice(0, 10)} · expires ${intent.expires.slice(0, 10)} (${rel})`);
+      lines.push(`  approve:  mnemos requests approve ${intent.id}`);
+      lines.push(`  deny:     mnemos requests deny ${intent.id}`);
+      lines.push("");
+    }
+    lines.pop(); // trailing blank
+  }
+
+  if (settled.length > 0) {
+    lines.push("");
+    lines.push("History:");
+    for (const intent of settled) {
+      lines.push(`  ○ ${intent.id}   ${intent.kind}   ${intent.status}`);
+    }
+  }
+  return lines.join("\n");
+}
+
+/** Human rendering of an approve/deny outcome. */
+export function formatRequestDecision(
+  id: string,
+  decision: RequestDecision,
+  data: Record<string, unknown>,
+): string {
+  if (decision === "denied") {
+    return `✗ denied ${id} — nothing executed, the intent is closed.`;
+  }
+  const parts: string[] = [`✓ approved ${id}`];
+  if (data.written) {
+    parts.push(`  self/${String(data.written)} rewritten with the proposed content.`);
+    if (data.backed_up) parts.push("  previous version backed up in self/.history/.");
+  } else if (typeof data.changed === "number") {
+    parts.push(`  ${data.changed} note(s) moved to ${String(data.trashed_in ?? "ops/.trash")}.`);
+  }
+  return parts.join("\n");
+}
+
 export async function runRequestsList(
   startDir: string,
   vaultOverride?: string,
