@@ -18,7 +18,7 @@
  * module is a no-op and no result field changes — every current contract
  * stays in force until the benchmark gate (§9) passes.
  */
-import { promises as fs } from "node:fs";
+import { promises as fs, type Stats as FsStats } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import type { MnemosConfig } from "./config.js";
@@ -77,6 +77,222 @@ export function normalizeLineage(raw?: string | null): LineageEdge {
 /** A fresh constructive identity for an invocation with no harness metadata. */
 export function newEphemeralSessionId(): string {
   return `ses-${randomUUID()}`;
+}
+
+/**
+ * §7 session stream: append lines to a session's record, creating the record
+ * on first capture — "a session record created on first capture (the Phase 3
+ * automatic stream), never by wake itself". Append-only, zero gates: the
+ * machinery nobody sees. The record lives outside `notes/` and the index
+ * (spec §7), so appends touch nothing derived.
+ *
+ * Concurrency (§8.3): appends are serialized PER RECORD with a mkdir-based
+ * lock (atomic on POSIX and Windows; stale locks are stolen after a
+ * deadline). The lock is load-bearing — the first race test lost 10 of 12
+ * concurrent lines to read-modify-write clobbering, exactly the failure §8.3
+ * exists to catch. Known narrow window, documented: a re-bind or adoption
+ * (wholesale record rewrites) does not take the lock; a capture appending in
+ * that exact window can be lost — the stream is best-effort machinery, and
+ * the capture itself is never affected.
+ */
+export async function appendToSessionRecord(
+  vaultRoot: string,
+  config: MnemosConfig,
+  sessionId: string,
+  lines: string[],
+): Promise<string | null> {
+  if (!config.retrieval.session_scope.enabled) return null;
+  const trimmedId = sessionId.trim();
+  if (!trimmedId || lines.length === 0) return null;
+
+  const paths = getVaultPaths(vaultRoot);
+  const dir = path.join(paths.ops, "sessions");
+  await fs.mkdir(dir, { recursive: true });
+  const slug = slugify(trimmedId);
+  const filePath = path.join(dir, `${slug}.md`);
+
+  return withRecordLock(dir, slug, async () => {
+    const today = new Date().toISOString().slice(0, 10);
+    const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
+    const block = lines.map((line) => `- ${stamp} ${line}`).join("\n") + "\n";
+
+    const existing = await fs.readFile(filePath, "utf8").catch(() => null);
+    if (existing === null) {
+      // First capture: create the record with the standard header.
+      const data: Record<string, unknown> = { session: trimmedId, created: today };
+      await writeFileAtomic(filePath, stringifyFrontmatter(data, `${RECORD_HEADER(trimmedId)}${block}`));
+      return filePath;
+    }
+
+    const parsed = parseFrontmatter(existing);
+    const data = { ...(parsed.data ?? {}), session: trimmedId } as Record<string, unknown>;
+    const body = `${(parsed.body || RECORD_HEADER(trimmedId)).replace(/\s*$/, "\n")}${block}`;
+    await writeFileAtomic(filePath, stringifyFrontmatter(data, body));
+    return filePath;
+  });
+}
+
+/** Per-record mkdir lock: atomic acquisition on every platform, 5s deadline
+ * with stale-lock stealing (a crashed holder must not deadlock the stream). */
+async function withRecordLock<T>(
+  dir: string,
+  slug: string,
+  fn: () => Promise<T>,
+): Promise<T> {
+  const lockDir = path.join(dir, ".locks", slug);
+  const deadline = Date.now() + 5000;
+  // The parent is created recursively; the LOCK DIR must be created with the
+  // plain form — recursive mkdir never throws EEXIST, which would make the
+  // lock a no-op. Plain mkdir throws EEXIST exactly when the lock is held.
+  await fs.mkdir(path.join(dir, ".locks"), { recursive: true });
+  for (;;) {
+    try {
+      await fs.mkdir(lockDir);
+      break;
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== "EEXIST") throw err;
+      if (Date.now() > deadline) {
+        // Steal: a holder that held the lock for 5s is presumed dead.
+        await fs.rm(lockDir, { recursive: true, force: true });
+        continue;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+  }
+  try {
+    return await fn();
+  } finally {
+    await fs.rm(lockDir, { recursive: true, force: true }).catch(() => undefined);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// §8.2 lineage-stream decay — coverDaily's compression, applied to session
+// records: recent streams stay raw, old streams compress into their capture
+// links, ancient streams archive out of the way. "Never miss" must survive
+// year three: the capture LINKS (the [[provenance]]) always survive; the
+// prose between them is what decays.
+// ---------------------------------------------------------------------------
+
+export type StreamCompressionResult = {
+  raw: number;
+  compressed: string[];
+  archived: string[];
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function recordAgeDays(created: unknown, fallbackMtimeMs: number, now: number): number {
+  const createdStr = typeof created === "string" ? created : "";
+  const parsed = createdStr ? Date.parse(createdStr) : NaN;
+  const startMs = Number.isNaN(parsed) ? fallbackMtimeMs : parsed;
+  return Math.max(0, (now - startMs) / DAY_MS);
+}
+
+/**
+ * Compress old session records (§8.2). Bands, from the default constants:
+ *   raw       ≤ 14 days  — untouched
+ *   compressed ≤ 90 days — body reduced to the capture links (the
+ *                         [[provenance]] survives, prose decays), a
+ *                         compression line records what happened
+ *   archived  > 90 days  — the record MOVES to ops/sessions/archive/
+ *
+ * Lineage edges (continues/branched_from) are PRESERVED in every band —
+ * the lineage graph is the §5 gradient's backbone and never decays in v1
+ * (edge decay is a future tunable). Zero gates; dry-run by default
+ * (house style: prune-like), --apply to mutate.
+ */
+export async function compressSessionStreams(
+  vaultRoot: string,
+  config: MnemosConfig,
+  options: {
+    rawDays?: number;
+    compressDays?: number;
+    apply?: boolean;
+    now?: number;
+  } = {},
+): Promise<StreamCompressionResult & { dryRun: boolean }> {
+  const result: StreamCompressionResult & { dryRun: boolean } = {
+    raw: 0,
+    compressed: [],
+    archived: [],
+    dryRun: options.apply !== true,
+  };
+  if (!config.retrieval.session_scope.enabled) return result;
+
+  const rawDays = options.rawDays ?? 14;
+  const compressDays = options.compressDays ?? 90;
+  const now = options.now ?? Date.now();
+
+  const paths = getVaultPaths(vaultRoot);
+  const dir = path.join(paths.ops, "sessions");
+  let entries: string[];
+  try {
+    entries = (await fs.readdir(dir)).filter((e) => e.endsWith(".md"));
+  } catch {
+    return result; // no stream yet
+  }
+
+  const archiveDir = path.join(dir, "archive");
+  for (const entry of entries) {
+    const filePath = path.join(dir, entry);
+    let stat: FsStats;
+    try {
+      stat = await fs.stat(filePath);
+    } catch {
+      continue;
+    }
+    const parsed = parseFrontmatter(await fs.readFile(filePath, "utf8"));
+    const data = (parsed.data ?? {}) as Record<string, unknown>;
+    const ageDays = recordAgeDays(data.created, stat.mtimeMs, now);
+
+    // Idempotency: an already-compressed record has nothing left to decay
+    // (its prose is gone; the links remain). Count it as raw/skip.
+    if (ageDays > rawDays && parsed.body.includes("prose compressed")) {
+      result.raw += 1;
+      continue;
+    }
+
+    if (ageDays <= rawDays) {
+      result.raw += 1;
+      continue;
+    }
+
+    // The capture links are the provenance — they always survive.
+    const links = [...parsed.body.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim());
+    const uniqueLinks = [...new Set(links)];
+    const ageBucket = ageDays > compressDays ? "archived" : "compressed";
+
+    if (result.dryRun) {
+      (ageBucket === "archived" ? result.archived : result.compressed).push(entry);
+      continue;
+    }
+
+    await withRecordLock(dir, entry.replace(/\.md$/, ""), async () => {
+      if (ageBucket === "archived") {
+        await fs.mkdir(archiveDir, { recursive: true });
+        // Compress THEN archive: the archived record carries the summary.
+        const summary =
+          `# Session stream (compressed ${new Date(now).toISOString().slice(0, 10)})\n\n` +
+          `Captured ${uniqueLinks.length} notes:\n` +
+          uniqueLinks.map((l) => `- [[${l}]]`).join("\n") +
+          "\n";
+        const data2 = { ...data };
+        await fs.writeFile(path.join(archiveDir, entry), summary, "utf8");
+        await fs.rm(filePath, { force: true });
+        void data2;
+        result.archived.push(entry);
+      } else {
+        const compressedBody =
+          `Captured ${uniqueLinks.length} notes (prose compressed §8.2):\n` +
+          uniqueLinks.map((l) => `- [[${l}]]`).join("\n") +
+          "\n";
+        await writeFileAtomic(filePath, stringifyFrontmatter(data, compressedBody));
+        result.compressed.push(entry);
+      }
+    });
+  }
+  return result;
 }
 
 const RECORD_HEADER = (id: string) =>

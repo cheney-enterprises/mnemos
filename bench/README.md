@@ -90,3 +90,28 @@ Results 2026-09-06 on the brain vault (1423 notes), after the BM25 restoration:
 Per-signal normalization was tried and reverted: BM25's raw scale (2-12 vs cosine
 0.3-0.6) is what makes exact matches win, and `signal_weights` were tuned while
 BM25 was disabled. Don't normalize without retuning weights against both gold sets.
+
+## Session scope (the §9 gate — live vault)
+
+The session-scope spec's flip criterion, measured on YOUR vault (never a
+fixture): dilution (other-scope fraction of top-10, without anchor waiver)
+and miss (curated cross-boundary notes absent). Focus and reach cases are
+curated in the script — edit them as the vault grows.
+
+```bash
+npx tsx bench/session-scope-bench.ts              # gated vs activated, per-case detail
+npx tsx bench/session-scope-bench.ts --sweep      # search the P_other constant
+npx tsx bench/session-scope-bench.ts --json       # machine-readable
+```
+
+Two legs: **gated** (a temp copy with the flag off — the BEFORE world) and
+**activated** (your vault, read-only in place). The live vault is never
+mutated. The target: dilution ≤ 5%, miss = 0.
+
+## Operational probe (the shipped fixture — anyone can run it)
+
+`mnemos probe` runs the operational probe suite against a generated
+hostile fixture vault that ships with the package (vocabulary-collision
+projects, a superseded-note trap, session lineage). Hard cases are the
+regression guard (failure exits 1); gate cases report the spec-§9 numbers.
+Never touches your vault. See `mnemos probe --help`.

@@ -101,7 +101,7 @@ scaffolded file untouched. The blocks that matter first:
 | `wake` | How sessions scope: `project_default`, and `project_paths` (repo directory → project tag, so a session in `~/dev/myrepo` scopes silently) | When you want silent scoping per repo |
 | `promote` | Capture behavior: auto-promotion from inbox, map routing | When capture feels too manual or too eager |
 | `policy` | The approval gates: what the agent may do freely vs. what asks first (`purge=approval`, `identity_update=approval`…) | When you trust the agent more or less |
-| `retrieval` | Search tuning: signal weights, limits — plus feature flags like `session_scope.enabled` (off by default; see the session-scope spec) | Rarely; flags ship off until proven |
+| `retrieval` | Search tuning: signal weights, limits — plus `session_scope` (ACTIVATED by default since 2026-11-15: session binding + adoption + scope-weighted ranking; constants tunable — see the session-scope spec) | When retrieval feels scope-blind or too eager |
 | `vitality` / `bm25` / `warmth` | Decay model, ranking mechanics | Almost never |
 
 **Where users learn what changed:** `CHANGELOG.md` is maintained per release,

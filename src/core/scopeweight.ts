@@ -67,6 +67,9 @@ export type ScopeTrace = {
   hops: number | null;
   multiplier: number;
   waived: boolean;
+  /** For cross-scope results: the note's own project — the "relevant from
+   * roust" label (spec §6: tiered answers are labeled with origin). */
+  origin?: string;
 };
 
 export type ReadingScope = {
@@ -286,7 +289,10 @@ export async function computeScopeWeights(
       band = sameProject ? "project" : "other";
     }
 
-    out.set(candidate.title, { band, hops, multiplier, waived });
+    const trace: ScopeTrace = { band, hops, multiplier, waived };
+    // §6: cross-scope results carry their origin — "relevant from roust".
+    if (!sameProject && projects.length > 0) trace.origin = projects[0];
+    out.set(candidate.title, trace);
   }
   return out;
 }

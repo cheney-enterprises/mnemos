@@ -87,6 +87,13 @@ export type ExploreSearchResult = {
     recursion_depth?: number;
     sub_queries?: string[];
     converged?: boolean;
+    /** §6 tiered answer shape: the labeled gradient, legible at a glance.
+     * Present only when the scope weighting ran (flag on + scope). */
+    scope_digest?: {
+      bands: Record<string, number>;
+      reach: Array<{ title: string; origin?: string; waived: boolean }>;
+      origins: string[];
+    };
     per_pass_results?: Array<{
       query: string;
       depth: number;
@@ -455,6 +462,30 @@ export async function runExplore(
     }
   }
 
+  // §6 tiered answer shape: the labeled gradient, legible at a glance. A
+  // compact digest over the final results' scope traces — band counts plus
+  // the reach band's labeled origins ("relevant from roust"). Absent when
+  // the weighting didn't run (flag off / no scope), so nothing changes for
+  // unweighted callers (§10).
+  const traced = finalResults.filter((r) => r.scopeTrace);
+  let scopeDigest:
+    | { bands: Record<string, number>; reach: Array<{ title: string; origin?: string; waived: boolean }>; origins: string[] }
+    | undefined;
+  if (traced.length > 0) {
+    const bands: Record<string, number> = {};
+    for (const r of traced) {
+      const band = r.scopeTrace!.band;
+      bands[band] = (bands[band] ?? 0) + 1;
+    }
+    const reach = traced.filter((r) => r.scopeTrace!.band === "reach" || r.scopeTrace!.origin);
+    const origins = [...new Set(reach.map((r) => r.scopeTrace!.origin).filter(Boolean))] as string[];
+    scopeDigest = {
+      bands,
+      reach: reach.map((r) => ({ title: r.title, origin: r.scopeTrace!.origin, waived: r.scopeTrace!.waived })),
+      origins,
+    };
+  }
+
   return {
     success: true,
     data: {
@@ -465,6 +496,7 @@ export async function runExplore(
       count: finalResults.length,
       seed_count: flatResults.length,
       project_scope: projectScope,
+      scope_digest: scopeDigest,
       ppr_alpha: exploreConfig.ppr_alpha,
       depth,
       ppr_iterations: exploreConfig.ppr_iterations,

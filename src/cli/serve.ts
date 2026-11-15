@@ -768,6 +768,10 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         // agent's explicit project (above) always wins.
         inferredProject: wakeState?.project,
         inferenceSource: wakeState?.project ? "the wake-scoped session" : undefined,
+        // §7 session stream: this capture belongs to the bound session —
+        // named (rung 1/2) or ephemeral (rung 0). The record is created on
+        // first capture, never by wake.
+        streamSession: wakeState?.session_binding?.id,
       });
 
       // Log to reward accumulator for forward citation detection

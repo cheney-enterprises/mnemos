@@ -11,6 +11,7 @@ import { runInitInteractive } from "./cli/init.js";
 import { runStatus } from "./cli/status.js";
 import { runHealth } from "./cli/health.js";
 import { runProbe } from "./probe/run.js";
+import { newEphemeralSessionId } from "./core/sessionscope.js";
 import {
   runQueryBacklinks,
   runQueryDangling,
@@ -345,7 +346,18 @@ program
       for await (const chunk of process.stdin) chunks.push(chunk);
       content = Buffer.concat(chunks).toString("utf8");
     }
-    const result = await runAdd({ startDir: process.cwd(), title, type: options.type, content, description: options.description, project: options.project });
+    // §7 session stream: a bare CLI add is its own ephemeral session (spec
+    // §3 — bare invocations bind an ephemeral identity), and the capture
+    // creates the record on first capture. One invocation = one record.
+    const result = await runAdd({
+      startDir: process.cwd(),
+      title,
+      type: options.type,
+      content,
+      description: options.description,
+      project: options.project,
+      streamSession: newEphemeralSessionId(),
+    });
     await emit(result);
   });
 
@@ -869,6 +881,61 @@ program
       return;
     }
     await emit({ success: false, warnings: ["usage: mnemos requests [list] | approve <id> | deny <id>"] }, 1);
+  });
+
+program
+  .command("sessions")
+  .description("Session-stream maintenance: compress old records and archive ancient ones (spec §8.2 — the stream must survive year three)")
+  .argument("<action>", "compress")
+  .option("--raw-days <days>", "records younger than this stay raw", "14")
+  .option("--compress-days <days>", "records older than this archive instead of compressing", "90")
+  .option("--apply", "actually mutate (default: dry-run preview)")
+  .action(async (action: string, options: { rawDays?: string; compressDays?: string; apply?: boolean }) => {
+    if (action !== "compress") {
+      throw new Error(`Unknown sessions action: ${action} (compress only)`);
+    }
+    const { compressSessionStreams } = await import("./core/sessionscope.js");
+    const result = await compressSessionStreams(process.cwd(), await (async () => {
+      const { loadConfig } = await import("./core/config.js");
+      const vr = await import("./core/vault.js");
+      const root = await vr.findVaultRoot(process.cwd());
+      return loadConfig(vr.getVaultPaths(root).config);
+    })(), {
+      rawDays: options.rawDays ? parseInt(options.rawDays, 10) : undefined,
+      compressDays: options.compressDays ? parseInt(options.compressDays, 10) : undefined,
+      apply: options.apply === true,
+    });
+    if (!options.apply) {
+      const preview = [...result.compressed.map((c) => `compress ${c}`), ...result.archived.map((a) => `archive ${a}`)];
+      console.log(
+        JSON.stringify(
+          {
+            success: true,
+            data: { ...result, preview },
+            warnings: [`dry run (default) — re-run with --apply to mutate; ${result.raw} recent records stay raw`],
+          },
+          null,
+          2,
+        ),
+      );
+    } else {
+      console.log(
+        JSON.stringify(
+          {
+            success: true,
+            data: result,
+            warnings: [`${result.raw} recent records stay raw; lineage edges are preserved in every band`],
+          },
+          null,
+          2,
+        ),
+      );
+    }
+    await disposeEmbedder();
+    await maybeNotifyUpdate();
+    process.stdout.write("", () => {
+      setTimeout(() => process.exit(0), 4000).unref();
+    });
   });
 
 program

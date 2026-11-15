@@ -48,6 +48,13 @@ export type AddOptions = {
   inferredProject?: string;
   /** Where the inferred project came from — surfaced in the warnings. */
   inferenceSource?: string;
+  /**
+   * §7 session stream: the bound session this capture belongs to. When
+   * present, the capture appends to the session record (created on first
+   * capture — the Phase 3 automatic stream, never by wake). Absent for
+   * unbound callers.
+   */
+  streamSession?: string;
 };
 
 export type AddResult = {
@@ -394,14 +401,46 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
         } catch (err) {
           warnings.push(`post-promote index sync failed (note saved, run \`mnemos index build\`): ${String(err)}`);
         }
+        // §7 session stream: the capture lands in the session record —
+        // created on first capture, append-only, zero gates. Best-effort:
+        // a stream failure must never lose the capture itself.
+        let streamRecord: string | undefined;
+        if (options.streamSession?.trim()) {
+          try {
+            const { appendToSessionRecord } = await import("../core/sessionscope.js");
+            const promotedSlug = path.basename(promoted.to).replace(/\.md$/, "");
+            streamRecord = (await appendToSessionRecord(
+              vaultRoot,
+              config,
+              options.streamSession,
+              [`Captured [[${promotedSlug}]] — ${options.title}`],
+            )) ?? undefined;
+          } catch (err) {
+            warnings.push(`session stream append failed (non-fatal): ${String(err)}`);
+          }
+        }
         return {
           success: true,
-          data: { path: promoted.to, autoPromoted: true },
+          data: { path: promoted.to, autoPromoted: true, ...(streamRecord ? { streamRecord } : {}) },
           warnings,
         };
       }
     } catch {
       warnings.push("Auto-promote failed, note remains in inbox");
+      // The capture still happened — the stream records it (best-effort).
+      if (options.streamSession?.trim()) {
+        try {
+          const { appendToSessionRecord } = await import("../core/sessionscope.js");
+          await appendToSessionRecord(
+            vaultRoot,
+            config,
+            options.streamSession,
+            [`Captured [[${filename.replace(/\.md$/, "")}]] — ${options.title} (in inbox, promote failed)`],
+          );
+        } catch {
+          // Stream failure on top of a promote failure — never fatal.
+        }
+      }
     }
   } else if (autoPromote && !hasRealContent) {
     warnings.push(
