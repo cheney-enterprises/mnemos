@@ -734,9 +734,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     "REMEMBER this — capture a durable note into the vault, the write verb for anything a future " +
       "session would otherwise have to rediscover (the earlier you capture, the less you re-derive). " +
       "Always pass description and project: you know them now. " +
-      "If you cannot determine the project, the response asks you to — present the question " +
-      "and the project roster to the user, get an answer (existing project, or a new one and " +
-      "its name), then re-call with project set. Never guess a project.",
+      "If you cannot determine the project, the capture is stamped with THIS session's scoped " +
+      "project (spec §3: inferred metadata — a hint, the user curates freely) — the response " +
+      "says when that happened. Only when nothing is scoped does the response ask: present the " +
+      "question and the project roster to the user, get an answer (existing project, or a new " +
+      "one and its name), then re-call with project set.",
     {
       title: z.string().describe("Note title (prose-as-title)"),
       type: z.string().optional().describe("Note type (default: insight)"),
@@ -761,6 +763,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
         description: description ?? undefined,
         project: project ?? undefined,
         provenance,
+        // §3 inferred stamping: the wake-scoped project is the harness
+        // source/repo context of this capture — a hint, never a gate. The
+        // agent's explicit project (above) always wins.
+        inferredProject: wakeState?.project,
+        inferenceSource: wakeState?.project ? "the wake-scoped session" : undefined,
       });
 
       // Log to reward accumulator for forward citation detection

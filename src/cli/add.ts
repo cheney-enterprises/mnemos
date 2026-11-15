@@ -8,6 +8,7 @@ import { runPromote } from "./promote.js";
 import { stripTemplatePlaceholderLines } from "../core/promote.js";
 import { slugify } from "../core/slug.js";
 import { initDB, indexNote } from "../core/engine.js";
+import { resolveProjectByPath } from "./wake.js";
 import { buildGraph } from "../core/graph.js";
 import { computeGraphMetrics } from "../core/importance.js";
 import { openSyncedIndex, cachedGraphMetrics } from "../core/indexstore.js";
@@ -37,6 +38,16 @@ export type AddOptions = {
   project?: string[];
   /** How the content is known (cold-agent feedback item 6). */
   provenance?: "observed" | "inferred" | "advisory";
+  /**
+   * §3 inferred project, supplied by the caller's harness context — the
+   * wake-scoped project (serve) or the repo the capture ran in (CLI path
+   * bridge). A HINT, never a gate (spec §3): it stamps the note so it files
+   * and navigates; the user curates freely. Explicit project and content
+   * keyword detection stay ahead of it.
+   */
+  inferredProject?: string;
+  /** Where the inferred project came from — surfaced in the warnings. */
+  inferenceSource?: string;
 };
 
 export type AddResult = {
@@ -167,7 +178,7 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
   // #39: the caller (usually an agent over MCP) knows these at creation time.
   // Written into the inbox note so they exist whether or not it auto-promotes.
   const description = options.description?.trim() ?? "";
-  const project = (options.project ?? []).map((t) => t.trim()).filter((t) => t.length > 0);
+  let project = (options.project ?? []).map((t) => t.trim()).filter((t) => t.length > 0);
   const frontmatter = {
     // The vault-front STOP sign travels inside every file an agent opens
     // (the 2026-11-11 bypass defense). The template carries the wording —
@@ -279,6 +290,33 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
     // presence) without a project is the harmful act, so auto-promote
     // refuses with the roster + the question for the USER.
     const detected = detectProjectsSilently(options.title, body, config);
+    // §3 inferred stamping: the harness source/repo context fills the last
+    // gap before the gate. Explicit project and content keywords stay AHEAD
+    // of it (conservative order — existing keyword behavior is unchanged);
+    // the gate (roster question) remains the terminal fallback when nothing
+    // — explicit, keywords, or context — can name a project.
+    let inferredBy: string | null = null;
+    if (project.length === 0 && detected.length === 0 && options.inferredProject?.trim()) {
+      project = [options.inferredProject.trim()];
+      inferredBy = options.inferenceSource ?? "the harness context";
+    }
+    if (project.length === 0 && detected.length === 0) {
+      // The capture's own source/repo: the path bridge (wake.project_paths)
+      // or the configured default. startDir is the repo for CLI captures —
+      // for MCP captures it is the vault (which the bridge legitimately
+      // doesn't map, so this inference stays quiet there).
+      const viaBridge = resolveProjectByPath(
+        path.resolve(options.startDir),
+        true,
+        config.wake.project_paths ?? {},
+      );
+      const viaDefault = typeof config.wake.project_default === "string" ? config.wake.project_default : undefined;
+      const inferred = viaBridge ?? viaDefault;
+      if (inferred?.trim()) {
+        project = [inferred.trim()];
+        inferredBy = viaBridge ? "the path bridge (harness source/repo)" : "wake.project_default";
+      }
+    }
     if (project.length === 0 && detected.length === 0) {
       const dbPath = path.resolve(vaultRoot, config.engine.db_path);
       const ask = projectAskResponse(loadProjectRoster(dbPath));
@@ -295,6 +333,11 @@ export async function runAdd(options: AddOptions): Promise<AddResult> {
           "note saved to inbox/ pending the project decision",
         ],
       };
+    }
+    if (inferredBy) {
+      warnings.push(
+        `project "${project[0]}" inferred from ${inferredBy} (spec §3: a hint for navigation — curate freely)`,
+      );
     }
     try {
       const promoteResult = await runPromote({

@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Added — §3 inferred project stamping at capture: the ask-first gate's replacement
+- **The last piece the activation needed.** A capture with no explicit
+  project and no keyword match now stamps the project from the harness
+  source/repo context (spec §3: "inferred metadata … a hint for navigation
+  and the user's curation, never a gate"): the wake-scoped project (MCP),
+  or the path bridge / `wake.project_default` (CLI). The response says when
+  a stamp happened; the user curates freely.
+- **Precedence, conservative order** (existing behavior unchanged): explicit
+  project > content keyword detection > context stamp > the roster question
+  as the TERMINAL fallback when nothing — explicit, keywords, or context —
+  can name a project. A dry-run of the mind: keyword detection still wins
+  over the context stamp when they disagree (the note's own subject beats
+  the working session), asserted by test.
+- Serve's `mnemos_add` description updated: the agent no longer needs to ask
+  when the session is scoped — the capture is stamped and the response says
+  so. Scope note: the ask-first gate's RETIREMENT stays deferred until this
+  machinery has run in practice — the gate is now the terminal fallback
+  only.
+
 ### Changed — **ACTIVATED: session scope is ON by default** (Eric's ruling, 2026-11-15)
 - **"Activate everything now — we are not on npm, so that doesn't matter; my
   own use case is the test; as we move on we re-run benchmarks; if something
