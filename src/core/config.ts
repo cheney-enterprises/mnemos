@@ -89,6 +89,11 @@ export type RetrievalConfig = {
     unlinked_floor?: number;
     other_scope_multiplier?: number;
     waive_floor?: number;
+    /** Pair-exclusivity cap for the anchor waiver (the "Grace paella"
+     * refinement): a token-anchor match waives only when the matched terms'
+     * JOINT document frequency is at most this. Identifier anchors are
+     * exempt. Default 3. */
+    waive_joint_df?: number;
   };
 };
 
@@ -251,6 +256,7 @@ const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
     unlinked_floor: 0.8,
     other_scope_multiplier: 0.15,
     waive_floor: 0.95,
+    waive_joint_df: 3,
   },
 };
 
@@ -477,6 +483,7 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
         unlinked_floor: rawRetrieval?.session_scope?.unlinked_floor ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.unlinked_floor,
         other_scope_multiplier: rawRetrieval?.session_scope?.other_scope_multiplier ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.other_scope_multiplier,
         waive_floor: rawRetrieval?.session_scope?.waive_floor ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.waive_floor,
+        waive_joint_df: rawRetrieval?.session_scope?.waive_joint_df ?? DEFAULT_RETRIEVAL_CONFIG.session_scope.waive_joint_df,
       },
     },
     bm25: {

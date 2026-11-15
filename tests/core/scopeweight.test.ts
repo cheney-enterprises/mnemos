@@ -187,3 +187,98 @@ describe("§5 anchor waiver — both conditions, or nothing", () => {
     expect(v?.band).toBe("project"); // same scope anyway — no penalty to waive
   });
 });
+
+describe("§5 pair exclusivity — a topic pair is not an address", () => {
+  let pv: string;
+  let pConfig: Awaited<ReturnType<typeof loadConfig>>;
+
+  beforeAll(async () => {
+    pv = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-pair-"));
+    const notesDir = path.join(pv, "notes");
+    await fs.mkdir(notesDir, { recursive: true });
+    // Five helios notes share the "session scope" pair — a topic, not an
+    // address; one rare-pair terra note that IS an address.
+    for (let i = 1; i <= 4; i++) {
+      await fs.writeFile(
+        path.join(notesDir, `helios-topic-note-${i}.md`),
+        `---\ndescription: session scope topic variant ${i}\nproject: helios\ntype: insight\n---\n\nSession scope discipline keeps retrieval clean, variant ${i}.\n`,
+        "utf8",
+      );
+    }
+    await fs.writeFile(
+      path.join(notesDir, "terra-topic-crosser.md"),
+      `---\ndescription: the session scope topic from terra\ntype: insight\nproject: terra\n---\n\nSession scope notes from the terra project side.\n`,
+      "utf8",
+    );
+    await fs.writeFile(
+      path.join(notesDir, "terra-grace-paella.md"),
+      `---\ndescription: Grace likes paella on Fridays\ntype: insight\nproject: terra\n---\n\nGrace likes paella on Fridays.\n`,
+      "utf8",
+    );
+    pConfig = await loadConfig(path.join(pv, "mnemos.config.yaml"));
+    pConfig.retrieval.session_scope.enabled = true;
+  }, 120000);
+
+  afterAll(async () => {
+    await fs.rm(pv, { recursive: true, force: true });
+  });
+
+  async function pairWeights(
+    query: string,
+    candidates: Array<{ title: string; score: number }>,
+    waiveJointDf?: number,
+  ): Promise<Map<string, ScopeTrace>> {
+    const c = pConfig.retrieval.session_scope;
+    return computeScopeWeights({
+      notesDir: path.join(pv, "notes"),
+      sessionsDir: path.join(pv, "ops", "sessions"),
+      query,
+      scope: { project: "helios" },
+      engineConfig: pConfig.engine,
+      candidates,
+      constants: {
+        decay: c.lineage_decay ?? 0.92,
+        floor: c.unlinked_floor ?? 0.8,
+        other: c.other_scope_multiplier ?? 0.75,
+        waiveFloor: c.waive_floor ?? 0.95,
+        waiveJointDf: waiveJointDf ?? c.waive_joint_df ?? 3,
+      },
+    });
+  }
+
+  it("a matched TOPIC pair in the top decile does not waive (joint df above the cap)", async () => {
+    const traces = await pairWeights("session scope topic", [
+      { title: "terra-topic-crosser", score: 1.0 },
+      { title: "helios-topic-note-1", score: 0.5 },
+    ]);
+    const t = traces.get("terra-topic-crosser");
+    // The pair "session scope" is shared by five notes — a topic, not an
+    // address. It matches the matcher and sits in the top decile, and STILL
+    // does not waive.
+    expect(t?.waived).toBe(false);
+    expect(t?.band).toBe("other");
+    expect(t?.origin).toBe("terra");
+  });
+
+  it("a rare pair in the top decile waives (joint df within the cap)", async () => {
+    const traces = await pairWeights("grace paella fridays", [
+      { title: "terra-grace-paella", score: 1.0 },
+      { title: "helios-topic-note-1", score: 0.5 },
+    ]);
+    const t = traces.get("terra-grace-paella");
+    expect(t?.waived).toBe(true);
+    expect(t?.band).toBe("reach");
+    expect(t?.origin).toBe("terra");
+  });
+
+  it("the cap is a tunable — raised, the topic pair crosses again", async () => {
+    const traces = await pairWeights(
+      "session scope topic",
+      [{ title: "terra-topic-crosser", score: 1.0 }],
+      10,
+    );
+    const t = traces.get("terra-topic-crosser");
+    expect(t?.waived).toBe(true);
+    expect(t?.band).toBe("reach");
+  });
+});

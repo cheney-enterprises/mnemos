@@ -167,6 +167,9 @@ describe("matchForForget: identical results from both corpus sources", () => {
         expect(fromStore[i].anchor).toBeCloseTo(fromFiles[i].anchor, 10);
         expect(fromStore[i].similarity).toBeCloseTo(fromFiles[i].similarity, 10);
         expect(fromStore[i].file).toBe(fromFiles[i].file);
+        // The pair-exclusivity signal must be source-independent too.
+        expect(fromStore[i].terms).toEqual(fromFiles[i].terms);
+        expect(fromStore[i].jointDf).toBe(fromFiles[i].jointDf);
       }
     });
   }
@@ -252,6 +255,60 @@ describe("the note_long migration for pre-existing indexes", () => {
       .prepare("SELECT value FROM index_meta WHERE key = 'anchor_longs_built'")
       .all() as Array<{ value: string }>;
     expect(marker?.value).toBeTruthy();
+  });
+});
+
+describe("pair exclusivity — the joint-df signal on the matches", () => {
+  it("a two-word pair shared by several notes reports its joint df", async () => {
+    // grace and hannah both "like" food: "likes" has df 2 (plus the
+    // released copy is filtered), but "grace paella" together is df 1.
+    const fromFiles = await matchForForget(notes, "Grace paella preferences", config);
+    const grace = fromFiles.find((m) => m.slug === "grace");
+    expect(grace?.terms).toContain("grace");
+    expect(grace?.terms).toContain("paella");
+    expect(grace?.jointDf).toBe(1); // exactly one live note holds the PAIR
+    const fromStore = await matchForForget(notes, "Grace paella preferences", config, {
+      anchorIndex: storeAnchorInverted(db),
+    });
+    expect(fromStore.find((m) => m.slug === "grace")?.jointDf).toBe(1);
+  });
+
+  it("a direct identifier hit carries its sub-tokens as terms (tokenize splits the identifier)", async () => {
+    // "zzz" appears in no note, so alice's ANCHOR is identifier-driven — but
+    // tokenize splits alice@post.dev at separators, so the query always
+    // shares its sub-tokens with the note. A direct hit can never be
+    // token-empty; its exclusivity is the identifier's anchor weight (>= 2),
+    // not a frequency. The joint df of [alice, post, dev] is 1: only alice's
+    // note holds all three.
+    const fromFiles = await matchForForget(notes, "zzz alice@post.dev", config);
+    const alice = fromFiles.find((m) => m.slug === "alice");
+    expect(alice).toBeDefined();
+    expect(alice!.terms).toEqual(["alice", "post", "dev"]);
+    expect(alice!.jointDf).toBe(1);
+    expect(alice!.anchor).toBeGreaterThanOrEqual(2);
+    const fromStore = await matchForForget(notes, "zzz alice@post.dev", config, {
+      anchorIndex: storeAnchorInverted(db),
+    });
+    expect(fromStore.find((m) => m.slug === "alice")?.terms).toEqual(["alice", "post", "dev"]);
+    expect(fromStore.find((m) => m.slug === "alice")?.jointDf).toBe(1);
+  });
+
+  it("a reverse containment match reports no terms and an infinite joint df", async () => {
+    // The genuine terms-empty shape: the note token (cope2024) sits INSIDE
+    // the query's long (session-scope2024) and shares no tokens with it.
+    // Reverse containment is worth +1, below the standalone bar, so the
+    // similarity floor drops to isolate the branch. With no matched terms
+    // the joint df is Infinity — the waiver's identifier-exemption bar
+    // (anchor >= 2) is what decides, never a frequency.
+    await note("cope2", "Only the envelope registry keeps cope2024 marks.");
+    await syncIndex(db, notes);
+    const q = "project session-scope2024 rollout";
+    const fromFiles = await matchForForget(notes, q, config, { minSimilarity: -1 });
+    const cope = fromFiles.find((m) => m.slug === "cope2");
+    expect(cope).toBeDefined();
+    expect(cope!.terms).toEqual([]);
+    expect(cope!.jointDf).toBe(Infinity);
+    expect(cope!.anchor).toBe(1);
   });
 });
 

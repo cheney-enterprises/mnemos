@@ -26,7 +26,7 @@ import path from "node:path";
 import { promises as fs } from "node:fs";
 import { readFrontmatterFile } from "./frontmatter.js";
 import { slugify } from "./slug.js";
-import { matchForForget, richTokens } from "./forget.js";
+import { matchForForget, richTokens, type ForgetMatch } from "./forget.js";
 import type { AnchorIndex } from "./anchortokens.js";
 import type { EngineConfig } from "./config.js";
 
@@ -44,6 +44,13 @@ export type ScopeConstants = {
   floor: number;
   other: number;
   waiveFloor: number;
+  /** Pair-exclusivity cap (the "Grace paella" refinement): the waiver fires
+   * on a token anchor only when the matched tokens' JOINT document frequency
+   * is at most this — two words rare TOGETHER are an address; a pair shared
+   * by many notes is a topic, and topics don't cross scopes. Identifier
+   * anchors (anchor >= 2) are exempt — an identifier is an address at any
+   * frequency. Default 3. */
+  waiveJointDf: number;
 };
 
 export function scopeConstantsFrom(sessionScope: {
@@ -51,12 +58,14 @@ export function scopeConstantsFrom(sessionScope: {
   unlinked_floor?: number;
   other_scope_multiplier?: number;
   waive_floor?: number;
+  waive_joint_df?: number;
 } | undefined): ScopeConstants {
   return {
     decay: sessionScope?.lineage_decay ?? SCOPE_DECAY,
     floor: sessionScope?.unlinked_floor ?? SCOPE_FLOOR,
     other: sessionScope?.other_scope_multiplier ?? SCOPE_OTHER,
     waiveFloor: sessionScope?.waive_floor ?? WAIVE_FLOOR,
+    waiveJointDf: sessionScope?.waive_joint_df ?? 3,
   };
 }
 
@@ -232,16 +241,16 @@ export async function computeScopeWeights(
   // never consumes matches outside it, and per-note similarity is
   // independent, so the intersected result is identical to an unrestricted
   // run while a hub-heavy query stops embedding half the vault.
-  let anchored = new Set<string>();
+  const anchoredMatches = new Map<string, ForgetMatch>();
   if (decileThreshold > 0) {
     try {
       const matches = await matchForForget(input.notesDir, input.query, input.engineConfig, {
         onlySlugs: new Set(candidates.map((c) => c.title)),
         anchorIndex: input.anchorIndex,
       });
-      anchored = new Set(matches.map((m) => m.slug));
+      for (const m of matches) anchoredMatches.set(m.slug, m);
     } catch {
-      anchored = new Set(); // a matcher failure degrades to no waiver, never to no retrieval
+      // a matcher failure degrades to no waiver, never to no retrieval
     }
   }
 
@@ -294,7 +303,17 @@ export async function computeScopeWeights(
     let band: ScopeBand;
     let multiplier = l * p;
     let waived = false;
-    if (anchored.has(candidate.title) && candidate.score >= decileThreshold) {
+    // The waiver's two conditions plus the pair-exclusivity refinement: a
+    // match in the top decile waives when it is an ADDRESS — an identifier
+    // hit (anchor >= 2) or a matched term set rare together (joint df ≤
+    // the constant). A topic-shared pair ("session scope" across twenty
+    // notes) matches the matcher but is not an address, and keeps its
+    // band penalty.
+    const anchoredMatch = anchoredMatches.get(candidate.title);
+    const exclusive =
+      anchoredMatch !== undefined &&
+      (anchoredMatch.anchor >= 2 || anchoredMatch.jointDf <= K.waiveJointDf);
+    if (anchoredMatch && exclusive && candidate.score >= decileThreshold) {
       waived = true;
       multiplier = Math.max(multiplier, K.waiveFloor);
       band = sameProject ? "project" : "reach";

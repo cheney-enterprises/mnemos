@@ -2,6 +2,34 @@
 
 ## [Unreleased]
 
+### Fixed — the named debt #4: the anchor waiver's pair exclusivity ("Grace paella")
+- **What it was.** The §5 waiver fired on ANY matcher match in the top
+  decile. The matcher's insight is that "Grace paella" is an exact address —
+  but the waiver consumed only the match, not the WHY. A topic-shared pair
+  ("session scope" across twenty mnemos notes) matches the matcher just as
+  well, and v1 waived its cross-scope penalty: dilution the spec's own
+  insight was supposed to prevent.
+- **The refinement.** A match waives only when it is an ADDRESS:
+  - an identifier hit (`anchor >= 2` — exempt from frequency by design; an
+    identifier is an address at any frequency), or
+  - the matched terms' JOINT document frequency ≤ `waive_joint_df`
+    (default 3, config-tunable via `retrieval.session_scope.waive_joint_df`).
+    Two words rare TOGETHER are an address; a pair shared by many notes is a
+    topic, and topics don't cross scopes.
+- **Mechanics.** `ForgetMatch` gained `terms` (the query tokens the note
+  actually carries) and `jointDf` (how many live notes contain ALL of them;
+  `Infinity` when there are none — the reverse-containment shape, where only
+  the identifier bar can waive). Computed identically on both corpus
+  sources (file scan; cached posting-set intersection on the index path) and
+  pinned equal by test. `waive_joint_df` threaded through the config type,
+  DEFAULT, and applyConfigDefaults (parse-and-set, not text surgery).
+- **Tests.** Pair-exclusivity describe in anchor-index.test.ts (topic pair
+  reports its joint df; the reverse-containment ∞ shape; source equality)
+  and a §5 pair-exclusivity describe in scopeweight.test.ts on a controlled
+  vault (topic pair matches but does NOT waive; rare pair waives; the cap
+  is a tunable — raised to 10, the topic pair crosses again).
+  Suite 1,295 → 1,301.
+
 ### Fixed — the named debt #3: session-record rewrites hold the record lock too
 - **What it was.** Appends serialize per record on the §8.3 mkdir lock, but
   the two wholesale rewriters did not: a re-bind's read-modify-write of the

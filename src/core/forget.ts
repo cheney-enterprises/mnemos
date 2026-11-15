@@ -47,6 +47,17 @@ export interface ForgetMatch {
   text: string;
   anchor: number;
   similarity: number;
+  /** The query tokens that actually matched this note (the anchor's mass
+   * came from these). Empty for a pure identifier hit. */
+  terms: string[];
+  /**
+   * How many live notes contain ALL of `terms` together — the pair-
+   * exclusivity signal ("Grace paella": two words that are each common-ish
+   * but rare as a PAIR are an exact address). Infinity when there are no
+   * matched terms (pure identifier), so only the identifier bar can waive.
+   * Computed identically on both corpus sources; pinned by test.
+   */
+  jointDf: number;
 }
 
 export interface ForgetResult {
@@ -160,6 +171,11 @@ export async function matchForForget(
   // ── Phase A: anchor mass ────────────────────────────────────────────
   const raw = new Map<string, number>(); // shared-token IDF mass (+ identifier hits)
   const idHits = new Map<string, number>();
+  // slug → the query tokens this note actually carries (the anchor's mass).
+  const matchedTerms = new Map<string, string[]>();
+  // Set by the branch below: joint document frequency of a term set — how
+  // many live notes contain ALL of them (the pair-exclusivity signal).
+  let jointDfOf: (terms: string[]) => number = () => Infinity;
   // slug → where phase B reads the body from. `text` is prefetched on the
   // file path; the index path reads lazily (only survivors need it).
   const bodies = new Map<string, { file: string; text?: string }>();
@@ -211,6 +227,34 @@ export async function matchForForget(
     for (const slug of raw.keys()) {
       bodies.set(slug, { file: path.join(notesDir, `${slug}.md`) });
     }
+    // Matched terms per note, from the same inverted lookups (cached — a
+    // query has a handful of tokens).
+    const postingCache = new Map<string, Set<string>>();
+    const postingOf = (t: string): Set<string> => {
+      let s = postingCache.get(t);
+      if (!s) {
+        s = new Set(inv.notesWithTerm(t));
+        postingCache.set(t, s);
+      }
+      return s;
+    };
+    for (const t of q.tokens) {
+      for (const slug of postingOf(t)) {
+        const arr = matchedTerms.get(slug);
+        if (arr) arr.push(t);
+        else matchedTerms.set(slug, [t]);
+      }
+    }
+    jointDfOf = (terms: string[]): number => {
+      if (terms.length === 0) return Infinity;
+      // Intersection over the cached posting sets, smallest first.
+      const postings = terms.map(postingOf).sort((a, b) => a.size - b.size);
+      let count = 0;
+      for (const slug of postings[0]) {
+        if (postings.every((p) => p.has(slug))) count += 1;
+      }
+      return count;
+    };
   } else {
     const notes = await loadLiveNotes(notesDir);
     if (notes.length === 0) return [];
@@ -234,7 +278,14 @@ export async function matchForForget(
     // tracked separately because an identifier is an address and a word is not.
     for (const n of notes) {
       let anchor = 0;
-      for (const t of q.tokens) if (n.tokens.has(t)) anchor += idf(t);
+      const shared: string[] = [];
+      for (const t of q.tokens) {
+        if (n.tokens.has(t)) {
+          anchor += idf(t);
+          shared.push(t);
+        }
+      }
+      if (shared.length > 0) matchedTerms.set(n.slug, shared);
       // Identifier containment, in both directions: the note may carry a
       // suffixed form of the query's identifier or vice versa.
       const lower = n.text.toLowerCase();
@@ -248,6 +299,14 @@ export async function matchForForget(
       if (anchor > 0) raw.set(n.slug, anchor);
       bodies.set(n.slug, { file: n.file, text: n.text });
     }
+    jointDfOf = (terms: string[]): number => {
+      if (terms.length === 0) return Infinity;
+      let count = 0;
+      for (const n of notes) {
+        if (terms.every((t) => n.tokens.has(t))) count += 1;
+      }
+      return count;
+    };
   }
   if (raw.size === 0) return [];
 
@@ -315,7 +374,16 @@ export async function matchForForget(
     // A strong identifier hit stands on its own: "sk-zzpqk51fpk" appearing
     // verbatim is not a semantic judgement and must not be gated on one.
     if (anchor >= 2 || sim >= minSimilarity) {
-      scored.push({ slug: c.slug, file: c.file, text, anchor, similarity: sim });
+      const terms = matchedTerms.get(c.slug) ?? [];
+      scored.push({
+        slug: c.slug,
+        file: c.file,
+        text,
+        anchor,
+        similarity: sim,
+        terms,
+        jointDf: jointDfOf(terms),
+      });
     }
   }
   scored.sort((a, b) => b.anchor + b.similarity - (a.anchor + a.similarity));
