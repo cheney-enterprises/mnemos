@@ -2,6 +2,33 @@
 
 ## [Unreleased]
 
+### Fixed — `mnemos requests`: the command is the answer (Eric's UX ruling)
+- **What it was.** `mnemos requests approve <id>` re-asked "[y/N] Approve?"
+  — the question in the wrong place. Typing the verb AND the request id IS
+  the user's decision; re-asking it was friction on the exact surface
+  designed for decisive humans, and the y/N prompt carried a 30s timeout
+  that could silently abort a deliberate answer.
+- **The contract now.**
+  - `requests approve <id>` / `deny <id>` — execute directly, no re-ask.
+    The agent defenses are untouched: non-TTY refused (agent shells),
+    agent-runtime ancestry refused (the 2026-11-08 PTY demonstration).
+    Provenance records `explicit-command`.
+  - `requests <id>` (bare) — THE question lives here: the full request
+    renders (the same block `list` shows), then
+    `Decide this request? [a]pprove / [d]eny / Enter=abort` — Enter is
+    abort, because a fat-fingered Enter on that screen must not execute a
+    purge. Non-TTY refusal points at the explicit subcommands ("state the
+    decision explicitly — no question asked").
+  - Delegation carries its gates: the interactive flow passes a satisfied
+    confirm downstream with honest provenance (`interactive-choice` /
+    `injected`), so the delegate doesn't re-refuse a decision already
+    gated. Injected confirms (tests, future transports) still honored.
+- **Tests.** A TTY-simulated bite test: `approve` with no injected confirm
+  executes and purges — the OLD code prompted there and the test would
+  hang to its 30s timeout; bare-id flow routes choose=denied (note
+  untouched) and choose=abort (stays pending); the single-request display
+  pinned. Non-TTY refusals re-pinned. Suite 1,348 → 1,351.
+
 ### Fixed — the CLI's human-path commands render for humans (the "help is supposed to be helpful" sweep)
 - **What it was.** Ten read/diagnostic verbs dumped raw JSON on the human
   path: status, health, doctor, query (every kind), validate, graph,

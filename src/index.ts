@@ -917,7 +917,22 @@ graph designed to challenge the machinery. Your vault is never touched.`
 
 const requestsCmd = program
   .command("requests")
-  .description("Manage pending removal/identity intents (user-only surface)");
+  .description("Manage pending removal/identity intents (user-only surface)")
+  .argument("[id]", "bare request id — shows the request in full and asks (approve/deny is stated with the subcommands, no re-ask)")
+  .action(async (id: string | undefined, options: { vault?: string }) => {
+    if (!id) {
+      requestsCmd.help();
+      return;
+    }
+    const { runRequestInteractive } = await import("./cli/forget.js");
+    const result = await runRequestInteractive(process.cwd(), id, { vaultOverride: options?.vault });
+    if (result.success && result.data) {
+      const { formatRequestDecision } = await import("./cli/forget.js");
+      console.log(formatRequestDecision(id, result.data.status === "approved" ? "approved" : "denied", result.data));
+    } else {
+      await emit(result, 1);
+    }
+  });
 
 requestsCmd
   .command("list")

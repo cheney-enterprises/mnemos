@@ -6,7 +6,16 @@
  * form (and `--json` keeps the machine form for scripts).
  */
 import { describe, it, expect } from "vitest";
-import { formatRequestList, formatRequestDecision } from "../../src/cli/forget.js";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import {
+  formatRequestList,
+  formatRequestDecision,
+  formatRequestItem,
+  runRequestInteractive,
+  runRequestDecide,
+} from "../../src/cli/forget.js";
 import type { RemovalIntent } from "../../src/core/policy.js";
 
 const NOW = new Date("2026-11-15T12:00:00Z");
@@ -100,5 +109,113 @@ describe("formatRequestDecision", () => {
     const out = formatRequestDecision("rq-test-purge", "denied", { id: "rq-test-purge", status: "denied" });
     expect(out).toContain("✗ denied rq-test-purge");
     expect(out).toContain("nothing executed");
+  });
+});
+
+describe("the decision UX (Eric: the command is the answer)", () => {
+  // The [y/N] re-ask on an EXPLICIT verb was the question in the wrong
+  // place. The bare `requests <id>` flow is where the question lives.
+
+  it("approve executes with NO prompt in a real terminal (the old code asked [y/N] here)", async () => {
+    const root = mkdtempSync(join(tmpdir(), "mnemos-decide-"));
+    const notes = join(root, "notes");
+    mkdirSync(notes, { recursive: true });
+    mkdirSync(join(root, ".mnemos"), { recursive: true });
+    mkdirSync(join(root, "ops", "requests"), { recursive: true });
+    writeFileSync(
+      join(notes, "purge-me.md"),
+      "---\ndescription: marked for purge\ntype: insight\n---\n\nBody.\n",
+      "utf8",
+    );
+    writeFileSync(
+      join(root, "ops", "requests", "rq-decide-test.json"),
+      JSON.stringify({
+        id: "rq-decide-test", kind: "purge", slugs: ["purge-me"],
+        reason: "the decision-ux test", session_id: "test",
+        created: "2026-11-15T00:00:00.000Z", expires: "2026-12-15T00:00:00.000Z",
+        status: "pending",
+      }),
+      "utf8",
+    );
+
+    // Simulate the user's terminal: TTY on both streams. With no injected
+    // confirm, the OLD code prompted [y/N] here and the test would hang
+    // until its 30s timeout; the explicit verb now executes directly.
+    const stdinDesc = Object.getOwnPropertyDescriptor(process.stdin, "isTTY");
+    const stdoutDesc = Object.getOwnPropertyDescriptor(process.stdout, "isTTY");
+    Object.defineProperty(process.stdin, "isTTY", { value: true, configurable: true });
+    Object.defineProperty(process.stdout, "isTTY", { value: true, configurable: true });
+    try {
+      const res = await runRequestDecide(root, "rq-decide-test", "approved");
+      expect(res.success).toBe(true);
+      expect(res.data?.status).toBe("approved");
+      expect(existsSync(join(notes, "purge-me.md"))).toBe(false); // executed, not asked twice
+    } finally {
+      if (stdinDesc) Object.defineProperty(process.stdin, "isTTY", stdinDesc);
+      else delete (process.stdin as { isTTY?: boolean }).isTTY;
+      if (stdoutDesc) Object.defineProperty(process.stdout, "isTTY", stdoutDesc);
+      else delete (process.stdout as { isTTY?: boolean }).isTTY;
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("the bare-id flow shows the full request, then asks — choose routes the decision", async () => {
+    const root = mkdtempSync(join(tmpdir(), "mnemos-bareid-"));
+    const notes = join(root, "notes");
+    mkdirSync(notes, { recursive: true });
+    mkdirSync(join(root, ".mnemos"), { recursive: true });
+    mkdirSync(join(root, "ops", "requests"), { recursive: true });
+    writeFileSync(
+      join(notes, "keep-me.md"),
+      "---\ndescription: stays\ntype: insight\n---\n\nBody.\n",
+      "utf8",
+    );
+    writeFileSync(
+      join(root, "ops", "requests", "rq-bare-id.json"),
+      JSON.stringify({
+        id: "rq-bare-id", kind: "purge", slugs: ["keep-me"],
+        reason: "the bare-id test", session_id: "test",
+        created: "2026-11-15T00:00:00.000Z", expires: "2026-12-15T00:00:00.000Z",
+        status: "pending",
+      }),
+      "utf8",
+    );
+
+    // choose = denied → the question's answer executes.
+    const res = await runRequestInteractive(root, "rq-bare-id", {
+      choose: async () => "denied",
+    });
+    expect(res.success).toBe(true);
+    expect(res.data?.status).toBe("denied");
+    expect(existsSync(join(notes, "keep-me.md"))).toBe(true); // deny touched nothing
+
+    // abort → nothing happens, still pending.
+    writeFileSync(
+      join(root, "ops", "requests", "rq-bare-id2.json"),
+      JSON.stringify({
+        id: "rq-bare-id2", kind: "purge", slugs: ["keep-me"],
+        reason: "abort test", session_id: "test",
+        created: "2026-11-15T00:00:00.000Z", expires: "2026-12-15T00:00:00.000Z",
+        status: "pending",
+      }),
+      "utf8",
+    );
+    const aborted = await runRequestInteractive(root, "rq-bare-id2", {
+      choose: async () => "abort",
+    });
+    expect(aborted.success).toBe(false);
+    expect(aborted.warnings.join(" ")).toContain("stays pending");
+    const intent = JSON.parse(
+      readFileSync(join(root, "ops", "requests", "rq-bare-id2.json"), "utf8"),
+    ) as RemovalIntent;
+    expect(intent.status).toBe("pending");
+
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  it("formatRequestItem renders one request's full block (the bare-id display)", () => {
+    const out = formatRequestItem(identityPending, NOW);
+    expect(out).toContain("● rq-test-identity   identity_update");
+    expect(out).toContain("approve:  mnemos requests approve rq-test-identity");
   });
 });

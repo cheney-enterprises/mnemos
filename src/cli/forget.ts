@@ -397,34 +397,6 @@ function decideProvenance(confirmSource: string): Record<string, unknown> {
   };
 }
 
-/**
- * The default confirmation: refuse without a genuine interactive terminal,
- * prompt [y/N] with a 30s timeout when there is one. The 2026-11-07 hole was
- * the inverted form of this guard — the TTY check ADDED a prompt but the
- * non-TTY case fell through to execution. Now the non-TTY case is refused at
- * the call site before this is ever reached.
- *
- * Honest ceiling: `script`/PTY wrappers can hand an automated caller a TTY.
- * That is outside the CLI era's threat model; the complete fix is
- * transport-side (app-mediated user gesture in the Flutter era), which this
- * seam (injectable confirm) is built for.
- */
-async function interactiveConfirm(summary: string): Promise<boolean> {
-  process.stdout.write(`\nApprove ${summary}? [y/N] `);
-  const answer = await new Promise<string>((resolve) => {
-    const onData = (buf: Buffer) => {
-      process.stdin.removeListener("data", onData);
-      resolve(buf.toString().trim().toLowerCase());
-    };
-    process.stdin.once("data", onData);
-    setTimeout(() => {
-      process.stdin.removeListener("data", onData);
-      resolve("");
-    }, 30000).unref();
-  });
-  return answer === "y" || answer === "yes";
-}
-
 export interface RequestDecideOptions {
   /**
    * Injectable confirmation for tests and future transports (an HTTP sidecar
@@ -433,6 +405,11 @@ export interface RequestDecideOptions {
    * the TTY-required default. Whoever injects a confirm owns its honesty.
    */
   confirm?: (summary: string) => Promise<boolean>;
+  /** Provenance label for an injected confirm's audit line (the bare-id
+   * interactive flow passes "interactive-choice": its gates ran upstream).
+   * Without a confirm, the explicit command IS the answer — provenance is
+   * "explicit-command". */
+  confirmSource?: string;
 }
 
 export async function runRequestDecide(
@@ -512,10 +489,14 @@ export async function runRequestDecide(
   }
 
   if (decision === "denied") {
-    const summary = `${intent.kind} (${id})`;
-    const confirmed = options.confirm ? await options.confirm(summary) : await interactiveConfirm(summary);
-    if (!confirmed) {
-      return { success: false, warnings: ["aborted at the interactive confirmation"] };
+    // The COMMAND is the answer: `mnemos requests deny <id>` carries the
+    // user's decision — re-asking "are you sure?" on an explicit verb is
+    // the question in the wrong place. The question lives where the
+    // decision is NOT yet stated: the bare `mnemos requests <id>` flow
+    // (runRequestInteractive). Injected confirms (tests, future
+    // transports) are still honored — whoever injects one owns it.
+    if (options.confirm && !(await options.confirm(`${intent.kind} (${id})`))) {
+      return { success: false, warnings: ["aborted at the confirmation"] };
     }
     intent.status = "denied";
     await writeIntent(vaultRoot, intent);
@@ -523,18 +504,17 @@ export async function runRequestDecide(
       event: "intent_denied",
       by: "user",
       id,
-      provenance: decideProvenance(options.confirm ? "injected" : "interactive-tty"),
+      provenance: decideProvenance(options.confirm ? options.confirmSource ?? "injected" : "explicit-command"),
     });
     return { success: true, data: { id, status: "denied" }, warnings: [] };
   }
 
-  const summary =
+  if (options.confirm && !(await options.confirm(
     intent.kind === "identity_update"
       ? `identity_update (rewrite ${intent.selfFile})`
-      : `${intent.kind} (${intent.slugs.length} note(s): ${intent.slugs.join(", ")})`;
-  const confirmed = options.confirm ? await options.confirm(summary) : await interactiveConfirm(summary);
-  if (!confirmed) {
-    return { success: false, warnings: ["aborted at the interactive confirmation"] };
+      : `${intent.kind} (${intent.slugs.length} note(s): ${intent.slugs.join(", ")})`,
+  ))) {
+    return { success: false, warnings: ["aborted at the confirmation"] };
   }
 
   intent.status = "approved";
@@ -544,7 +524,7 @@ export async function runRequestDecide(
     by: "user",
     id,
     kind: intent.kind,
-    provenance: decideProvenance(options.confirm ? "injected" : "interactive-tty"),
+    provenance: decideProvenance(options.confirm ? options.confirmSource ?? "injected" : "explicit-command"),
   });
 
   let result: Record<string, unknown> = { id, status: "approved" };
@@ -558,6 +538,85 @@ export async function runRequestDecide(
   }
 
   return { success: true, data: result, warnings: [] };
+}
+
+/** The full detail block for ONE request — the bare `mnemos requests <id>`
+ * flow's display, before the question. */
+export function formatRequestItem(intent: RemovalIntent, now = new Date()): string {
+  return formatRequestList([intent], now);
+}
+
+/**
+ * Bare `mnemos requests <id>` — the request is shown in full and the
+ * question is asked HERE, because here the decision has not been stated.
+ * `approve`/`deny` subcommands never re-ask (Eric: "the command is the
+ * answer"); this flow is where a human reads what they're about to decide
+ * and then answers. The agent gates are identical: non-TTY refused,
+ * agent-runtime ancestry refused.
+ */
+export async function runRequestInteractive(
+  startDir: string,
+  id: string,
+  options: {
+    vaultOverride?: string;
+    /** Injectable choose for tests and future transports (mirrors
+     * RequestDecideOptions.confirm — whoever injects it owns its honesty). */
+    choose?: () => Promise<"approved" | "denied" | "abort">;
+  } = {},
+): Promise<{ success: boolean; data?: Record<string, unknown>; warnings: string[] }> {
+  const vaultRoot = await findVaultRoot(startDir, options.vaultOverride);
+  const intent = await getIntent(vaultRoot, id);
+  if (!intent) return { success: false, warnings: [`no such request: ${id}`] };
+  if (intent.status !== "pending") {
+    return { success: false, warnings: [`request ${id} is ${intent.status}, not pending`] };
+  }
+
+  const tty = process.stdin.isTTY === true && process.stdout.isTTY === true;
+  if (!options.choose && !tty) {
+    return {
+      success: false,
+      data: { id, refused: "non_interactive" },
+      warnings: [
+        "REFUSED: deciding a request requires an interactive terminal.",
+        "State the decision explicitly instead (no question asked):",
+        `  mnemos requests approve ${id}    or    mnemos requests deny ${id}`,
+      ],
+    };
+  }
+
+  console.log(formatRequestItem(intent));
+  const choice = options.choose ? await options.choose() : await interactiveChoose();
+  if (choice === "abort") {
+    return { success: false, warnings: ["decided nothing — the request stays pending"] };
+  }
+  // The gates already ran upstream (injected choose, or the TTY check);
+  // carry a satisfied confirm through so the delegate doesn't re-refuse,
+  // and record the honest provenance for the audit line.
+  return runRequestDecide(vaultRoot, id, choice, {
+    vaultOverride: options.vaultOverride,
+    confirm: async () => true,
+    confirmSource: options.choose ? "injected" : "interactive-choice",
+  });
+}
+
+/** The ask, for the bare-id flow. Enter aborts — the safe default: a
+ * fat-fingered Enter on this screen must not execute a purge. */
+async function interactiveChoose(): Promise<"approved" | "denied" | "abort"> {
+  process.stdout.write(`\nDecide this request? [a]pprove / [d]eny / Enter=abort: `);
+  const answer = await new Promise<string>((resolve) => {
+    const onData = (buf: Buffer) => {
+      process.stdin.removeListener("data", onData);
+      resolve(buf.toString().trim().toLowerCase());
+    };
+    process.stdin.once("data", onData);
+    setTimeout(() => {
+      process.stdin.removeListener("data", onData);
+      resolve("");
+    }, 30000).unref();
+  });
+  if (answer === "a" || answer === "approve") return "approved";
+  if (answer === "d" || answer === "deny") return "denied";
+  return "abort";
 }
 
 /**
