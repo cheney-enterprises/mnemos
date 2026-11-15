@@ -330,10 +330,13 @@ export async function explore(params: {
   engineConfigForScope?: import("./config.js").EngineConfig;
   /** §5 constants from the vault config (tunable by the benchmark). */
   scopeConstants?: import("./scopeweight.js").ScopeConstants;
+  /** Store-backed anchor index — bounds the waiver's anchor pass to indexed
+   * lookups when the derived index is available (see ScopeWeightInput). */
+  anchorIndex?: import("./anchortokens.js").AnchorIndex;
 }): Promise<ExploreOutput> {
   const {
     linkGraph, notesDir, warmthSignals, flatResults, config, qValueLookup, graphMetrics,
-    scope, engineConfigForScope, scopeConstants,
+    scope, engineConfigForScope, scopeConstants, anchorIndex,
   } = params;
 
   const limit = Math.min(config.default_limit, config.max_limit);
@@ -439,6 +442,7 @@ export async function explore(params: {
         scope,
         engineConfig: engineConfigForScope as Parameters<typeof computeScopeWeights>[0]["engineConfig"],
         constants: scopeConstants,
+        anchorIndex,
         candidates: allCandidates.map((c) => ({ title: c.title, score: c.score })),
       });
       for (const c of allCandidates) {

@@ -27,6 +27,7 @@ import { promises as fs } from "node:fs";
 import { readFrontmatterFile } from "./frontmatter.js";
 import { slugify } from "./slug.js";
 import { matchForForget, richTokens } from "./forget.js";
+import type { AnchorIndex } from "./anchortokens.js";
 import type { EngineConfig } from "./config.js";
 
 export const SCOPE_DECAY = 0.92;
@@ -89,6 +90,12 @@ export type ScopeWeightInput = {
   candidates: Array<{ title: string; score: number }>;
   /** §5 constants — defaults to the spec's starting values. */
   constants?: ScopeConstants;
+  /** Store-backed anchor index (indexstore.ts storeAnchorInverted) — when
+   * present, the waiver's anchor pass is answered by indexed lookup instead
+   * of re-reading every note file per weighted query. The matcher's results
+   * are identical either way; this is the named debt's fix, not a behavior
+   * change. */
+  anchorIndex?: AnchorIndex;
 };
 
 type SessionRecord = {
@@ -218,10 +225,20 @@ export async function computeScopeWeights(
   // the load-bearing insight (IDF-weighted rare tokens, "Grace paella" as an
   // exact address). One matcher pass per query; the waiver then only fires
   // for candidates that both matched AND sit in the top decile.
+  //
+  // The pass is bounded two ways: anchorIndex serves the anchor phase from
+  // the derived store (O(query), not O(vault) file reads), and onlySlugs
+  // bounds the matcher's embedding stage to this candidate list — the waiver
+  // never consumes matches outside it, and per-note similarity is
+  // independent, so the intersected result is identical to an unrestricted
+  // run while a hub-heavy query stops embedding half the vault.
   let anchored = new Set<string>();
   if (decileThreshold > 0) {
     try {
-      const matches = await matchForForget(input.notesDir, input.query, input.engineConfig);
+      const matches = await matchForForget(input.notesDir, input.query, input.engineConfig, {
+        onlySlugs: new Set(candidates.map((c) => c.title)),
+        anchorIndex: input.anchorIndex,
+      });
       anchored = new Set(matches.map((m) => m.slug));
     } catch {
       anchored = new Set(); // a matcher failure degrades to no waiver, never to no retrieval

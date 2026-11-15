@@ -37,6 +37,7 @@ import { readFrontmatterFile, writeFrontmatterFile } from "./frontmatter.js";
 import { embedText } from "./engine.js";
 import type { EngineConfig } from "./config.js";
 import { isForgotten } from "./status.js";
+import { richTokens, longSubstrings, type AnchorIndex } from "./anchortokens.js";
 
 export { FORGOTTEN_STATUSES, isForgotten } from "./status.js";
 
@@ -73,33 +74,14 @@ function cosine(a: Float32Array, b: Float32Array): number {
 /**
  * Tokens that survive tokenisation, plus raw alphanumeric runs of length >= 6.
  *
- * The second part matters for identifiers. `purge("API key sk-zzpqk51fpk")`
- * must reach "API key issued to ops: sk-zzpqk51fpk-secret." — the note's
- * identifier is the query's identifier with a suffix, so exact token equality
- * never fires and only a substring test connects them.
+ * The function itself lives in anchortokens.ts now (a leaf module, so
+ * indexstore.ts can persist the per-note identifier runs without inheriting
+ * the embedder's import graph); it is re-exported here because the §5 anchor
+ * waiver (scopeweight) imports it from this module — spec session-scope §5:
+ * "reuse the forget matcher's richTokens/anchoring machinery". Same
+ * identifier-shaped-token insight, second consumer.
  */
-// Exported for the §5 anchor waiver (scopeweight) — spec session-scope §5:
-// "reuse the forget matcher's richTokens/anchoring machinery". Same
-// identifier-shaped-token insight, second consumer.
-export function richTokens(text: string): { tokens: Set<string>; longs: string[] } {
-  const tokens = new Set(tokenize(text));
-  const longs: string[] = [];
-  // An identifier, not merely a long word. The distinction is load-bearing:
-  // `longs` drives an exclusivity rule, so admitting "customer" or "history"
-  // would make every note carrying a common word an exact address.
-  //
-  // The first version matched /[a-z0-9][a-z0-9-]{5,}/ and therefore could not
-  // see an email at all -- "@" and "." were outside the class, so
-  // "alice@post.dev" yielded only ["customer","history"]. That is why 50 of
-  // 200 purge cases deleted a second customer's record: the one token that
-  // uniquely named the target was invisible, and a shared common word decided
-  // the match instead.
-  for (const m of text.toLowerCase().matchAll(/[a-z0-9][a-z0-9._@+-]{5,}/g)) {
-    const tok = m[0].replace(/[.]+$/, "");
-    if (/[0-9@._+-]/.test(tok.slice(1))) longs.push(tok);
-  }
-  return { tokens, longs };
-}
+export { richTokens } from "./anchortokens.js";
 
 async function loadLiveNotes(notesDir: string): Promise<LiveNote[]> {
   const out: LiveNote[] = [];
@@ -138,53 +120,134 @@ async function loadLiveNotes(notesDir: string): Promise<LiveNote[]> {
  * most of them cannot anchor. With the small fact sets ForgetEval builds this
  * is exactly the proper-noun/identifier signal; on a real vault it degrades
  * gracefully into ordinary IDF.
+ *
+ * The anchor phase runs against one of two interchangeable sources:
+ *
+ *   - the files themselves (`loadLiveNotes`) — the original path, always
+ *     current, O(vault) file I/O per call;
+ *   - an `AnchorIndex` over the derived store (indexstore.ts) — the same
+ *     statistics answered by indexed lookup, O(query) instead of O(vault).
+ *     Produced by `storeAnchorInverted(db)`; `openSyncedIndex` syncs the
+ *     store on every open, so an index-backed corpus reflects the files.
+ *
+ * `onlySlugs` restricts the EMBEDDING stage to a candidate set without
+ * touching the anchor phase: per-note similarity is independent, so the
+ * result is exactly the unrestricted match set intersected with onlySlugs.
+ * The §5 waiver uses it — it only ever consumes matches ∩ its candidates,
+ * and this keeps a hub-heavy query from embedding half the vault.
+ *
+ * Both extensions leave the default call — and every forget operation —
+ * byte-for-byte on the original behavior; the equivalence is what
+ * tests/core/anchor-index.test.ts pins.
  */
 export async function matchForForget(
   notesDir: string,
   query: string,
   config: EngineConfig,
-  opts: { minRatio?: number; minSimilarity?: number; limit?: number } = {},
+  opts: {
+    minRatio?: number;
+    minSimilarity?: number;
+    limit?: number;
+    /** Restrict the similarity stage to these slugs (see above). */
+    onlySlugs?: Set<string>;
+    /** Serve the anchor phase from the derived index instead of the files. */
+    anchorIndex?: AnchorIndex;
+  } = {},
 ): Promise<ForgetMatch[]> {
-  const notes = await loadLiveNotes(notesDir);
-  if (notes.length === 0) return [];
-
   const minSimilarity = opts.minSimilarity ?? 0.25;
-
-  const df = new Map<string, number>();
-  for (const n of notes) for (const t of n.tokens) df.set(t, (df.get(t) ?? 0) + 1);
-
-  // Smoothed IDF, log((N+1)/(df+0.5)).
-  //
-  // The first version cut any token whose document frequency exceeded half
-  // the corpus. On a real vault that is fine. On a ForgetEval case holding
-  // three facts every token appears in 33-100% of notes, so with a single
-  // note in scope NOTHING could anchor and matching returned 0 with no
-  // error. It passed the two-note smoke test only because df/N landed
-  // exactly on the boundary. Smoothing keeps the weight positive at any
-  // corpus size and lets frequency be a small weight instead of a cliff.
-  const N = notes.length;
-  const idf = (t: string) => Math.max(Math.log((N + 1) / ((df.get(t) ?? 0) + 0.5)), 0.01);
-
   const q = richTokens(query);
 
-  // Raw IDF mass each note shares with the query, plus identifier hits,
-  // tracked separately because an identifier is an address and a word is not.
-  const raw = new Map<string, number>();
+  // ── Phase A: anchor mass ────────────────────────────────────────────
+  const raw = new Map<string, number>(); // shared-token IDF mass (+ identifier hits)
   const idHits = new Map<string, number>();
-  for (const n of notes) {
-    let anchor = 0;
-    for (const t of q.tokens) if (n.tokens.has(t)) anchor += idf(t);
-    // Identifier containment, in both directions: the note may carry a
-    // suffixed form of the query's identifier or vice versa.
-    const lower = n.text.toLowerCase();
-    let ids = 0;
-    for (const l of q.longs) {
-      if (lower.includes(l)) ids += 2;
-      else if (l.length >= 8 && [...n.tokens].some((t) => t.length >= 6 && l.includes(t))) ids += 1;
+  // slug → where phase B reads the body from. `text` is prefetched on the
+  // file path; the index path reads lazily (only survivors need it).
+  const bodies = new Map<string, { file: string; text?: string }>();
+
+  if (opts.anchorIndex) {
+    const inv = opts.anchorIndex;
+    const N = inv.noteCount();
+    const df = inv.dfOf(q.tokens);
+    const idf = (t: string) => Math.max(Math.log((N + 1) / ((df.get(t) ?? 0) + 0.5)), 0.01);
+
+    for (const t of q.tokens) {
+      const mass = idf(t);
+      for (const slug of inv.notesWithTerm(t)) {
+        raw.set(slug, (raw.get(slug) ?? 0) + mass);
+      }
     }
-    if (ids > 0) idHits.set(n.slug, ids);
-    anchor += ids;
-    if (anchor > 0) raw.set(n.slug, anchor);
+    for (const l of q.longs) {
+      // Direct containment — an identifier appearing in the body is an exact
+      // address. LIKE over note_long is a scan of a sparse table; identifiers
+      // are rare by construction.
+      const direct = inv.notesContainingLong(l);
+      const credited = new Set<string>();
+      for (const slug of direct) {
+        idHits.set(slug, (idHits.get(slug) ?? 0) + 2);
+        credited.add(slug);
+      }
+      // Reverse containment — the note carries a body token inside the
+      // query's identifier (`sk-zzpqk51fpk` in `sk-zzpqk51fpk-secret`). The
+      // file path's per-(note, long) `else if` means a direct hit excludes
+      // the reverse credit for the same long.
+      if (l.length >= 8) {
+        const seen = new Set<string>();
+        for (const s of longSubstrings(l, 6)) {
+          for (const slug of inv.notesWithTerm(s)) {
+            if (credited.has(slug) || seen.has(slug)) continue;
+            seen.add(slug);
+            idHits.set(slug, (idHits.get(slug) ?? 0) + 1);
+          }
+        }
+      }
+    }
+    for (const [slug, mass] of raw) {
+      const ids = idHits.get(slug) ?? 0;
+      if (mass + ids > 0) raw.set(slug, mass + ids);
+    }
+    for (const slug of idHits.keys()) {
+      if (!raw.has(slug)) raw.set(slug, idHits.get(slug)!);
+    }
+    for (const slug of raw.keys()) {
+      bodies.set(slug, { file: path.join(notesDir, `${slug}.md`) });
+    }
+  } else {
+    const notes = await loadLiveNotes(notesDir);
+    if (notes.length === 0) return [];
+
+    const df = new Map<string, number>();
+    for (const n of notes) for (const t of n.tokens) df.set(t, (df.get(t) ?? 0) + 1);
+
+    // Smoothed IDF, log((N+1)/(df+0.5)).
+    //
+    // The first version cut any token whose document frequency exceeded half
+    // the corpus. On a real vault that is fine. On a ForgetEval case holding
+    // three facts every token appears in 33-100% of notes, so with a single
+    // note in scope NOTHING could anchor and matching returned 0 with no
+    // error. It passed the two-note smoke test only because df/N landed
+    // exactly on the boundary. Smoothing keeps the weight positive at any
+    // corpus size and lets frequency be a small weight instead of a cliff.
+    const N = notes.length;
+    const idf = (t: string) => Math.max(Math.log((N + 1) / ((df.get(t) ?? 0) + 0.5)), 0.01);
+
+    // Raw IDF mass each note shares with the query, plus identifier hits,
+    // tracked separately because an identifier is an address and a word is not.
+    for (const n of notes) {
+      let anchor = 0;
+      for (const t of q.tokens) if (n.tokens.has(t)) anchor += idf(t);
+      // Identifier containment, in both directions: the note may carry a
+      // suffixed form of the query's identifier or vice versa.
+      const lower = n.text.toLowerCase();
+      let ids = 0;
+      for (const l of q.longs) {
+        if (lower.includes(l)) ids += 2;
+        else if (l.length >= 8 && [...n.tokens].some((t) => t.length >= 6 && l.includes(t))) ids += 1;
+      }
+      if (ids > 0) idHits.set(n.slug, ids);
+      anchor += ids;
+      if (anchor > 0) raw.set(n.slug, anchor);
+      bodies.set(n.slug, { file: n.file, text: n.text });
+    }
   }
   if (raw.size === 0) return [];
 
@@ -213,27 +276,46 @@ export async function matchForForget(
   // that is a comparison between notes.
   const best = Math.max(...raw.values());
   const ratio = opts.minRatio ?? 0.5;
-  const candidates: LiveNote[] = [];
+  // Deterministic candidate order (sorted by slug): both anchor sources must
+  // reach the similarity stage in the same order, so a tie in the final sort
+  // breaks identically whether the corpus came from the files or the index.
+  const candidates: Array<{ slug: string; file: string; text?: string }> = [];
   const anchors = new Map<string, number>();
-  for (const n of notes) {
-    const a = raw.get(n.slug) ?? 0;
+  for (const slug of [...raw.keys()].sort()) {
+    const a = raw.get(slug) ?? 0;
     if (a >= best * ratio) {
-      anchors.set(n.slug, a);
-      candidates.push(n);
+      anchors.set(slug, a);
+      const body = bodies.get(slug);
+      if (body) candidates.push({ slug, file: body.file, text: body.text });
     }
   }
   if (candidates.length === 0) return [];
 
   const qv = await embedText(query, config);
   const scored: ForgetMatch[] = [];
-  for (const n of candidates) {
-    const nv = await embedText(n.text, config);
+  for (const c of candidates) {
+    // onlySlugs narrows the embedding stage (see the doc comment): notes
+    // outside the caller's candidate set are dropped before the embed,
+    // which is the waiver's whole cost save on a hub-heavy query.
+    if (opts.onlySlugs && !opts.onlySlugs.has(c.slug)) continue;
+    let text = c.text;
+    if (text === undefined) {
+      // Index-sourced corpus: read the body now — only similarity
+      // survivors need it, so this is a handful of files, not the vault.
+      try {
+        const parsed = await readFrontmatterFile(c.file);
+        text = String(parsed.body ?? "").trim();
+      } catch {
+        continue; // the file vanished between index sync and this read
+      }
+    }
+    const nv = await embedText(text, config);
     const sim = cosine(qv, nv);
-    const anchor = anchors.get(n.slug) ?? 0;
+    const anchor = anchors.get(c.slug) ?? 0;
     // A strong identifier hit stands on its own: "sk-zzpqk51fpk" appearing
     // verbatim is not a semantic judgement and must not be gated on one.
     if (anchor >= 2 || sim >= minSimilarity) {
-      scored.push({ slug: n.slug, file: n.file, text: n.text, anchor, similarity: sim });
+      scored.push({ slug: c.slug, file: c.file, text, anchor, similarity: sim });
     }
   }
   scored.sort((a, b) => b.anchor + b.similarity - (a.anchor + a.similarity));

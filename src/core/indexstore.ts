@@ -42,9 +42,14 @@ import { parseFrontmatter, readFrontmatterFile, writeFrontmatterFile } from "./f
 import { slugify } from "./slug.js";
 import { pruneUnknownQRows } from "./qvalue.js";
 import { tokenize } from "./bm25.js";
-import { isForgotten } from "./status.js";
+import { isForgotten, FORGOTTEN_STATUSES } from "./status.js";
+import { richTokens, type AnchorIndex } from "./anchortokens.js";
 
 type DB = InstanceType<typeof Database>;
+
+/** The forgotten statuses as a SQL IN-list — status values are code
+ * constants, so inline interpolation is safe here. */
+const FORGOTTEN_SQL = [...FORGOTTEN_STATUSES].map((s) => `'${s}'`).join(",");
 
 
 export function initIndexStore(db: DB): void {
@@ -160,6 +165,16 @@ export function initIndexStore(db: DB): void {
       PRIMARY KEY (note_id, term)
     ) WITHOUT ROWID;
     CREATE INDEX IF NOT EXISTS idx_note_term_term ON note_term(term);
+    -- Identifier runs per note (richTokens longs): the raw alphanumeric
+    -- class runs that make "sk-zzpqk51fpk" an exact address. The §5 anchor
+    -- waiver and the forget matcher's anchor phase read these by lookup
+    -- instead of re-reading every note file per query. Derived from the body,
+    -- exactly what loadLiveNotes tests with lower.includes(l).
+    CREATE TABLE IF NOT EXISTS note_long (
+      note_id INTEGER NOT NULL REFERENCES note(id) ON DELETE CASCADE,
+      long    TEXT NOT NULL,
+      PRIMARY KEY (note_id, long)
+    ) WITHOUT ROWID;
     CREATE TABLE IF NOT EXISTS index_meta (
       key   TEXT PRIMARY KEY,
       value TEXT NOT NULL
@@ -413,6 +428,7 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
     terms: string[];
     tf: Map<string, [number, number, number]>;
     tok: [number, number, number];
+    longs: string[];
     preview: string;
   };
   const parsed: Parsed[] = [];
@@ -467,13 +483,16 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
     for (const t of tokenize(title)) { bump(t, 0); tok[0] += 1; }
     for (const t of tokenize(str(data, "description"))) { bump(t, 1); tok[1] += 1; }
     for (const t of tokenize(body)) { bump(t, 2); tok[2] += 1; }
+    // Identifier runs from the body — the anchor machinery's second signal,
+    // persisted so the waiver's anchor phase never re-reads the vault.
+    const longs = richTokens(body).longs;
     // Whitespace-normalized body preview, frontmatter stripped. 240 chars ≈
     // 40-60 tokens — enough to judge relevance, cheap enough for 10-30
     // results per response.
     const preview = body.replace(/\s+/g, " ").trim().slice(0, 240);
     parsed.push({
       title, hash, mtime: stat.mtimeMs, size: stat.size, data, links,
-      terms: [...distinct], tf, tok, preview,
+      terms: [...distinct], tf, tok, longs, preview,
     });
   }
 
@@ -557,6 +576,8 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
       "INSERT OR IGNORE INTO note_term (note_id, term, tf_title, tf_desc, tf_body) " +
       "VALUES (?, ?, ?, ?, ?)",
     );
+    const delLongs = db.prepare("DELETE FROM note_long WHERE note_id = ?");
+    const insLong = db.prepare("INSERT OR IGNORE INTO note_long (note_id, long) VALUES (?, ?)");
     for (const p of parsed) {
       const id = idOf.get(p.title);
       if (id === undefined) continue;
@@ -565,6 +586,8 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
         const [ti, de, bo] = p.tf.get(term) ?? [0, 0, 0];
         insTerm.run(id, term, ti, de, bo);
       }
+      delLongs.run(id);
+      for (const long of p.longs) insLong.run(id, long);
     }
 
     db.prepare("INSERT INTO index_meta (key, value) VALUES ('synced_at', ?) " +
@@ -572,6 +595,57 @@ export async function syncIndex(db: DB, notesDir: string): Promise<SyncResult> {
   });
   apply();
   pruneUnknownQRows(db); // #41: phantom learner rows for non-notes
+
+  // One-time backfill of note_long for notes this sync did NOT re-parse.
+  //
+  // The incremental path is stat-filtered: a note whose bytes have not moved
+  // is never re-read, which is correct for every pre-existing table — but
+  // note_long was introduced AFTER most vaults were already indexed, so
+  // stat-identical notes had no rows and the anchor index answered from a
+  // mostly-empty corpus (found on the live vault, not by the test suite:
+  // every test vault is built fresh, so the gap was invisible there).
+  // The marker makes this a migration, not a per-sync cost; once set, the
+  // incremental delete-then-insert covers every future change.
+  const [longsMarker] = rows<{ value: string }>(
+    db, "SELECT value FROM index_meta WHERE key = 'anchor_longs_built'",
+  );
+  if (!longsMarker) {
+    const parsedTitles = new Set(parsed.map((p) => p.title));
+    const idOfBackfill = new Map<string, number>();
+    for (const row of rows<IdRow>(db, "SELECT id, slug FROM note")) {
+      idOfBackfill.set(row.slug, row.id);
+    }
+    // Reads happen outside the transaction (better-sqlite3 transactions are
+    // synchronous); the writes apply atomically afterwards.
+    const backfillRows: Array<{ id: number; longs: string[] }> = [];
+    for (const entry of entries) {
+      const title = entry.replace(/\.md$/, "");
+      if (parsedTitles.has(title)) continue; // this sync already stored its longs
+      const id = idOfBackfill.get(title);
+      if (id === undefined) continue;
+      let content: string;
+      try {
+        content = await fs.readFile(path.join(notesDir, entry), "utf8");
+      } catch {
+        continue; // unreadable at migration time; its next edit re-derives it
+      }
+      const { body } = parseFrontmatter(content);
+      backfillRows.push({ id, longs: richTokens(body).longs });
+    }
+    const backfill = db.transaction(() => {
+      const del = db.prepare("DELETE FROM note_long WHERE note_id = ?");
+      const ins = db.prepare("INSERT OR IGNORE INTO note_long (note_id, long) VALUES (?, ?)");
+      for (const r of backfillRows) {
+        del.run(r.id);
+        for (const long of r.longs) ins.run(r.id, long);
+      }
+      db.prepare(
+        "INSERT INTO index_meta (key, value) VALUES ('anchor_longs_built', ?) " +
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+      ).run(new Date().toISOString());
+    });
+    backfill();
+  }
 
   const [counts] = rows<{ edges: number; dangling: number }>(db, `
     SELECT (SELECT COUNT(*) FROM edge) AS edges,
@@ -1041,6 +1115,51 @@ export function termDocumentFrequency(db: DB): {
       holders.set(key, titles);
       return titles;
     },
+  };
+}
+
+/**
+ * The AnchorIndex served from the derived store — the anchor phase of
+ * matchForForget answered by lookup instead of by scanning the vault.
+ *
+ * Every query is a handful of indexed lookups (note_term is keyed on term;
+ * note_long is a sparse table): O(query tokens + their postings), where the
+ * file path was O(vault) file reads and re-tokenisation per query. The live
+ * filter mirrors loadLiveNotes exactly — FORGOTTEN_STATUSES, lower-cased.
+ *
+ * Freshness: callers reach this through openSyncedIndex, which syncs
+ * (stat-filtered) on every open, so the store reflects the files. The
+ * uncovered-notes guard in openSyncedIndex is what keeps a partially-synced
+ * store from ever being served here.
+ */
+export function storeAnchorInverted(db: DB): AnchorIndex {
+  const liveCount = db.prepare(
+    `SELECT COUNT(*) AS c FROM note WHERE lower(status) NOT IN (${FORGOTTEN_SQL})`,
+  );
+  const dfStmt = db.prepare(
+    `SELECT COUNT(*) AS df FROM note_term t JOIN note n ON n.id = t.note_id
+     WHERE t.term = ? AND t.tf_body > 0 AND lower(n.status) NOT IN (${FORGOTTEN_SQL})`,
+  );
+  const holdersStmt = db.prepare(
+    `SELECT n.slug AS slug FROM note_term t JOIN note n ON n.id = t.note_id
+     WHERE t.term = ? AND t.tf_body > 0 AND lower(n.status) NOT IN (${FORGOTTEN_SQL})`,
+  );
+  const longsStmt = db.prepare(
+    `SELECT n.slug AS slug FROM note_long l JOIN note n ON n.id = l.note_id
+     WHERE l.long LIKE '%' || ? || '%' AND lower(n.status) NOT IN (${FORGOTTEN_SQL})`,
+  );
+  return {
+    noteCount: () => (liveCount.get() as { c: number }).c,
+    dfOf: (terms) => {
+      const out = new Map<string, number>();
+      for (const t of terms) {
+        out.set(t, (dfStmt.get(t) as { df: number }).df);
+      }
+      return out;
+    },
+    notesWithTerm: (term) => (holdersStmt.all(term) as Array<{ slug: string }>).map((r) => r.slug),
+    notesContainingLong: (longToken) =>
+      (longsStmt.all(longToken) as Array<{ slug: string }>).map((r) => r.slug),
   };
 }
 

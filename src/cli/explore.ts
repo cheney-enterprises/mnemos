@@ -8,7 +8,7 @@ import { promises as fs } from "node:fs";
 import type Database from "better-sqlite3";
 import { findVaultRoot, getVaultPaths, listNoteTitles } from "../core/vault.js";
 import { projectMemberSlugs } from "../core/wake-sources.js";
-import { openSyncedIndex, cachedGraphMetrics } from "../core/indexstore.js";
+import { openSyncedIndex, cachedGraphMetrics, storeAnchorInverted } from "../core/indexstore.js";
 import { buildGraph, type LinkGraph } from "../core/graph.js";
 import { loadConfig } from "../core/config.js";
 import { scopeConstantsFrom } from "../core/scopeweight.js";
@@ -334,6 +334,11 @@ export async function runExplore(
         : undefined,
       engineConfigForScope: config.engine,
       scopeConstants: scopeConstantsFrom(config.retrieval.session_scope),
+      // The waiver's anchor phase from the derived index when it is
+      // trustworthy — indexed lookups instead of a whole-vault file scan
+      // per weighted query (the named debt). openSyncedIndex synced the
+      // store above, so the postings reflect the files.
+      anchorIndex: opened.index ? storeAnchorInverted(opened.index) : undefined,
     });
   }
 

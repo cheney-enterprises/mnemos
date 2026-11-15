@@ -2,6 +2,38 @@
 
 ## [Unreleased]
 
+### Fixed — the named debt #1: the waiver's anchor scan is O(query), not O(vault)
+- **What it was.** The §5 anchor waiver ran `matchForForget` on every weighted
+  query, and the matcher's anchor phase read and re-tokenized **every note
+  file** — whole-vault file I/O per weighted query, for corpus statistics the
+  derived index already holds (body postings) or can hold cheaply (identifier
+  runs). On a 1,500-note vault that is the same class of cost the §34 fix
+  removed from BM25 (2,590 ms of re-tokenization per query).
+- **The fix — same statistics, answered by lookup.** `note_long` joins the
+  derived index (identifier runs per note, persisted at sync time from the
+  body); `storeAnchorInverted(db)` serves the anchor phase from indexed
+  lookups — O(query tokens + their postings) — with the identical live-note
+  filter (FORGOTTEN_STATUSES) and the identical smoothed-IDF semantics.
+  `matchForForget` gained two behavior-preserving extensions: `anchorIndex`
+  (swap the corpus source) and `onlySlugs` (bound the EMBEDDING stage to a
+  candidate set — pure intersection, since per-note similarity is
+  independent). The waiver passes both: a hub-heavy query stops embedding
+  half the vault. Forget operations are untouched — default calls stay
+  byte-for-byte on the file path.
+- **Equivalence, pinned.** tests/core/anchor-index.test.ts (17 tests): every
+  ForgetEval case that actually failed produces identical slug/anchor/
+  similarity from both corpus sources; reverse identifier containment
+  (`cope2024` inside `session-scope2024`) fires identically; the §5 waiver
+  emits identical traces with and without the index on the probe fixture.
+  Suite 1,275 → 1,292.
+- **The migration gap physical verification caught.** Every test vault is
+  built fresh, so the tests could not see it: on a PRE-EXISTING index the
+  incremental sync is stat-filtered and never re-parses unchanged notes —
+  the live vault answered from 21 longs in ONE note until the migration ran.
+  `syncIndex` now backfills note_long once (an `anchor_longs_built` marker in
+  index_meta makes it a migration, not a per-sync cost). Verified on the live
+  vault: 87/87 notes, 2,375 longs, marker set.
+
 ### Added — §3 inferred project stamping at capture: the ask-first gate's replacement
 - **The last piece the activation needed.** A capture with no explicit
   project and no keyword match now stamps the project from the harness
