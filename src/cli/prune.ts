@@ -62,6 +62,43 @@ export interface PruneResult {
   warnings: string[];
 }
 
+/** Human rendering of `mnemos prune` — zones, then candidates with their
+ * reasons, then (with --verbose) the community hotspots. */
+export function formatPrune(data: PruneResult["data"], verbose = false): string {
+  const z = data.zones;
+  const lines = [
+    `Zones: ${plural(z.active, "active")} · ${z.stale} stale · ${z.fading} fading · ${z.archived} archived  (of ${data.total})`,
+    "",
+  ];
+  if (data.candidates.length === 0) {
+    lines.push("No archive candidates — nothing is fading past the bar.");
+  } else {
+    lines.push(
+      `Archive candidates (${data.candidates.length})${data.applied ? " — APPLIED" : " — dry run (--apply to execute)"}:`,
+    );
+    for (const c of data.candidates) {
+      const guard = c.isArticulationPoint ? " [articulation point — removing it would disconnect the graph]" : "";
+      lines.push(`  - ${c.title}  (vitality ${fmt(c.vitality)}, zone ${c.zone}${guard})`);
+      lines.push(`      ${c.reason}`);
+    }
+  }
+  lines.push("");
+  lines.push(
+    `Articulation points (${data.articulationPoints.length}) — prune would never touch these:`,
+  );
+  lines.push(...(data.articulationPoints.length > 0 ? bulletList(data.articulationPoints) : ["  none"]));
+  if (verbose) {
+    lines.push("");
+    lines.push(`Communities (${data.hotspots.length}):`);
+    for (const h of data.hotspots) {
+      lines.push(`  #${h.community} — ${h.size} notes, mean vitality ${fmt(h.meanVitality)}`);
+      lines.push(...bulletList(h.topMembers.slice(0, 5), "      "));
+    }
+  }
+  return lines.join("\n");
+}
+import { bulletList, plural, score as fmt } from "./render.js";
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------

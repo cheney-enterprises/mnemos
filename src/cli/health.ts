@@ -1,6 +1,7 @@
 import path from "node:path";
 import os from "node:os";
 import { promises as fs } from "node:fs";
+import { bulletList, plural, score as fmtScore } from "./render.js";
 import { findVaultRoot, getVaultPaths, listNoteTitles } from "../core/vault.js";
 import {
   buildGraph,
@@ -195,6 +196,97 @@ export type DoctorResult = {
   data: Record<string, unknown>;
   warnings: string[];
 };
+
+/**
+ * Human rendering of `mnemos health` / `mnemos doctor`. Sections that are
+ * empty say "none" — silence in a diagnostic must be explicit, not a field
+ * you have to go check the JSON for.
+ */
+export function formatHealth(data: Record<string, unknown>, warnings: string[]): string {
+  const fmt = fmtScore;
+  const lines: string[] = [`Vault health — ${plural(Number(data.noteCount ?? 0), "note")}`, ""];
+
+  const orphans = (data.orphans as string[]) ?? [];
+  lines.push(`Orphans (${orphans.length}):`);
+  lines.push(...(orphans.length > 0 ? bulletList(orphans) : ["  none"]));
+
+  const dangling = (data.dangling as string[]) ?? [];
+  lines.push(`Dangling links (${dangling.length}):`);
+  lines.push(...(dangling.length > 0 ? dangling.map((d) => `  - ${d}`) : ["  none"]));
+
+  const violations = (data.schemaViolations as Array<{ note: string; errors: string[] }>) ?? [];
+  lines.push(`Schema violations (${violations.length}):`);
+  lines.push(
+    ...(violations.length > 0
+      ? violations.map((v) => `  - ${v.note}: ${v.errors.join("; ")}`)
+      : ["  none"]),
+  );
+
+  const fading = (data.fading as Array<{ note: string; vitality: number }>) ?? [];
+  lines.push(`Fading (${fading.length}):`);
+  lines.push(
+    ...(fading.length > 0
+      ? fading.map((f) => `  - ${f.note} (vitality ${fmt(f.vitality)})`)
+      : ["  none"]),
+  );
+
+  const learning = data.learning as Record<string, unknown> | undefined;
+  if (learning) {
+    lines.push(
+      `Learning: ${String(learning.trackedNotes ?? 0)} tracked · ` +
+        `${String(learning.totalUpdates ?? 0)} updates · ` +
+        `${String(learning.forwardCitations ?? 0)} forward citations · ` +
+        `exposure/Q corr ${Number(learning.exposureQCorrelation ?? 0).toFixed(2)}`,
+    );
+  } else {
+    lines.push("Learning: no index yet");
+  }
+
+  if (warnings.length > 0) {
+    lines.push("");
+    lines.push("Warnings:");
+    for (const w of warnings) lines.push(`  ⚠ ${w}`);
+  }
+  return lines.join("\n");
+}
+
+/** The doctor's extra sections, appended to the health rendering. */
+export function formatDoctorExtras(data: Record<string, unknown>): string {
+  const doctor = data.doctor as
+    | {
+        locks: Array<{ slug: string; ageSeconds: number }>;
+        indexDrift: {
+          indexExists: boolean; vaultNotes: number; indexedNotes: number | null;
+          coverage: string; longsMarker: boolean; embeddingsRows: number | null; longRows: number | null;
+        };
+        configSanity: {
+          projectPaths: { total: number; unresolvable: number };
+          sessionScope: { enabled: boolean; invalidConstants: string[] };
+          dbPath: string | null;
+        };
+      }
+    | undefined;
+  if (!doctor) return "";
+  const lines: string[] = ["", "Doctor:"];
+  lines.push(
+    `  Locks: ${doctor.locks.length === 0 ? "none" : doctor.locks.map((l) => `${l.slug} (${l.ageSeconds}s)`).join(", ")}`,
+  );
+  const d = doctor.indexDrift;
+  if (!d.indexExists) {
+    lines.push("  Index: none — run mnemos index build");
+  } else {
+    lines.push(
+      `  Index: ${d.coverage} · embeddings ${d.embeddingsRows ?? "?"}` +
+        (d.longRows !== null ? ` · longs ${d.longRows} · migration ${d.longsMarker ? "ok" : "MISSING"}` : ""),
+    );
+  }
+  const c = doctor.configSanity;
+  lines.push(
+    `  Config: project paths ${c.projectPaths.total} (${c.projectPaths.unresolvable} unresolvable) · ` +
+      `§5 ${c.sessionScope.enabled ? (c.sessionScope.invalidConstants.length === 0 ? "constants ok" : `INVALID: ${c.sessionScope.invalidConstants.join(", ")}`) : "disabled"}`,
+  );
+  return lines.join("\n");
+}
 
 /**
  * `mnemos doctor` — the deep sweep (debt #7). Everything `health` checks,

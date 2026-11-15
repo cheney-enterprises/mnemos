@@ -15,12 +15,64 @@ import { loadConfig } from "../core/config.js";
 import { computeAllVitality } from "../core/noteindex.js";
 import { initDB } from "../core/engine.js";
 import { loadBoosts } from "../core/activation.js";
+import { bulletList, score as fmtScore } from "./render.js";
 
 export type QueryResult = {
   success: boolean;
   data: Record<string, unknown>;
   warnings: string[];
 };
+
+/** Human rendering of the simple query kinds (orphans/dangling/backlinks/
+ * cross-project/important/fading). `ranked`/`similar` render through
+ * formatRankedRows in the CLI wiring — their result shape is search.ts's. */
+export function formatQuery(kind: string, data: Record<string, unknown>): string {
+  const asTitles = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : []);
+  switch (kind) {
+    case "orphans": {
+      const items = asTitles(data.orphans);
+      return items.length === 0
+        ? "No orphans — every note is linked from somewhere."
+        : [`Orphans (${items.length}) — notes nothing links to:`, ...bulletList(items)].join("\n");
+    }
+    case "dangling": {
+      const items = asTitles(data.dangling);
+      return items.length === 0
+        ? "No dangling links — every [[wiki-link]] resolves."
+        : [`Dangling links (${items.length}) — [[targets]] that don't exist:`, ...bulletList(items)].join("\n");
+    }
+    case "backlinks": {
+      const items = asTitles(data.backlinks);
+      return items.length === 0
+        ? "No backlinks found."
+        : [`Backlinks (${items.length}):`, ...bulletList(items)].join("\n");
+    }
+    case "cross-project": {
+      const items = asTitles(data.notes);
+      return items.length === 0
+        ? "No notes tagged with 2+ projects."
+        : [`Multi-project notes (${items.length}):`, ...bulletList(items)].join("\n");
+    }
+    case "important": {
+      const rows = (data.results as Array<{ title: string; score: number }>) ?? [];
+      if (rows.length === 0) return "No scored notes.";
+      return [
+        "Most important (PageRank):",
+        ...rows.map((r, i) => `${i + 1}. ${r.title}  (${fmtScore(r.score)})`),
+      ].join("\n");
+    }
+    case "fading": {
+      const rows = (data.results as Array<{ title: string; score: number }>) ?? [];
+      if (rows.length === 0) return "Nothing is fading past the threshold.";
+      return [
+        `Fading (${rows.length}) — vitality below threshold:`,
+        ...rows.map((r, i) => `${i + 1}. ${r.title}  (vitality ${fmtScore(r.score)})`),
+      ].join("\n");
+    }
+    default:
+      return JSON.stringify(data);
+  }
+}
 
 export async function runQueryOrphans(
   startDir: string,

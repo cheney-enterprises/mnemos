@@ -2,6 +2,51 @@
 
 ## [Unreleased]
 
+### Fixed — the CLI's human-path commands render for humans (the "help is supposed to be helpful" sweep)
+- **What it was.** Ten read/diagnostic verbs dumped raw JSON on the human
+  path: status, health, doctor, query (every kind), validate, graph,
+  prune, index status, sessions compress, explore — and `forget`'s
+  dry-run preview. The CLI is the HUMAN surface (agents speak MCP); a
+  human running `mnemos status` got a wire dump, and `mnemos doctor`'s
+  verdict hid inside a `data.doctor` object. The `requests` fix (earlier
+  entry) was one instance of a systemic gap.
+- **The sweep.** Every verb above now renders for humans by default with
+  `--json` preserved (added where missing). Shared helpers (cli/render.ts)
+  keep the rendering consistent: bulleted lists that wrap instead of one
+  unbroken slug wall, fixed-width scores, and a preview extractor whose
+  heading rule is "skip a heading only when real body lines follow;
+  otherwise strip the hashes" — the collapsed single-line previews that
+  `query ranked` carries start with `# Title` and carry the body inline,
+  so the naive skip returned EMPTY exactly there (found live, pinned by
+  test). Per-command shape:
+  - status — four lines: vault, counts, clients, next steps.
+  - health — sections that say "none" explicitly (silence in a diagnostic
+    is a field you'd otherwise check the JSON for), learning as one line,
+    warnings as ⚠ lines.
+  - doctor — health + Locks / Index (coverage · embeddings · longs ·
+    migration) / Config lines.
+  - query — per-kind: orphans/dangling/backlinks/cross-project as wrapped
+    bullets; important/fading with scores; ranked/similar numbered with
+    score + one description line.
+  - validate — ✓/✗ verdict with error/warn detail.
+  - graph metrics — counts line, then top PageRank and betweenness lists.
+  - prune — zones, candidates with their reasons (dry-run labeled,
+    articulation points guarded), hotspots under --verbose.
+  - index status — counts, model, size, build date.
+  - sessions compress — one summary line + per-record actions.
+  - explore — numbered results with §6 origin labels and descriptions.
+  - forget dry-run — "would touch N notes" with anchor/similarity per note.
+- **Left structured on purpose.** add/promote/archive/serve are the
+  AGENTS' transport — their structured payloads (the ask-gate instructions,
+  tool-parity shapes) are the contract, not clutter. sql stays tabular.
+- **Tests** (tests/cli/render.test.ts, 16): status lines; health's
+  explicit "none" and warning detail; doctor's lock/coverage/migration/
+  config lines; query per-kind; ranked rows (origin label, description
+  never a heading, collapsed-preview case); validate verdict; graph;
+  prune (dry-run label, guards, --verbose hotspots); index status;
+  forget preview; bulletList wrapping bound. Probe unchanged: hard 9/9.
+  Suite 1,332 → 1,348.
+
 ### Fixed — `mnemos requests` renders for humans (and lists its subcommands)
 - **What it was.** `mnemos requests list` dumped raw JSON — on the USER-ONLY
   surface, whose whole job is legibility: you are about to approve the

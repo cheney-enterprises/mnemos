@@ -206,17 +206,23 @@ Session intake: --session/--parent/--lineage (deterministic; flag-gated).`
 program
   .command("status")
   .description("Vault overview: note counts, index state")
-  .action(async () => {
+  .option("--json", "machine-readable output")
+  .action(async (options: { json?: boolean }) => {
     const result = await runStatus(process.cwd());
-    await emit(result);
+    if (options.json) { await emit(result); return; }
+    const { formatStatus } = await import("./cli/status.js");
+    console.log(formatStatus(result.data));
   });
 
 program
   .command("health")
   .description("Full diagnostics: orphans, dangling links, schema violations, index health")
-  .action(async () => {
+  .option("--json", "machine-readable output")
+  .action(async (options: { json?: boolean }) => {
     const result = await runHealth(process.cwd());
-    await emit(result);
+    if (options.json) { await emit(result); return; }
+    const { formatHealth } = await import("./cli/health.js");
+    console.log(formatHealth(result.data, result.warnings));
   });
 
 program
@@ -225,10 +231,12 @@ program
     "Deep sweep: everything health checks, plus stale session-record locks, " +
       "index drift (derived index vs the vault, read-only), and config sanity",
   )
-  .action(async () => {
-    const { runDoctor } = await import("./cli/health.js");
+  .option("--json", "machine-readable output")
+  .action(async (options: { json?: boolean }) => {
+    const { runDoctor, formatHealth, formatDoctorExtras } = await import("./cli/health.js");
     const result = await runDoctor(process.cwd());
-    await emit(result);
+    if (options.json) { await emit(result); return; }
+    console.log(formatHealth(result.data, result.warnings) + formatDoctorExtras(result.data));
   });
 
 program
@@ -280,7 +288,8 @@ program
   .option("--limit <n>", "max results", "10")
   .option("--threshold <n>", "vitality threshold for fading", "0.3")
   .option("--project <tag>", "hard-filter ranked/similar results to one project's notes (omit = whole vault; scoped results name the other projects)")
-  .action(async (kind: string, note: string | undefined, options: { limit?: string; threshold?: string; project?: string }) => {
+  .option("--json", "machine-readable output")
+  .action(async (kind: string, note: string | undefined, options: { limit?: string; threshold?: string; project?: string; json?: boolean }) => {
     let result;
     switch (kind) {
       case "orphans":
@@ -326,16 +335,32 @@ program
       default:
         throw new Error(`Unknown query kind: ${kind}`);
     }
-    await emit(result);
+    const json = (options as { json?: boolean }).json === true;
+    if (json) { await emit(result); return; }
+    if (kind === "ranked" || kind === "similar") {
+      const { formatRankedRows } = await import("./cli/render.js");
+      const data = result.data as { results?: Parameters<typeof formatRankedRows>[0]; query?: string };
+      const rows = data.results ?? [];
+      console.log(`${kind === "ranked" ? "Ranked" : "Similar"}: "${data.query ?? note}" — ${rows.length} notes`);
+      console.log("");
+      for (const line of formatRankedRows(rows)) console.log(line);
+      for (const w of result.warnings) console.log(`⚠ ${w}`);
+      return;
+    }
+    const { formatQuery } = await import("./cli/query.js");
+    console.log(formatQuery(kind, result.data));
   });
 
 program
   .command("validate")
   .description("Schema-validate one note (frontmatter, types, description limits)")
   .argument("<note>", "path to note")
-  .action(async (note: string) => {
+  .option("--json", "machine-readable output")
+  .action(async (note: string, options: { json?: boolean }) => {
     const result = await runValidate({ notePath: note });
-    await emit(result);
+    if (options.json) { await emit(result, result.success ? 0 : 1); return; }
+    const { formatValidate } = await import("./cli/validate.js");
+    console.log(formatValidate(note, result));
   });
 
 program
@@ -752,7 +777,8 @@ program
   .argument("<action>", "build | status | export-learned | import-learned")
   .option("--force", "rebuild all embeddings")
   .option("--file <path>", "export/import path (default ops/mnemos-learned.ndjson)")
-  .action(async (action: string, options: { force?: boolean; file?: string }) => {
+  .option("--json", "machine-readable output")
+  .action(async (action: string, options: { force?: boolean; file?: string; json?: boolean }) => {
     let result;
     switch (action) {
       case "build":
@@ -772,14 +798,17 @@ program
       default:
         throw new Error(`Unknown index action: ${action}`);
     }
-    await emit(result);
+    if (options.json || action !== "status") { await emit(result); return; }
+    const { formatIndexStatus } = await import("./cli/indexcmd.js");
+    console.log(formatIndexStatus(result.data as Record<string, unknown>));
   });
 
 program
   .command("graph")
   .description("Graph analysis over the knowledge graph (communities, metrics)")
   .argument("<action>", "metrics | communities")
-  .action(async (action: string) => {
+  .option("--json", "machine-readable output")
+  .action(async (action: string, options: { json?: boolean }) => {
     let result;
     switch (action) {
       case "metrics":
@@ -791,7 +820,9 @@ program
       default:
         throw new Error(`Unknown graph action: ${action}`);
     }
-    await emit(result);
+    if (options.json || action !== "metrics") { await emit(result); return; }
+    const { formatGraphMetrics } = await import("./cli/graphcmd.js");
+    console.log(formatGraphMetrics(result.data));
   });
 
 program
@@ -805,7 +836,8 @@ program
   .option("-p, --project <projects...>", "supersede only: project tags for the replacement note")
   .option("--apply", "actually mutate (default: dry-run preview)")
   .option("--max-forget <n>", "refuse if the query addresses more than N notes (default 10; Infinity disables)", "10")
-  .action(async (op, query, options: { newText?: string; project?: string[]; apply?: boolean; maxForget?: string; slugs?: string; reason?: string }) => {
+  .option("--json", "machine-readable output")
+  .action(async (op, query, options: { newText?: string; project?: string[]; apply?: boolean; maxForget?: string; slugs?: string; reason?: string; json?: boolean }) => {
     if (!["release", "supersede", "purge"].includes(op)) {
       await emit({ success: false, warnings: [`unknown op "${op}" — release | supersede | purge`] });
       return;
@@ -823,6 +855,13 @@ program
       maxForget: cap,
       actor: "cli",
     });
+    // Dry-run previews render for humans (what would this touch?) — the
+    // applied result and refusals keep their structure either way.
+    if (!options.json && !options.apply && result.success && result.data) {
+      const { formatForgetPreview } = await import("./cli/forget.js");
+      console.log(formatForgetPreview(result.data as Record<string, unknown>));
+      return;
+    }
     await emit(result, result.success ? 0 : 1);
   });
 
@@ -942,7 +981,8 @@ program
   .option("--raw-days <days>", "records younger than this stay raw", "14")
   .option("--compress-days <days>", "records older than this archive instead of compressing", "90")
   .option("--apply", "actually mutate (default: dry-run preview)")
-  .action(async (action: string, options: { rawDays?: string; compressDays?: string; apply?: boolean }) => {
+  .option("--json", "machine-readable output")
+  .action(async (action: string, options: { rawDays?: string; compressDays?: string; apply?: boolean; json?: boolean }) => {
     if (action !== "compress") {
       throw new Error(`Unknown sessions action: ${action} (compress only)`);
     }
@@ -957,31 +997,17 @@ program
       compressDays: options.compressDays ? parseInt(options.compressDays, 10) : undefined,
       apply: options.apply === true,
     });
-    if (!options.apply) {
-      const preview = [...result.compressed.map((c) => `compress ${c}`), ...result.archived.map((a) => `archive ${a}`)];
-      console.log(
-        JSON.stringify(
-          {
-            success: true,
-            data: { ...result, preview },
-            warnings: [`dry run (default) — re-run with --apply to mutate; ${result.raw} recent records stay raw`],
-          },
-          null,
-          2,
-        ),
-      );
+    if (options.json) {
+      console.log(JSON.stringify({ success: true, data: result, warnings: [] }, null, 2));
     } else {
+      const verb = options.apply ? "Applied" : "Dry run (--apply to execute)";
       console.log(
-        JSON.stringify(
-          {
-            success: true,
-            data: result,
-            warnings: [`${result.raw} recent records stay raw; lineage edges are preserved in every band`],
-          },
-          null,
-          2,
-        ),
+        `Session streams: ${verb} — ${result.raw} stay raw, ` +
+          `${result.compressed.length} compressed, ${result.archived.length} archived.`,
       );
+      for (const c of result.compressed) console.log(`  compress ${c}`);
+      for (const a of result.archived) console.log(`  archive  ${a}`);
+      console.log("Lineage edges are preserved in every band.");
     }
     await disposeEmbedder();
     await maybeNotifyUpdate();
@@ -995,13 +1021,16 @@ program
   .description("Activation topology analysis; archive candidates (dry-run by default)")
   .option("--apply", "actually archive candidates (default: dry-run)")
   .option("--verbose", "show full activation topology")
-  .action(async (options: { apply?: boolean; verbose?: boolean }) => {
+  .option("--json", "machine-readable output")
+  .action(async (options: { apply?: boolean; verbose?: boolean; json?: boolean }) => {
     const result = await runPrune({
       startDir: process.cwd(),
       dryRun: !options.apply,
       verbose: options.verbose,
     });
-    await emit(result);
+    if (options.json) { await emit(result); return; }
+    const { formatPrune } = await import("./cli/prune.js");
+    console.log(formatPrune(result.data, options.verbose));
   });
 
 program
@@ -1013,7 +1042,8 @@ program
   .option("--no-recursive", "disable recursive sub-question decomposition")
   .option("--include-archived", "include archived notes")
   .option("--project <tag>", "filter RESULTS to one project's notes (traversal stays global; results name the other projects)")
-  .action(async (query: string, options: { limit?: string; depth?: string; recursive?: boolean; includeArchived?: boolean; project?: string }) => {
+  .option("--json", "machine-readable output")
+  .action(async (query: string, options: { limit?: string; depth?: string; recursive?: boolean; includeArchived?: boolean; project?: string; json?: boolean }) => {
     const result = await runExplore(
       process.cwd(),
       query,
@@ -1025,7 +1055,9 @@ program
         project: options.project,
       },
     );
-    await emit(result);
+    if (options.json) { await emit(result, result.success ? 0 : 1); return; }
+    const { printExplore } = await import("./cli/explore.js");
+    printExplore(result);
   });
 
 

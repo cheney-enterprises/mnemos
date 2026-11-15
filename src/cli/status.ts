@@ -9,6 +9,24 @@ export type StatusResult = {
   warnings: string[];
 };
 
+/** Human rendering of `mnemos status` (the JSON is `--json`). */
+export function formatStatus(data: Record<string, unknown>): string {
+  const clients = Array.isArray(data.clients_registered)
+    ? (data.clients_registered as Array<{ client: string; scope: string }>)
+    : [];
+  const lines = [
+    `Vault:   ${String(data.vaultRoot ?? "?")}`,
+    `Notes:   ${String(data.noteCount ?? 0)}   Inbox: ${String(data.inboxCount ?? 0)}   Orphans: ${String(data.orphanCount ?? 0)}`,
+  ];
+  if (clients.length > 0) {
+    lines.push(`Clients: ${clients.map((c) => `${c.client} (${c.scope})`).join(", ")}`);
+  }
+  for (const step of (data.next_steps as string[]) ?? []) {
+    lines.push(`Next:    ${step}`);
+  }
+  return lines.join("\n");
+}
+
 export async function runStatus(
   startDir: string,
   linkGraph?: LinkGraph,

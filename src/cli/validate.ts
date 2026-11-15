@@ -55,3 +55,19 @@ export async function runValidate(
     warnings: result.warnings,
   };
 }
+
+/** Human rendering of `mnemos validate` — a verdict, then the details. */
+export function formatValidate(
+  notePath: string,
+  result: { success: boolean; errors: string[]; warnings: string[] },
+): string {
+  const lines = result.success
+    ? [`✓ ${notePath} — valid`]
+    : [`✗ ${notePath} — ${result.errors.length} schema violation(s):`];
+  for (const e of result.errors) lines.push(`  error: ${e}`);
+  for (const w of result.warnings) lines.push(`  warn:  ${w}`);
+  if (result.success && result.warnings.length > 0) {
+    lines[0] = `✓ ${notePath} — valid (with warnings)`;
+  }
+  return lines.join("\n");
+}

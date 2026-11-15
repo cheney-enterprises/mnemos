@@ -473,7 +473,7 @@ Layer 1: Knowledge Graph + Vitality    wiki-links, ACT-R decay, spreading activa
 Layer 0: Markdown files on disk        git-friendly, human-readable, portable
 ```
 
-19 MCP tools · 7 resources · 28 CLI commands · 1332 tests
+19 MCP tools · 7 resources · 28 CLI commands · 1348 tests
 
 ---
 

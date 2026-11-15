@@ -342,6 +342,30 @@ export function formatRequestDecision(
   return parts.join("\n");
 }
 
+/** Human rendering of a forget dry-run preview (the default op output).
+ * The matched set is the contract — it names EXACTLY what the op would
+ * touch, because over-matching a forget is the worst failure this module
+ * can have. */
+export function formatForgetPreview(data: Record<string, unknown>): string {
+  const matched = (data.matched as Array<{ slug: string; anchor?: number; similarity?: number }>) ?? [];
+  const lines = [
+    `${String(data.op)}${data.apply ? "" : " (DRY RUN — pass --apply to execute)"}: "${String(data.query)}"`,
+  ];
+  if (matched.length === 0) {
+    lines.push("  no notes matched.");
+  } else {
+    lines.push(`  would touch ${matched.length} note(s):`);
+    for (const m of matched) {
+      const why = [
+        m.anchor !== undefined ? `anchor ${Number(m.anchor).toFixed(2)}` : null,
+        m.similarity !== undefined ? `similarity ${Number(m.similarity).toFixed(3)}` : null,
+      ].filter(Boolean).join(", ");
+      lines.push(`    - ${m.slug}${why ? `  (${why})` : ""}`);
+    }
+  }
+  return lines.join("\n");
+}
+
 export async function runRequestsList(
   startDir: string,
   vaultOverride?: string,

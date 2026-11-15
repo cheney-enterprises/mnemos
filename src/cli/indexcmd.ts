@@ -35,6 +35,20 @@ export type IndexStatusResult = {
   warnings: string[];
 };
 
+/** Human rendering of `mnemos index status`. */
+export function formatIndexStatus(data: Record<string, unknown>): string {
+  if (!data.exists) {
+    return `Index: none — run mnemos index build (model: ${String(data.model ?? "?")})`;
+  }
+  const mb = (Number(data.dbSizeBytes ?? 0) / 1_048_576).toFixed(1);
+  const built = (data.meta as Record<string, unknown> | undefined)?.built_at;
+  const lines = [
+    `Index: ${String(data.noteCount ?? 0)} notes · model ${String(data.model ?? "?")} · ${mb} MB`,
+  ];
+  if (built) lines.push(`Built: ${String(built).slice(0, 19).replace("T", " ")}`);
+  return lines.join("\n");
+}
+
 /**
  * Rebuild everything derived from the vault, in one place.
  *

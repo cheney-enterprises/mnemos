@@ -813,6 +813,42 @@ export async function runExploreExpandCli(
  * is the explore path's equivalent of the query path's retrieval-log
  * boundary: nothing the ranker never surfaced can be rewarded.
  */
+/** Human rendering of `mnemos explore` — numbered results with scores, the
+ * §6 origin label when the scope weighting ran, and one description line. */
+export function printExplore(result: { success: boolean; data: Record<string, unknown>; warnings: string[] }): void {
+  if (!result.success) {
+    for (const w of result.warnings) console.error(`⚠ ${w}`);
+    return;
+  }
+  const d = result.data as {
+    query: string;
+    results: Array<{
+      title: string;
+      score: number;
+      snippet?: { description?: string | null; preview?: string | null };
+      scopeTrace?: { band?: string; origin?: string | null; waived?: boolean } | null;
+    }>;
+    count: number;
+    elapsed_ms?: number;
+  };
+  console.log(`Explore: "${d.query}" — ${d.count} notes${d.elapsed_ms ? ` (${d.elapsed_ms} ms)` : ""}`);
+  console.log("");
+  for (const [i, r] of d.results.entries()) {
+    const origin =
+      r.scopeTrace?.origin
+        ? ` · from ${r.scopeTrace.origin}${r.scopeTrace.waived ? " (waived)" : ""}`
+        : "";
+    console.log(`${i + 1}. ${r.title}  (${Number(r.score).toFixed(3)}${origin})`);
+    const desc = (r.snippet?.description ?? r.snippet?.preview ?? "")
+      .replace(/^---\n[\s\S]*?\n---\n?/, "")
+      .split("\n")
+      .map((l) => l.trim())
+      .find((l) => l.length > 0 && !l.startsWith("#"));
+    if (desc) console.log(`   ${desc.length > 100 ? `${desc.slice(0, 100)}…` : desc}`);
+  }
+  for (const w of result.warnings) console.log(`⚠ ${w}`);
+}
+
 export async function runExploreConcludeCli(
   startDir: string,
   explorationId: string,
