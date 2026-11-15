@@ -54,6 +54,33 @@ describe("wake budget contract", () => {
   });
 });
 
+describe("resurfaced section (the debt #2 mechanism's contract)", () => {
+  const resurfaced = [
+    { title: "kite old high q", daysIdle: 31, q: 0.512 },
+    { title: "roust old high q", daysIdle: 20, q: 0.314 },
+  ];
+
+  it("renders one line per note: title, idle days, and the q that earned it", () => {
+    const out = buildWakePayload(fakeInputs({ resurfaced }) as never, 96);
+    const joined = out.lines.join("\n");
+    expect(joined).toContain("kite old high q — idle 31d, q 0.51");
+    expect(joined).toContain("roust old high q — idle 20d, q 0.31");
+    expect(out.sections["resurfaced"]).toBe(2);
+  });
+
+  it("absent input renders no section (the scaffold contract, backwards-safe)", () => {
+    const out = buildWakePayload(fakeInputs() as never, 96);
+    expect(out.sections["resurfaced"] ?? 0).toBe(0);
+  });
+
+  it("drops early under budget pressure — useful, never load-bearing", () => {
+    // Tight budget: resurfaced must vanish while goals (the contract) survive.
+    const out = buildWakePayload(fakeInputs({ resurfaced }) as never, 16);
+    expect(out.sections["resurfaced"] ?? 0).toBe(0);
+    expect(out.sections["active_goals"] ?? 0).toBeGreaterThan(0);
+  });
+});
+
 describe("projects section (doctrine promise: the briefing lists active projects)", () => {
   it("renders the roster as 'tag (N notes)' lines, capped at 8", () => {
     const out = buildWakePayload(fakeInputs() as never, 96);

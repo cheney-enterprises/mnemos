@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### Added — the named debt #2: resurfacing — wake's empty section gets its mechanism
+- **What it was.** The wake briefing carried a `resurfaced` section that was
+  a scaffold since the budget ladder shipped (`cap: 0`, hardcoded empty,
+  wake.ts) — the design's "high-value notes the current context hasn't
+  touched" signal never reached a single boot.
+- **The mechanism — the loop's own judgement, not a new heuristic.**
+  `assembleResurfaced` (wake-sources.ts) selects notes the Q-learning loop
+  actually REWARDED (update_count > 0, non-legacy — the same bar
+  `getDecayedQ` applies, excluding pre-#37 rule-less rows via
+  `LEGACY_NOTES_SQL`) whose last surfacing (note_access, falling back to
+  creation date) is at least `wake.resurface_min_idle_days` ago (default
+  14). Ranked by decayed q desc, hard-capped (`wake.resurface_cap`, default
+  3). Scoped wakes pass the project's member slugs — the section is
+  adjacent to the current project's work; global wakes consider the vault.
+  Each line names what, how stale, and why: `title — idle 31d, q 0.51`.
+- **Budget discipline.** The section drops FIRST under budget pressure
+  (after notices, before policy) — useful, never load-bearing; the contract
+  tests pin it. Config-tunable via parse-and-set (the `waive_joint_df`
+  pattern), 0/0 disables.
+- **The inverted filter the test caught.** The first draft selected
+  `COALESCE(rule, 0) = 0` — which IS the legacy definition (IS_LEGACY =
+  update_count > 0 AND rule = 0), so the section would have been empty
+  everywhere and `getDecayedQ` would have refused every selected row. The
+  fixture (real index + note_q + note_access) failed exactly so; fixed with
+  the canonical `LEGACY_NOTES_SQL` exclusion and a fixture that stamps
+  `rule = 1` the way `updateQ` does.
+- **Tests.** Selection/filter/cap/threshold/disable matrix on a real index
+  (wake-sources.test.ts); render + backwards-safety + drop-order contract
+  (wake.test.ts). Suite 1,301 → 1,306.
+
 ### Fixed — the named debt #4: the anchor waiver's pair exclusivity ("Grace paella")
 - **What it was.** The §5 waiver fired on ANY matcher match in the top
   decile. The matcher's insight is that "Grace paella" is an exact address —

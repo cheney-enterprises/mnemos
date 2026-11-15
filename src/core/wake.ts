@@ -9,6 +9,10 @@ export type WakeInputs = {
   daily: string | DailyEntry[];
   warmNotes: Array<{ title: string; decayed: number }>;
   projects: Array<{ project: string; notes: number }>;
+  /** Resurfaced: high-Q notes untouched ≥ min-idle days (wake-sources'
+   * assembleResurfaced). Scoped wakes pass the project's members; global
+   * wakes consider the vault. Empty = the section renders nothing. */
+  resurfaced?: Array<{ title: string; daysIdle: number; q: number }>;
   /** Compact gate line (policyLine()); the full sheet is mnemos://policy. */
   policy?: string;
   vaultStats: {
@@ -107,7 +111,7 @@ export function buildWakePayload(
     daily_recent: 20,
     warm_notes: 10,
     projects: 8,
-    resurfaced: 0,
+    resurfaced: 3,
     vault_vitals: 4,
     policy: 1,
     notices: 2,
@@ -219,8 +223,18 @@ export function buildWakePayload(
     cap: caps.projects,
   });
 
-  // Resurfaced (none for now)
-  sections.push({ name: "resurfaced", lines: [], cap: caps.resurfaced });
+  // Resurfaced — high-Q notes the current context hasn't touched in a while
+  // (the section was a scaffold with cap 0 since the budget ladder shipped;
+  // the mechanism lives in wake-sources' assembleResurfaced). One line per
+  // note: what it is, HOW stale, WHY it's here (the loop's own q).
+  const resurfacedLines = (inputs.resurfaced ?? []).map(
+    (n) => `${n.title} — idle ${n.daysIdle}d, q ${n.q.toFixed(2)}`,
+  );
+  sections.push({
+    name: "resurfaced",
+    lines: resurfacedLines.slice(0, caps.resurfaced),
+    cap: caps.resurfaced,
+  });
 
   // Vault vitals
   const vaultLines: string[] = [];
@@ -260,6 +274,9 @@ export function buildWakePayload(
   // Drop sections if over budget
   const dropOrder: Array<keyof typeof caps> = [
     "notices",
+    // Resurfacing is the most droppable section with content: useful, but
+    // never load-bearing — goals/reminders/policy are the contract.
+    "resurfaced",
     "policy",
     "vault_vitals",
     "projects",

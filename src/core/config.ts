@@ -142,6 +142,15 @@ export type WakeConfig = {
    */
   project_paths: Record<string, string>;
   budget_lines: number;
+  /**
+   * Resurfacing (the wake section that was a scaffold): notes the Q-learning
+   * loop rewarded (decayed q > 0) whose last surfacing is at least this many
+   * days old — high-value notes the current context hasn't touched in a
+   * while. 0 disables the section.
+   */
+  resurface_min_idle_days: number;
+  /** Hard cap on resurfaced lines in a wake briefing. */
+  resurface_cap: number;
 };
 
 export type WarmthConfig = {
@@ -303,6 +312,8 @@ const DEFAULT_WAKE_CONFIG: WakeConfig = {
   project_default: "",
   project_paths: {},
   budget_lines: 96,
+  resurface_min_idle_days: 14,
+  resurface_cap: 3,
 };
 
 /** Config-map boundary: keep only genuine string→string pairs, trimmed. */
@@ -512,6 +523,8 @@ export function applyConfigDefaults(raw: Partial<MnemosConfig>): MnemosConfig {
       project_default: typeof rawWake?.project_default === "string" ? rawWake.project_default : DEFAULT_WAKE_CONFIG.project_default,
       project_paths: parseStringRecord(rawWake?.project_paths),
       budget_lines: typeof rawWake?.budget_lines === "number" && rawWake.budget_lines > 0 ? rawWake.budget_lines : DEFAULT_WAKE_CONFIG.budget_lines,
+      resurface_min_idle_days: typeof rawWake?.resurface_min_idle_days === "number" && rawWake.resurface_min_idle_days >= 0 ? rawWake.resurface_min_idle_days : DEFAULT_WAKE_CONFIG.resurface_min_idle_days,
+      resurface_cap: typeof rawWake?.resurface_cap === "number" && rawWake.resurface_cap >= 0 ? rawWake.resurface_cap : DEFAULT_WAKE_CONFIG.resurface_cap,
     },
     warmth: {
       enabled: rawWarmth?.enabled ?? DEFAULT_WARMTH_CONFIG.enabled,

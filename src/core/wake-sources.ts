@@ -45,6 +45,85 @@ export async function assembleWarmNotes(
 }
 
 /**
+ * Resurfacing — the wake section that was a scaffold (`resurfaced: 0` since
+ * the budget ladder shipped). The design intent (docs/wake-nap-design.md):
+ * high-VALUE notes the current context has not TOUCHED in a while get one
+ * line in the briefing, so a useful note does not stay invisible just
+ * because nothing recently retrieved points at it.
+ *
+ * "High value" is the Q-learning loop's own judgement, not a heuristic we
+ * invent here: only notes the loop actually REWARDED (update_count > 0, not
+ * legacy — the same bar getDecayedQ applies) qualify, ranked by decayed q.
+ * "Untouched" is note_access: last surfacing at least minIdleDays ago; a
+ * never-surfaced note idles since creation. Scoped wakes pass the project's
+ * member slugs, so the section is adjacent to the current project's work;
+ * the global wake considers the whole vault. Best-effort like every wake
+ * source: a missing/locked db yields an empty list, never an error.
+ */
+export async function assembleResurfaced(
+  dbPath: string,
+  opts: { minIdleDays: number; cap: number; projectSlugs?: Set<string> },
+): Promise<Array<{ title: string; daysIdle: number; q: number }>> {
+  if (opts.cap <= 0 || opts.minIdleDays <= 0) return [];
+  try {
+    const { default: Database } = await import('better-sqlite3');
+    const { getDecayedQ, LEGACY_NOTES_SQL } = await import('./qvalue.js');
+    const { FORGOTTEN_STATUSES } = await import('./status.js');
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const ph = [...FORGOTTEN_STATUSES].map(() => '?').join(', ');
+      const rows = db
+        .prepare(
+          `SELECT n.slug AS slug,
+                  n.created AS created,
+                  a.last_accessed AS lastAccessed,
+                  q.update_count AS updates,
+                  COALESCE(q.rule, 0) AS legacy
+           FROM note n
+           LEFT JOIN note_access a ON a.slug = n.slug
+           LEFT JOIN note_q q ON q.note_id = n.slug
+           WHERE (n.status = '' OR LOWER(n.status) NOT IN (${ph}))
+             -- The same bar getDecayedQ applies: exclude legacy learning
+             -- (update_count > 0 with no rule stamp) — getDecayedQ would
+             -- refuse those rows anyway, so selecting them would make the
+             -- section empty everywhere the reset hasn't run.
+             AND n.slug NOT IN (${LEGACY_NOTES_SQL})
+             AND q.update_count > 0`,
+        )
+        .all(...FORGOTTEN_STATUSES) as Array<{
+        slug: string; created: string | null; lastAccessed: string | null;
+        updates: number; legacy: number;
+      }>;
+      const now = Date.now();
+      const day = 86_400_000;
+      const out: Array<{ title: string; daysIdle: number; q: number }> = [];
+      for (const r of rows) {
+        if (opts.projectSlugs && !opts.projectSlugs.has(r.slug)) continue;
+        // Idle since the last surfacing; a never-surfaced note idles since
+        // creation. No dates at all — not measurable, skip. Both columns
+        // start with ISO YYYY-MM-DD (last_accessed is SQLite datetime
+        // format); take the date part, which parses unambiguously as UTC.
+        const anchor = r.lastAccessed ?? r.created;
+        if (!anchor) continue;
+        const t = Date.parse(`${anchor.slice(0, 10)}T00:00:00Z`);
+        if (!Number.isFinite(t)) continue;
+        const daysIdle = (now - t) / day;
+        if (daysIdle < opts.minIdleDays) continue;
+        const q = getDecayedQ(db, r.slug);
+        if (q <= 0) continue;
+        out.push({ title: r.slug, daysIdle: Math.floor(daysIdle), q });
+      }
+      out.sort((a, b) => b.q - a.q || b.daysIdle - a.daysIdle);
+      return out.slice(0, opts.cap);
+    } finally {
+      db.close();
+    }
+  } catch {
+    return [];
+  }
+}
+
+/**
  * The project roster from the live derived index — the same note_project rows
  * the ask-first gate's refusal shows, so the roster an agent files against is
  * the roster wake advertises. The map counts: a project whose only note is its

@@ -6,7 +6,7 @@ import path from "node:path";
 import { homedir } from "node:os";
 import { loadConfig } from "../core/config.js";
 import { loadPolicy, policyLine } from "../core/policy.js";
-import { loadWakeSources, assembleWakeInputs, assembleProjectWake } from "../core/wake-sources.js";
+import { loadWakeSources, assembleWakeInputs, assembleProjectWake, assembleResurfaced, projectMemberSlugs } from "../core/wake-sources.js";
 import { buildWakePayload } from "../core/wake.js";
 import { parseTemporal, classifyReminder } from "../core/temporal.js";
 import { bindSession } from "../core/sessionscope.js";
@@ -270,8 +270,29 @@ export async function runWake(
       scoped && projectData
         ? [{ date: today, lines: projectData.daily }]
         : (globalInputs.activity ?? []).map((l) => ({ date: today, lines: [l] })),
-    policy: policyLine(policy)
+    policy: policyLine(policy),
+    // Filled in below (assembleResurfaced) — declared here so the literal's
+    // inferred type carries the field.
+    resurfaced: [] as Array<{ title: string; daysIdle: number; q: number }>,
   };
+  // Resurfacing (the debt #2 mechanism): high-Q notes idle ≥ the configured
+  // days. Scoped wakes pass the project's member slugs — "adjacent to the
+  // current project's work" — global wakes consider the vault. Best-effort
+  // like every wake source; an empty vault/db yields no section.
+  {
+    const minIdle = config.wake.resurface_min_idle_days;
+    const cap = Math.min(config.wake.resurface_cap, 3);
+    let slugs: Set<string> | undefined;
+    if (scoped && projectData) {
+      slugs = await projectMemberSlugs(dbPath, chosen as string);
+      if (slugs.size === 0) slugs = undefined; // empty = unknown, not "no members"
+    }
+    wakeInputs.resurfaced = await assembleResurfaced(dbPath, {
+      minIdleDays: minIdle,
+      cap,
+      projectSlugs: slugs,
+    });
+  }
 
   const out = buildWakePayload(wakeInputs, budgetLines);
   const result: Awaited<ReturnType<typeof runWake>> = {

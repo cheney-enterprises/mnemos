@@ -102,6 +102,110 @@ describe("assembleProjects — the roster the briefing and the ask-first gate sh
   });
 });
 
+describe("assembleResurfaced — the debt #2 mechanism (high-Q, untouched)", () => {
+  it("selects rewarded notes idle past the threshold, ranked by decayed q; filters and caps", async () => {
+    const { default: Database } = await import("better-sqlite3");
+    const { initIndexStore, syncIndex } = await import("../../src/core/indexstore.js");
+    const { initQValueTables } = await import("../../src/core/qvalue.js");
+    const { mkdir } = await import("node:fs/promises");
+
+    const root = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-resurface-"));
+    const notesDir = path.join(root, "notes");
+    await mkdir(notesDir, { recursive: true });
+    const note = (name: string, fm: string) =>
+      fs.writeFile(path.join(notesDir, `${name}.md`), `---\n${fm}\n---\n\nBody.\n`, "utf8");
+
+    const daysAgo = (n: number) =>
+      new Date(Date.now() - n * 86_400_000).toISOString().slice(0, 19).replace("T", " ");
+
+    await note("kite-old-high-q", "type: insight\nproject: [kite]");
+    await note("kite-old-low-q", "type: insight\nproject: [kite]");
+    await note("kite-recent", "type: insight\nproject: [kite]"); // accessed 1d ago
+    await note("kite-forgotten", "type: insight\nproject: [kite]\nstatus: archived");
+    await note("roust-old-high-q", "type: insight\nproject: [roust]");
+    await note("kite-never-rewarded", "type: insight\nproject: [kite]"); // no Q row
+
+    const db = new Database(path.join(root, "index.db"));
+    initIndexStore(db);
+    await syncIndex(db, notesDir);
+    initQValueTables(db);
+
+    // Learned value: the loop REWARDED these — update_count > 0 AND a rule
+    // stamp (rule = 1 is what updateQ writes). A row without the stamp is
+    // LEGACY by definition (pre-#37) and getDecayedQ refuses it.
+    const q = (slug: string, value: number, days: number) =>
+      db.prepare(
+        `INSERT INTO note_q (note_id, q_value, update_count, last_updated, rule)
+         VALUES (?, ?, 2, ?, 1)`,
+      ).run(slug, value, daysAgo(days));
+    q("kite-old-high-q", 0.9, 40);
+    q("kite-old-low-q", 0.3, 40);
+    q("kite-recent", 0.8, 40);
+    q("kite-forgotten", 0.95, 40);
+    q("roust-old-high-q", 0.7, 40);
+    // "kite never rewarded": no row at all.
+
+    // Access: the anchor for idleness. Recent note touched 1 day ago; the
+    // forgotten one touched long ago (its status still excludes it).
+    const touch = (slug: string, days: number) =>
+      db.prepare(
+        `INSERT INTO note_access (slug, access_count, last_accessed) VALUES (?, 3, ?)`,
+      ).run(slug, daysAgo(days));
+    touch("kite-old-high-q", 30);
+    touch("kite-old-low-q", 25);
+    touch("kite-recent", 1);
+    touch("kite-forgotten", 30);
+    touch("roust-old-high-q", 20);
+    // "kite never rewarded" also never accessed — but has no Q row anyway.
+
+    // Global wake: whole vault, threshold 14 days.
+    const { assembleResurfaced } = await import("../../src/core/wake-sources.js");
+    const all = await assembleResurfaced(path.join(root, "index.db"), {
+      minIdleDays: 14, cap: 3,
+    });
+    // kite recent (idle 1d) and kite forgotten (archived) and the never-
+    // rewarded note are out; ranked by decayed q desc.
+    expect(all.map((r) => r.title)).toEqual(["kite-old-high-q", "roust-old-high-q", "kite-old-low-q"]);
+    expect(all[0].daysIdle).toBeGreaterThanOrEqual(30);
+    expect(all[0].q).toBeGreaterThan(0);
+
+    // Scoped wake: only the project's members.
+    const scoped = await assembleResurfaced(path.join(root, "index.db"), {
+      minIdleDays: 14, cap: 3, projectSlugs: new Set(["kite-old-high-q", "kite-old-low-q", "kite-recent"]),
+    });
+    expect(scoped.map((r) => r.title)).toEqual(["kite-old-high-q", "kite-old-low-q"]);
+
+    // Cap is a hard law.
+    const capped = await assembleResurfaced(path.join(root, "index.db"), {
+      minIdleDays: 14, cap: 1,
+    });
+    expect(capped.map((r) => r.title)).toEqual(["kite-old-high-q"]);
+
+    // Tunable threshold: raised past every idleness, the section empties.
+    const strict = await assembleResurfaced(path.join(root, "index.db"), {
+      minIdleDays: 400, cap: 3,
+    });
+    expect(strict).toEqual([]);
+
+    // 0 disables.
+    const off = await assembleResurfaced(path.join(root, "index.db"), {
+      minIdleDays: 14, cap: 0,
+    });
+    expect(off).toEqual([]);
+
+    db.close();
+    await fs.rm(root, { recursive: true, force: true });
+  });
+
+  it("missing db degrades to an empty list, never an error", async () => {
+    const { assembleResurfaced } = await import("../../src/core/wake-sources.js");
+    const empty = await assembleResurfaced("/nonexistent/path/index.db", {
+      minIdleDays: 14, cap: 3,
+    });
+    expect(empty).toEqual([]);
+  });
+});
+
 describe("assembleProjectWake — the scoped context layer", () => {
   it("resolves the map, extracts Current State, scopes daily and notes to the project", async () => {
     const { default: Database } = await import("better-sqlite3");
