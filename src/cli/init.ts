@@ -1,7 +1,7 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { getVaultPaths } from "../core/vault.js";
+import { getVaultPaths, registerVault } from "../core/vault.js";
 import { readState, isOnboarded } from "../core/state.js";
 import { runBootSequence } from "./boot.js";
 import { inspectClientInstalls, buildOnboardingNextSteps } from "./bridge.js";
@@ -61,6 +61,16 @@ export async function runInit(options: InitOptions): Promise<InitResult> {
   } catch {
     await fs.mkdir(paths.marker, { recursive: true });
     result.created.push(paths.marker);
+  }
+
+  // Register: a vault created anywhere on disk is CLI-discoverable from
+  // anywhere (the user-only surfaces resolve the vault from the working
+  // directory, and the user should not have to know where the vault lives).
+  // Idempotent; best-effort — registration failure must not fail init.
+  try {
+    await registerVault(target);
+  } catch {
+    // The vault works; discovery just falls back to cwd/global.
   }
 
   return withNextSteps(result, target);

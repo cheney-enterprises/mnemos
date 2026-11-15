@@ -262,8 +262,11 @@ export interface RequestListResult {
   warnings: string[];
 }
 
-export async function runRequestsList(startDir: string): Promise<RequestListResult> {
-  const vaultRoot = await findVaultRoot(startDir);
+export async function runRequestsList(
+  startDir: string,
+  vaultOverride?: string,
+): Promise<RequestListResult> {
+  const vaultRoot = await findVaultRoot(startDir, vaultOverride);
   return {
     success: true,
     data: { intents: await listIntents(vaultRoot) },
@@ -332,9 +335,9 @@ export async function runRequestDecide(
   startDir: string,
   id: string,
   decision: RequestDecision,
-  options: RequestDecideOptions = {},
+  options: RequestDecideOptions & { vaultOverride?: string } = {},
 ): Promise<{ success: boolean; data?: Record<string, unknown>; warnings: string[] }> {
-  const vaultRoot = await findVaultRoot(startDir);
+  const vaultRoot = await findVaultRoot(startDir, options.vaultOverride);
   const intent = await getIntent(vaultRoot, id);
   if (!intent) return { success: false, warnings: [`no such request: ${id}`] };
 

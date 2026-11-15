@@ -2,6 +2,43 @@
 
 ## [Unreleased]
 
+### Fixed — a vault at a non-standard path is discoverable from anywhere (the vault registry)
+- **What it was.** `mnemos requests approve rq-…` — the USER-ONLY surface,
+  the approval gate's whole point — failed with "No .mnemos marker found"
+  when run from anywhere but inside the vault. The MCP server knows the
+  vault's path by configuration, but the CLI only knew: cwd → walk up → the
+  hardcoded global vault (`~/.mnemos-memory`). A vault at
+  `~/ori-memory-vault` was invisible. The human — the one caller who should
+  never need to know the internals — had to `cd` into the vault first.
+- **The vault registry.** `~/.config/mnemos/vaults.json` (NOT `~/.mnemos` —
+  a `.mnemos` directory at $HOME would make $HOME itself look like a vault
+  root to the walk-up, the documented home-directory-vault hazard).
+  `mnemos init` registers the vault it creates; the MCP server boot
+  registers its configured vaultDir (MCP-connected vaults must be
+  CLI-discoverable, since the approval gate routes its users to the CLI).
+  Registration is idempotent; reads validate every entry and prune dead
+  ones (also on the next write).
+- **Resolution order** (findVaultRootWithSource): explicit --vault →
+  MNEMOS_VAULT → cwd walk → global default → **registry** → throw. One
+  registered vault resolves unambiguously; SEVERAL refuse to guess — the
+  multi-vault case on the approval surface is exactly where a wrong guess
+  purges the wrong vault — and name `--vault <path>` (newly exposed on
+  `mnemos requests`). Existing semantics (cwd wins, global fallback,
+  override-never-falls-back) are pinned unchanged.
+- **The registry bug the test caught.** The first draft wrote objects but
+  read back strings, so the second registration produced a mixed
+  `[string, object]` file whose object entry parsed away — one shape
+  (objects) end-to-end now.
+- **Test hygiene.** `MNEMOS_NO_REGISTER=1` (vitest-wide) keeps the
+  hundreds of throwaway test vaults out of the developer's real registry;
+  the registry tests lift the guard locally and mock `os.homedir`.
+- **Tests** (tests/e2e/auto-init.test.ts, both sides): init registers; a
+  non-vault cwd resolves via the registry; dead entries pruned (memory and
+  file); multi-vault refusal names `--vault`; cwd still wins; and the
+  Eric scenario end-to-end — a pending identity_update decided from a
+  non-vault cwd, confirm injected, the identity file actually rewritten.
+  Suite 1,320 → 1,325.
+
 ### Added — the named debt #7: `mnemos doctor` — the deep sweep
 - **What it was.** `health` covered orphans, dangling links, schema,
   fading, and learning-signal health, but the named-debt list called for

@@ -14,7 +14,13 @@ export default defineConfig({
     testTimeout: 30000,
     hookTimeout: 120000,
     // Keep the update check and "what's new" state out of the developer's
-    // real cache. Spawned MCP servers inherit this.
-    env: { MNEMOS_UPDATE_CACHE_DIR: path.join(os.tmpdir(), "mnemos-test-update-cache") },
+    // real cache. Spawned MCP servers inherit this. MNEMOS_NO_REGISTER keeps
+    // test vaults out of the developer's real vault registry (the registry
+    // auto-init.test.ts exercises mocks homedir; the rest of the suite runs
+    // init against real $HOME and must not write to ~/.config/mnemos).
+    env: {
+      MNEMOS_UPDATE_CACHE_DIR: path.join(os.tmpdir(), "mnemos-test-update-cache"),
+      MNEMOS_NO_REGISTER: "1",
+    },
   },
 });

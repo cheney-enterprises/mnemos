@@ -881,14 +881,15 @@ program
   .description("Manage pending removal/identity intents (user-only surface)")
   .argument("[action]", "list | approve | deny")
   .argument("[id]", "intent id (approve/deny)")
-  .action(async (action, id) => {
+  .option("--vault <path>", "explicit vault path (default: cwd walk, then the vault registry)")
+  .action(async (action, id, options: { vault?: string }) => {
     if (!action || action === "list") {
-      const result = await runRequestsList(process.cwd());
+      const result = await runRequestsList(process.cwd(), options.vault);
       await emit(result);
       return;
     }
     if ((action === "approve" || action === "deny") && id) {
-      const result = await runRequestDecide(process.cwd(), id, action);
+      const result = await runRequestDecide(process.cwd(), id, action, { vaultOverride: options.vault });
       await emit(result, result.success ? 0 : 1);
       return;
     }

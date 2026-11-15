@@ -126,6 +126,115 @@ describe("findVaultRootWithSource", () => {
   });
 });
 
+describe("the vault registry — a vault anywhere is discoverable from anywhere", () => {
+  let regVault: string;
+  let noRegister: string | undefined;
+
+  beforeEach(async () => {
+    // The suite-wide MNEMOS_NO_REGISTER=1 keeps init from writing the (fake)
+    // home registry everywhere else; these tests ARE about the registry, so
+    // they lift the guard and restore it after.
+    noRegister = process.env.MNEMOS_NO_REGISTER;
+    delete process.env.MNEMOS_NO_REGISTER;
+    regVault = path.join(tmpDir, "registered-vault");
+    await runInit({ targetDir: regVault });
+  });
+
+  afterEach(() => {
+    if (noRegister !== undefined) process.env.MNEMOS_NO_REGISTER = noRegister;
+  });
+
+  it("init registers the vault; a non-vault cwd resolves it (source: registered)", async () => {
+    // Register by hand (the env guard is on for the whole suite).
+    const { registerVault, getVaultRegistryPath } = await import("../../src/core/vault.js");
+    await registerVault(regVault);
+    // Sanity: the registry file exists under the fake home.
+    await expect(fs.access(getVaultRegistryPath())).resolves.toBeUndefined();
+
+    // From a directory that is NOT a vault and NOT inside one.
+    const nowhere = path.join(tmpDir, "nowhere");
+    await fs.mkdir(nowhere, { recursive: true });
+    const result = await findVaultRootWithSource(nowhere);
+    expect(result.source).toBe("registered");
+    expect(result.path).toBe(path.resolve(regVault));
+  });
+
+  it("a dead registry entry is pruned, not served", async () => {
+    const { registerVault, getVaultRegistryPath } = await import("../../src/core/vault.js");
+    await registerVault(regVault);
+    await fs.rm(regVault, { recursive: true, force: true });
+    const nowhere = path.join(tmpDir, "nowhere2");
+    await fs.mkdir(nowhere, { recursive: true });
+    // Reads prune in memory: the dead vault is never served…
+    await expect(findVaultRootWithSource(nowhere)).rejects.toThrow("No .mnemos marker found");
+    // …and the next registration writes the pruned list, so the file is
+    // clean too.
+    const second = path.join(tmpDir, "later-vault");
+    await runInit({ targetDir: second });
+    await registerVault(second);
+    const raw = await fs.readFile(getVaultRegistryPath(), "utf8");
+    expect(raw.includes("registered-vault")).toBe(false);
+    expect(raw.includes("later-vault")).toBe(true);
+  });
+
+  it("multiple registered vaults refuse to guess — they name --vault", async () => {
+    const { registerVault } = await import("../../src/core/vault.js");
+    const second = path.join(tmpDir, "second-vault");
+    await runInit({ targetDir: second });
+    await registerVault(regVault);
+    await registerVault(second);
+    const nowhere = path.join(tmpDir, "nowhere3");
+    await fs.mkdir(nowhere, { recursive: true });
+    await expect(findVaultRootWithSource(nowhere)).rejects.toThrow(/Multiple registered vaults[\s\S]*--vault/);
+  });
+
+  it("a vault at cwd still wins over the registry (walk order unchanged)", async () => {
+    const { registerVault } = await import("../../src/core/vault.js");
+    await registerVault(regVault);
+    const result = await findVaultRootWithSource(regVault);
+    expect(result.source).toBe("project");
+    expect(result.path).toBe(path.resolve(regVault));
+  });
+
+  it("the user-only surface works from a NON-vault cwd via the registry (the Eric scenario)", async () => {
+    // The failure this closes: `mnemos requests approve rq-…` run from ~ (or
+    // any repo) failed with "No .mnemos marker found" because the vault lived
+    // at a non-standard path only the MCP server knew. With the registry,
+    // the approval resolves from anywhere.
+    const { registerVault } = await import("../../src/core/vault.js");
+    const { proposeIntent, loadPolicy } = await import("../../src/core/policy.js");
+    const { loadConfig } = await import("../../src/core/config.js");
+    const { runRequestDecide } = await import("../../src/cli/forget.js");
+    const { readFrontmatterFile } = await import("../../src/core/frontmatter.js");
+
+    await registerVault(regVault);
+
+    // A pending identity_update intent in the registered vault.
+    const config = await loadConfig(path.join(regVault, "mnemos.config.yaml"));
+    const proposed = await proposeIntent({
+      opRoot: regVault,
+      kind: "identity_update",
+      selfFile: path.join(regVault, "self", "identity.md"),
+      content: "the proposed identity content",
+      reason: "the registry test's proposal",
+      sessionId: "ses-registry-test",
+      policy: loadPolicy(config).policy,
+    });
+
+    // From a directory that is NOT a vault and NOT inside one — no cd needed.
+    const nowhere = path.join(tmpDir, "nowhere4");
+    await fs.mkdir(nowhere, { recursive: true });
+    const decided = await runRequestDecide(nowhere, proposed.intent.id, "approved", {
+      confirm: async () => true,
+    });
+    expect(decided.success).toBe(true);
+
+    // And the identity file actually carries the approved content.
+    const identity = await readFrontmatterFile(path.join(regVault, "self", "identity.md"));
+    expect(identity.body).toContain("the proposed identity content");
+  });
+});
+
 describe("serve auto-create simulation", () => {
   // Simulates what serve.ts does: try findVaultRootWithSource, on failure auto-create
 

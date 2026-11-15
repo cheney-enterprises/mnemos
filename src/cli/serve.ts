@@ -18,7 +18,7 @@ import { runPrune } from "./prune.js";
 import { runForget } from "./forget.js";
 import { runUpdateFile } from "./update.js";
 import { runWake, suggestScopesForReference } from "./wake.js";
-import { findVaultRootWithSource, getGlobalVaultPath, getVaultPaths, type VaultPaths } from "../core/vault.js";
+import { findVaultRootWithSource, getGlobalVaultPath, getVaultPaths, registerVault, type VaultPaths } from "../core/vault.js";
 import { runInit } from "./init.js";
 import { GraphCache } from "../core/graph.js";
 import { initDB } from "../core/engine.js";
@@ -117,6 +117,11 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     vaultDir = globalPath;
     autoCreated = true;
   }
+  // The MCP server knows the vault's path by configuration — the CLI does
+  // not. Register it so the user-only surfaces (mnemos requests, the
+  // approval gate's CLI route) resolve the vault from any working
+  // directory. Idempotent.
+  await registerVault(vaultDir);
 
   const paths = getVaultPaths(vaultDir);
   const instructions = await buildInstructions(paths, autoCreated);
