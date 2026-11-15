@@ -1,14 +1,71 @@
 # The Dart Move — map and plan
 
-**Status: DRAFT — a planning document, not a decision.** Eric set the horizon
-("we are going to move to Dart at some point in the near future") and parked
-the Bun migration because of it. This document maps what the move IS, what it
-costs, and the decisions it needs — so that when the horizon arrives, the
-move is executed, not improvised.
+**Status: DRAFT v2 — the goal is now sharpened (2026-11-15, Eric): the
+entire reason is to provide a MEMORY BACKEND to the Flutter app, with
+per-platform embedding agents. This document maps the move, the platform
+matrix, and the decisions it needs.**
 
 ---
 
-## 0. The strategic asset that makes this move safe
+## 0. The sharpened goal (Eric, 2026-11-15)
+
+> "The entire reason would be to provide a memory backend to the Flutter
+> app. But with that comes considerations for all of the different
+> platforms, **including the embedding agent — what works on what
+> platform**. The goal is to make it a seamless integration into the app,
+> with embedding agents (and whatever else we find) changing depending upon
+> the platform build. **macOS and iOS have their own built-in embedder**
+> that needs to be tested to ensure that it meets standards — if it does
+> not, we need to determine what does and what will work on those
+> platforms. **Android has its built-in embedder. Desktop can use what we
+> use now. Web we will have to determine.**"
+
+This is **Option B with a platform matrix**: an embedded memory backend for
+aifc, where the ENGINE is pure Dart (portable) and the EMBEDDING AGENT is a
+platform interface with per-platform implementations. That is the Flutter
+way (platform channels / FFI plugins), and it maps one-to-one onto mnemos's
+existing architecture — the embedder is ALREADY a config-selected component
+(`embedding_model`), the vectors are derived state, and the markdown is the
+truth.
+
+**The load-bearing architectural fact:** because the index is rebuildable,
+**per-platform embeddings don't need to be cross-platform compatible.** The
+markdown syncs; each device rebuilds its own index with ITS embedder. (If
+aifc's memory syncs across devices, this is the whole design — see the
+decisions.)
+
+## 0.1 The platform-embedder matrix
+
+| Platform | Embedding agent | Status |
+|---|---|---|
+| **macOS / iOS** | Apple's built-in embedder (`NLContextualEmbedding`, iOS 17+/macOS 14+) — on-device, private, no model download | **UNTESTED — the first spike.** Question: does it meet retrieval standards? (Contextual word embeddings, not sentence embeddings — pooling strategy matters. Language coverage varies.) If it fails: determine what does (TFLite MiniLM on-device, or the desktop path) |
+| **Android** | Android's built-in embedder (MediaPipe TextEmbedder / TFLite route) | **UNTESTED — spike after Apple.** Same bar |
+| **Desktop** (macOS/Windows/Linux Flutter) | **What we use now** — all-MiniLM-L6-v2 via onnxruntime | Known quantity (the whole bench history) |
+| **Web** | To be determined | Candidates: transformers.js (WASM/WebGPU), server-side embedding API, or no-local-memory on web |
+
+**The standards bar is already instrumented.** "Meets standards" = the
+existing quality instruments, run per embedder against the same fixture:
+the **probe** (hard cases pass, dilution in family) and the **bench**
+(retrieval quality on real content). An embedder is platform-eligible only
+when the probe passes with it. This is the same falsification discipline as
+the §9 gate — applied to the embedding layer.
+
+## 0.2 What this changes in the architecture
+
+- The engine core (markdown, frontmatter, index, §5 ladder, stream,
+  adoption, decay, stamping) is **pure Dart** — no platform channels, fully
+  portable, testable on the host.
+- The embedder becomes an **interface** (`EmbeddingAgent`) with per-platform
+  implementations: NLContextualEmbedding (Darwin), MediaPipe/TFLite
+  (Android), onnxruntime (desktop), TBD (web).
+- The MCP server story changes shape: inside the app, memory is a **library
+  call**, not a server. The MCP surface remains for AGENT access to the
+  same vault (the agent bridge), but the app itself reads its memory
+  in-process.
+- Vector storage gains a **model tag** (embedder id + dims per index) so a
+  rebuilt index can never silently mix vectors from different agents.
+
+## 0.3 The strategic asset that makes this move safe
 
 mnemos is **markdown-native**. The notes are plain markdown with a documented
 frontmatter schema; the entire derived state (embeddings, link graph, Q
@@ -24,20 +81,12 @@ This is why the move is *possible without risk to the memory itself*. What
 is at risk is only **engine behavior parity** — and that is what the
 conformance suite (§3 below) exists to prove.
 
-## 1. Decision 1 (Eric's): motivation → scope option
+## 1. The scope option, resolved by the sharpened goal
 
-The plan differs materially depending on WHY Dart. Three candidate scopes:
-
-| Option | What it means | Cost | When it's right |
-|---|---|---|---|
-| **A. Full rewrite** | `mnemos-dart`: the engine, CLI, and MCP server all Dart; Node retired | Highest — see §4 | One language across the whole product stack matters more than schedule |
-| **B. Embedded library** | A **Dart package** (pub) exposing the engine for *aifc to embed* — the app carries its own memory; Node mnemos stays the agent-facing bridge during transition | Medium — the engine core without the CLI/bridge surface | If the real motivation is aifc-native memory (the app is Dart already) |
-| **C. Strangler-fig** | Dart components grow inside the Node host (weighting/decisions first), Node keeps the MCP plumbing | Lowest up-front, but split-brain risk forever | Only if neither A nor B is justified |
-
-**The likely tell:** if the Dart horizon is driven by aifc, Option B is the
-natural shape — and it reuses most of Option A's core work anyway. The core
-engine (markdown, frontmatter, index, weighting, stream) is common to all
-three options; the CLI/bridge/MCP shell is what differs.
+The sharpened goal **is Option B**: an embedded Dart package for aifc. What
+remains open is the fate of the Node engine and the agent bridge (Decision
+3 below) — the agent-facing surface (CLI, MCP, bridges) could stay Node
+indefinitely, retire at the flip, or be ported last.
 
 ## 2. The dependency map (Node → Dart), risk-rated
 
@@ -71,69 +120,97 @@ executable form**. Porting them IS porting the contract.
 4. **The learned-state roundtrip.** `export-learned` from the Node engine →
    import in Dart → identical Q-values on the same vault.
 
-The conformance rule: **both engines run against the same vault and must
-agree on the probe, the bench, and the golden queries before the flip.**
+**And the new axis: embedder conformance (§0.1).** Each platform's
+embedding agent runs the probe against the fixture corpus; it is
+platform-eligible only when the hard cases pass and the dilution/miss
+numbers hold in family with the desktop baseline. The embedder is a
+variable under test — the corpus, the cases, and the bar are constant.
+
+The conformance rule: **both engines — and every embedder — run against the
+same vault and must agree on the probe, the bench, and the golden queries
+before eligibility.**
 
 ## 4. Phased sequencing
 
-- **Phase 0 — the decision (this document's open questions).** Motivation,
-  option A/B/C, timing.
-- **Phase 1 — conformance harness.** Dart project skeleton; the fixture
-  corpus loads; frontmatter + config parse identically (byte-level on
-  schema fields).
-- **Phase 2 — the core engine.** Index build, recall (BM25 + vectors +
-  PPR), the §5 ladder, stream, adoption, decay — each behind its test.
-- **Phase 3 — the MCP server.** Same 18 tools, 7 resources, same payloads —
-  the clients cannot tell the difference.
-- **Phase 4 — capture + stamping + the gates.** The ask-gate replacement's
-  full retirement (§3) can land here, in the Dart world, once stamping has
-  run in practice on the Node side.
-- **Phase 5 — learned-state migration.** Export from Node, import to Dart,
-  roundtrip-verified.
-- **Phase 6 — the flip.** Dart mnemos IS mnemos; Node retired; the bridges
-  rewritten to launch the Dart binary.
+- **Phase 0 — the decisions (§8 of this document).** Sync model, standards
+  definition, timing, the Node engine's fate.
+- **Phase 1 — the embedder matrix spike + conformance harness.** FIRST (the
+  Bun lesson: measure the platform deps before anything commits):
+  NLContextualEmbedding on macOS/iOS, MediaPipe/TFLite on Android, onnx
+  baseline on desktop — each against the probe fixture. Plus the Dart
+  skeleton: the fixture corpus loads; frontmatter + config parse
+  identically.
+- **Phase 2 — the core engine (pure Dart).** Index build, recall (BM25 +
+  vectors + PPR), the §5 ladder, stream, adoption, decay — each behind its
+  test.
+- **Phase 3 — the embedding agent interface.** The `EmbeddingAgent`
+  abstraction with per-platform implementations, the model tag in vector
+  storage, and the per-embedder conformance runs.
+- **Phase 4 — in-app integration.** aifc embeds the package; memory is a
+  library call in-process.
+- **Phase 5 — the agent bridge.** The MCP surface over the Dart engine (the
+  agents reach the same vault), or the Node bridge continues during
+  transition (Decision 3).
+- **Phase 6 — learned-state + the flip.** Export/import rehearsed on a
+  copy; the Node engine's role resolved per Decision 3.
 
 ## 5. The risk register
 
-- **Embedder parity (high):** different runtime → different float paths →
-  slightly different vectors. Harmless to correctness (rebuild), but the
-  bench numbers must be re-baselined after the flip.
+- **NLContextualEmbedding quality (the first unknown):** Apple's contextual
+  embeddings are word-level, need pooling for sentence similarity, and
+  their language coverage varies. The spike measures retrieval quality, not
+  just "does it run." If it fails the bar: fall back to TFLite MiniLM
+  on-device (the desktop agent, on Apple silicon).
+- **Cross-platform vector mismatch (architectural, resolved by design):**
+  different embedders produce incompatible vectors — harmless because the
+  index is per-device and rebuildable, PROVIDED the sync model syncs
+  markdown only (Decision: confirm).
 - **The learned-state migration (medium):** Q/warmth are accumulated state,
   NOT derived — the export/import path exists but has never carried a full
-  vault across an engine. Rehearse on a copy.
+  vault across an engine. Rehearse on a copy. (In-app, per-device Q is a
+  NEW question: whose learning is it when the app is multi-device?)
 - **Louvain (medium):** the depth signal's community detection — port,
   simplify, or freeze the depth at its default.
+- **On-device latency/size (medium, mobile):** MiniLM on a phone — model
+  size (~25MB quantized) and embed latency must fit aifc's UX budget.
+  Measure in the Phase 1 spike.
 - **The long tail of CLI UX (low):** prompts, colors, the teaching `--help`
-  — easy but voluminous.
-- **Split-brain (the killer, Option C only):** two engines writing one
-  vault. If Option C, the Dart side must be read-only until the flip.
+  — easy but voluminous (and possibly not needed in-app).
 
 ## 6. Effort, honestly
 
-- Core engine (Phase 1–2): **1–2 weeks of focused agent-work** with the
+- Core engine (Phase 2): **1–2 weeks of focused agent-work** with the
   conformance suite as the verifier — the spec, the tests, and the fixture
   make this a port, not a redesign.
-- MCP + capture + stamping (Phase 3–4): **~1 week**.
-- Learned-state migration rehearsed (Phase 5): **days**.
-- The unknowns (embedder FFI friction, Louvain) are where estimates die —
-  Phase 1 must include a **spike of the embedder in Dart before anything
-  else commits** (the Bun spike's lesson: measure the native deps first).
+- Embedder matrix (Phase 1+3): **the schedule risk lives here** — Apple's
+  and Android's agents are unknowns; the spike bounds them.
+- In-app integration + agent bridge (Phase 4–5): **~1 week**.
+- Learned-state migration rehearsed (Phase 6): **days**.
+- The unknowns are where estimates die — Phase 1 is the spike phase by
+  design (the Bun spike's lesson, applied where it matters most).
 
 ## 7. What does NOT move
 
-- The vault — markdown is the truth; it runs unmodified (§8).
-- The activated config — same schema, same meaning.
-- The clients' written configs — the MCP contract is language-agnostic;
-  only the launch command changes (Phase 6).
-- The probe/bench — they run THROUGH whichever engine is under test, by
-  design; they are the move's measuring instruments, not its victims.
+- The vault — markdown is the truth; it runs unmodified (§8), per device.
+- The activated config — same schema, same meaning (the embedder id joins
+  it as a per-platform value).
+- The probe/bench — they run THROUGH whichever engine and embedder is under
+  test, by design; they are the move's measuring instruments, not its
+  victims.
+- The agent-facing MCP contract — whatever serves it, the tools and
+  payloads stay.
 
 ## 8. The open decisions (Eric's, before Phase 1)
 
-1. **Motivation:** why Dart — one language with aifc? embedded memory in
-   the app? team/tooling consolidation? (This picks Option A/B/C.)
-2. **Timing:** "near future" — after which aifc milestone?
-3. **The Node engine's fate:** retired at the flip, or kept as the
-   agent-bridge long-term (Option B's shape)?
-4. **The learned state:** migrate (export/import) or start the Dart
-   engine's learning from zero on a rebuild?
+1. **The sync model:** does aifc memory sync across devices (markdown
+   syncs, per-device indexes rebuild), or is each device's memory its own?
+   (This decides whether cross-platform vector compatibility matters at
+   all — by design it should NOT.)
+2. **The standards definition:** confirm the bar as "probe passes + bench
+   in family with the desktop baseline," per embedder, on the fixture
+   corpus.
+3. **The Node engine's fate:** agent-bridge continues (Option B shape),
+   retired at Phase 6, or ported last.
+4. **The learned state:** migrate (export/import) or start from zero on a
+   rebuild — and in-app, is Q per-device?
+5. **Timing:** "near future" — after which aifc milestone?
