@@ -2,6 +2,31 @@
 
 ## [Unreleased]
 
+### Fixed — the §9 bench no longer aborts at exit (the libc++abi "mutex lock failed")
+- **What it was.** After printing its verdict, `bench/session-scope-bench.ts`
+  called `process.exit(0)` — and onnxruntime's worker pool, still holding
+  its mutex from the semantic legs, aborted during teardown:
+  `libc++abi: terminating … mutex lock failed: Invalid argument`. All
+  output was already on screen and the exit code was 0, so it hid — but
+  any scripted consumer of the bench (CI, strict-stderr tooling) reads an
+  abort as a failure.
+- **Isolated, not guessed** (three minimal experiments): bare tsx exit is
+  clean; better-sqlite3 left open at exit is clean; onnxruntime + hard
+  exit aborts. And `disposeEmbedder()` + `process.exit()` STILL aborts —
+  the pipeline dispose does not release the ort environment threads —
+  while dispose + NATURAL exit is clean, exactly what engine.ts's comment
+  already prescribed ("natural exit after dispose is clean"). The bench's
+  forced exit was the whole bug.
+- **The fix.** The bench disposes, sets `process.exitCode`, and lets the
+  loop drain — no forced exit on the success path, the sweep path, or the
+  error path. Verified twice on the live vault: no abort, prompt exit,
+  numbers identical (gated 22% → activated 9%, miss 0).
+- **Known remaining site, deliberately untouched:**
+  `bench/forgeteval-bridge.mjs`'s `bye` op force-exits the same way, but
+  its exit semantics are part of the ForgetEval harness contract — fixing
+  it without running the full eval would be guessing. Documented here so
+  it isn't forgotten.
+
 ### Fixed — `mnemos requests list` summarizes WHAT CHANGES, so a decision can be made
 - **What it was.** `list` showed a request's LABEL, not its EFFECT: an
   identity rewrite showed a size in chars and the proposal's frontmatter

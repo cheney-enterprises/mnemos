@@ -210,7 +210,7 @@ async function sweep() {
         : "contested dilution above target";
     console.log(`  ${String(pOther).padEnd(8)} ${String(leg.dilutionPct).padEnd(9)} ${String(leg.contestedDilutionPct).padEnd(10)} ${String(leg.missPct).padEnd(6)} ${verdict}`);
   }
-  process.exit(0);
+  await disposeBeforeExit();
 }
 
 async function main() {
@@ -249,7 +249,21 @@ async function main() {
   if (AS_JSON) {
     console.log(JSON.stringify({ gated: baseline, activated, gatePass }, null, 2));
   }
-  process.exit(0);
+  await disposeBeforeExit();
+}
+
+/** The semantic legs load the embedding model (onnxruntime); its worker
+ * pool aborts at process.exit() while the session lives — the libc++abi
+ * "mutex lock failed" this bench used to spew after its own verdict.
+ * Measured 2026-11-15 by isolation: dispose + process.exit() STILL aborts
+ * (the pipeline dispose does not release the ort environment threads);
+ * dispose + NATURAL exit is clean — which is what engine.ts's comment
+ * already prescribed ("natural exit after dispose is clean"). So: dispose,
+ * set the exit code, and let the loop drain. */
+async function disposeBeforeExit(code?: number): Promise<void> {
+  const { disposeEmbedder } = await import("../src/core/engine.js");
+  await disposeEmbedder();
+  if (code !== undefined) process.exitCode = code;
 }
 
 /** A vault copy with the flag forced to a given state — see main(). */
@@ -271,7 +285,7 @@ async function copyWithFlag(flag: boolean): Promise<string> {
   return copyDir;
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error(err);
-  process.exit(1);
+  await disposeBeforeExit(1);
 });
