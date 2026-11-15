@@ -238,10 +238,18 @@ const DEFAULT_RETRIEVAL_CONFIG: RetrievalConfig = {
   stage_time_budget_ms: 500,
   stage_soft_cutoff: 0.8,
   session_scope: {
-    enabled: false,
+    // ACTIVATED 2026-11-15 by ruling (Eric): "activate everything now —
+    // we are not on npm, my own use case is the test, and if something
+    // breaks we revert to a gated version." The measured weighted world
+    // is strictly better (live vault: 23% → 9% dilution, miss 0 at every
+    // setting) and the §9 bench re-judges continuously. The ask-first
+    // gate's RETIREMENT (§3) stays deferred until its replacement
+    // (inferred project stamping at capture) exists — activation is
+    // scoped to what is built.
+    enabled: true,
     lineage_decay: 0.92,
     unlinked_floor: 0.8,
-    other_scope_multiplier: 0.75,
+    other_scope_multiplier: 0.15,
     waive_floor: 0.95,
   },
 };

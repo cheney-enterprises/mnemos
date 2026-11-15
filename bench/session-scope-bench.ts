@@ -220,43 +220,55 @@ async function main() {
   }
   console.log(`§9 gate — live vault: ${VAULT}\n`);
 
-  console.log("leg 1: baseline (flag off, in place, read-only)");
-  const baseline = await runLeg("baseline", VAULT);
+  // The live vault has been ACTIVATED (2026-11-15), so "in place" is the
+  // weighted world. The legs measure CONFIGURATIONS, not the live file's
+  // current mood: gated = a temp copy with the flag off; activated = the
+  // live vault, read-only in place.
+  console.log("leg 1: gated (flag off, temp copy) — the BEFORE world");
+  const gatedDir = await copyWithFlag(false);
+  const baseline = await runLeg("gated", gatedDir);
+  await fs.rm(path.dirname(gatedDir), { recursive: true, force: true }).catch(() => undefined);
   console.log("");
 
-  console.log("leg 2: weighted (flag on, temp copy, scope context)");
-  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-bench-"));
-  const copyDir = path.join(tmp, "vault");
-  await fs.cp(VAULT, copyDir, { recursive: true });
-  const configPath = path.join(copyDir, "mnemos.config.yaml");
-  // Parse-and-set, not text surgery: the live config's shape is whatever the
-  // user's history made it (commented blocks, existing retrieval keys). The
-  // copy's comments are expendable — only values matter to loadConfig.
-  const { parse, stringify } = await import("yaml");
-  const doc = parse(await fs.readFile(configPath, "utf8")) as Record<string, unknown>;
-  doc.retrieval = (doc.retrieval ?? {}) as Record<string, unknown>;
-  (doc.retrieval as Record<string, unknown>).session_scope = { enabled: true };
-  await fs.writeFile(configPath, stringify(doc));
-  const weighted = await runLeg("weighted", copyDir);
-  await fs.rm(tmp, { recursive: true, force: true }).catch(() => undefined);
-
+  console.log("leg 2: activated (as the live vault is configured, read-only in place)");
+  const activated = await runLeg("activated", VAULT);
   console.log("");
+
   console.log("╔══════════════════════════════════════════════════════╗");
   console.log("║ §9 gate                                          ║");
   console.log("╠──────────────┬───────────┬───────────╣");
   console.log(`║ leg          │ dilution  │ miss      ║`);
-  console.log(`║ baseline     │ ${String(baseline.dilutionPct).padStart(7)}% │ ${String(baseline.missPct).padStart(7)}% ║`);
-  console.log(`║ weighted     │ ${String(weighted.dilutionPct).padStart(7)}% │ ${String(weighted.missPct).padStart(7)}% ║`);
+  console.log(`║ gated        │ ${String(baseline.dilutionPct).padStart(7)}% │ ${String(baseline.missPct).padStart(7)}% ║`);
+  console.log(`║ activated    │ ${String(activated.dilutionPct).padStart(7)}% │ ${String(activated.missPct).padStart(7)}% ║`);
   console.log("╠──────────────┴───────────┴───────────╣");
   console.log("║ target: dilution ≤ 5%, miss = 0      ║");
   console.log("╚══════════════════════════════════════╝");
-  const gatePass = weighted.dilutionPct <= 5 && weighted.missPct === 0;
-  console.log(gatePass ? "\nGATE: MET (weighted leg satisfies §9)" : "\nGATE: NOT MET (weighted leg above target — do not flip)");
+  const gatePass = activated.dilutionPct <= 5 && activated.missPct === 0;
+  console.log(gatePass ? "\nGATE: MET (activated configuration satisfies §9)" : "\nGATE: NOT YET (target above — re-judge as the vault densifies)");
 
   if (AS_JSON) {
-    console.log(JSON.stringify({ baseline, weighted, gatePass }, null, 2));
+    console.log(JSON.stringify({ gated: baseline, activated, gatePass }, null, 2));
   }
   process.exit(0);
+}
+
+/** A vault copy with the flag forced to a given state — see main(). */
+async function copyWithFlag(flag: boolean): Promise<string> {
+  const tmp = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-bench-"));
+  const copyDir = path.join(tmp, "vault");
+  await fs.cp(VAULT, copyDir, { recursive: true });
+  const configPath = path.join(copyDir, "mnemos.config.yaml");
+  // Parse-and-set, not text surgery: the config's shape is whatever the
+  // user's history made it. The copy's comments are expendable — only
+  // values matter to loadConfig.
+  const { parse, stringify } = await import("yaml");
+  const doc = parse(await fs.readFile(configPath, "utf8")) as Record<string, unknown>;
+  doc.retrieval = (doc.retrieval ?? {}) as Record<string, unknown>;
+  const scope = ((doc.retrieval as Record<string, unknown>).session_scope ?? {}) as Record<string, unknown>;
+  scope.enabled = flag;
+  (doc.retrieval as Record<string, unknown>).session_scope = scope;
+  await fs.writeFile(configPath, stringify(doc));
+  return copyDir;
 }
 
 main().catch((err) => {

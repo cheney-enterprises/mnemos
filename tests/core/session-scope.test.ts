@@ -24,22 +24,18 @@ let flagOffVault: string;
 let flagOnVault: string;
 
 async function setSessionScopeFlag(vaultDir: string, enabled: boolean) {
+  // Parse-and-set, not text surgery: the scaffold's flag is ON by default
+  // since the 2026-11-15 activation, so the old commented-block regex can no
+  // longer be matched — and a helper must work regardless of the block's
+  // shape. The yaml round-trip drops comments; tests read values only.
   const configPath = path.join(vaultDir, "mnemos.config.yaml");
-  // Normalize CRLF → LF first: a Windows checkout may deliver the scaffold
-  // with CRLF line endings, and the match below is line-ending shaped.
-  const content = (await fs.readFile(configPath, "utf8")).replace(/\r\n/g, "\n");
-  // The scaffolded config carries the flag commented out (spec §10: off
-  // until the flip). Uncomment — or, when disabling, remove the block.
-  const next = enabled
-    ? content.replace(
-        /# session_scope:\n  #   enabled: true/,
-        "session_scope:\n    enabled: true",
-      )
-    : content.replace(/\nsession_scope:\n  enabled: true/, "");
-  if (enabled && next === content) {
-    throw new Error("setSessionScopeFlag: scaffold block not found — the comment template moved");
-  }
-  await fs.writeFile(configPath, next, "utf8");
+  const { parse, stringify } = await import("yaml");
+  const doc = parse(await fs.readFile(configPath, "utf8")) as Record<string, unknown>;
+  doc.retrieval = (doc.retrieval ?? {}) as Record<string, unknown>;
+  const scope = ((doc.retrieval as Record<string, unknown>).session_scope ?? {}) as Record<string, unknown>;
+  scope.enabled = enabled;
+  (doc.retrieval as Record<string, unknown>).session_scope = scope;
+  await fs.writeFile(configPath, stringify(doc));
 }
 
 beforeAll(async () => {
@@ -47,6 +43,9 @@ beforeAll(async () => {
   flagOnVault = await fs.mkdtemp(path.join(os.tmpdir(), "mnemos-sess-on-"));
   await runInit({ targetDir: flagOffVault });
   await runInit({ targetDir: flagOnVault });
+  // The flag is ON by default since the 2026-11-15 activation — the
+  // flag-off vault opts out explicitly.
+  await setSessionScopeFlag(flagOffVault, false);
   await setSessionScopeFlag(flagOnVault, true);
   // Binding never touches the index, but runWake assembles wake inputs from
   // it — build once so the integration tests read a live (empty) index.

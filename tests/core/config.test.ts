@@ -198,9 +198,9 @@ describe("retrieval stage budget defaults (#34)", () => {
 });
 
 describe("retrieval.session_scope flag (session-scope spec §10)", () => {
-  it("defaults off — current contracts stay in force until the flip", () => {
+  it("defaults ON — activated 2026-11-15 by ruling (Eric): his use is the test, the bench re-judges", () => {
     const cfg = applyConfigDefaults({});
-    expect(cfg.retrieval.session_scope.enabled).toBe(false);
+    expect(cfg.retrieval.session_scope.enabled).toBe(true);
   });
 
   it("preserves the user's flag value", () => {
@@ -220,6 +220,8 @@ describe("retrieval.session_scope flag (session-scope spec §10)", () => {
     const partial = applyConfigDefaults({
       retrieval: { session_scope: {} },
     } as any);
-    expect(partial.retrieval.session_scope.enabled).toBe(false);
+    // Partial block: enabled falls back to the default — which is TRUE
+    // since the 2026-11-15 activation.
+    expect(partial.retrieval.session_scope.enabled).toBe(true);
   });
 });

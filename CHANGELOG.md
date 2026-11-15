@@ -2,6 +2,29 @@
 
 ## [Unreleased]
 
+### Changed — **ACTIVATED: session scope is ON by default** (Eric's ruling, 2026-11-15)
+- **"Activate everything now — we are not on npm, so that doesn't matter; my
+  own use case is the test; as we move on we re-run benchmarks; if something
+  breaks we revert to a gated version."** The measured basis: the weighted
+  world is strictly better on the live vault (gated 23% → activated 10%
+  dilution; miss 0 at every constant setting tested down to P=0.05), and the
+  canonical phantom ("ai memory" in its historical direction) is cured at
+  0/10 cross-scope.
+- What is now ON by default: session binding (ephemeral + named), the §3.2
+  adoption path, and §5 scope weighting at the tuned constants
+  (`other_scope_multiplier: 0.15`, floor 0.8, decay 0.92, waive 0.95). The
+  scaffold ships enabled. Eric's live vault is activated at the same values
+  (config backup retained).
+- **Scope of the activation:** the ask-first gate's RETIREMENT stays
+  deferred until its replacement (inferred project stamping at capture)
+  exists — retiring it today would leave new vaults with no
+  project-assignment mechanism. Activation is scoped to what is built.
+- **The revert is one config line** (`session_scope.enabled: false`), and
+  the §9 bench (`bench/session-scope-bench.ts`) re-judges continuously —
+  the gate target (≤5%) still stands and is re-checked as the vault
+  densifies. Config-defaults now pass the session_scope tunables through
+  (a flat sweep exposed them being silently dropped).
+
 ### Added — the §9 gate, measured on the live vault: `bench/session-scope-bench.ts`
 - **The flip criterion now has its instrument.** Two legs: baseline (live
   vault in place, read-only, flag off) and weighted (temp copy, flag

@@ -74,10 +74,14 @@ retrieval:
   exploration_budget: 0.10
   # Session-scope retrieval (docs/specs/session-scope-spec.md): session
   # binding + lineage edges (Phase 1); scope weighting + tiered answers
-  # (Phase 2). Off until the benchmark gate (spec §9: dilution <= 5%,
-  # miss = 0) passes — every current contract stays in force until then.
-  # session_scope:
-  #   enabled: true
+  # (Phase 2). ACTIVATED 2026-11-15 by ruling (Eric): the weighted world is
+  # measured strictly better (live vault: dilution 23% → 9% at P_other 0.15,
+  # miss 0 at every setting) and his own use is the test. The §9 gate still
+  # re-judges continuously (bench/session-scope-bench.ts); revert to a gated
+  # version if anything breaks.
+  session_scope:
+    enabled: true
+    other_scope_multiplier: 0.15
 
 warmth:
   enabled: true
