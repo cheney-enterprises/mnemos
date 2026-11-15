@@ -1,9 +1,10 @@
 # The Dart Move — map and plan
 
-**Status: DRAFT v2 — the goal is now sharpened (2026-11-15, Eric): the
-entire reason is to provide a MEMORY BACKEND to the Flutter app, with
-per-platform embedding agents. This document maps the move, the platform
-matrix, and the decisions it needs.**
+**Status: DECIDED (2026-11-15) — all five rulings recorded (§8). The port
+trigger is MET by Eric's ruling: "we are at the shape I like. I wanted to
+improve and finish the original. It appears we have done that — there is no
+more work to do." Phase 1 (the embedder matrix spike + conformance
+harness) is the next build.**
 
 ---
 
@@ -200,17 +201,42 @@ before eligibility.**
 - The agent-facing MCP contract — whatever serves it, the tools and
   payloads stay.
 
-## 8. The open decisions (Eric's, before Phase 1)
+## 8. The decisions — ALL RULED (Eric, 2026-11-15/16)
 
-1. **The sync model:** does aifc memory sync across devices (markdown
-   syncs, per-device indexes rebuild), or is each device's memory its own?
-   (This decides whether cross-platform vector compatibility matters at
-   all — by design it should NOT.)
-2. **The standards definition:** confirm the bar as "probe passes + bench
-   in family with the desktop baseline," per embedder, on the fixture
-   corpus.
-3. **The Node engine's fate:** agent-bridge continues (Option B shape),
-   retired at Phase 6, or ported last.
-4. **The learned state:** migrate (export/import) or start from zero on a
-   rebuild — and in-app, is Q per-device?
-5. **Timing:** "near future" — after which aifc milestone?
+1. **The sync model — RULED (two-tier).** Synced tier: the markdown notes
+   sync via aifc's planned **e2e cloud sync**; each device rebuilds its own
+   index with its own embedder. Free tier: **device-only by default** (a
+   user's memory is never silently uploaded). Design rules that follow:
+   **notes are the sync unit; derived state (embeddings, Q, stream) never
+   syncs — it is per-device**; first-sync merge is slug-level (captures are
+   add-oriented; edit conflicts belong to aifc's e2e layer); the engine must
+   tolerate the note set changing underneath it mid-session (the index sync
+   already does).
+2. **The standards bar — RULED (parity-or-better, proven).** "All of the
+   embedders need to perform as well (or better) on all of our current
+   tests." The Apple embedder starts at *unknown, presumed ineligible* —
+   there are no benchmarks; we are the benchmark. The Apple trade-off is
+   explicit and Eric's to judge at spike time: the built-in (zero bundle
+   cost, unproven quality) vs bundling our own model (proven quality, ~25MB
+   bundle cost) — **bundling is the acknowledged last resort**, accepted
+   only if the built-in cannot meet the bar and nothing else on-device
+   works. The spike prices both sides.
+3. **The Node engine's fate — RULED (two independent packages).** The Dart
+   and Node packages are **completely different packages**; Dart either
+   works (proven by conformance) or it doesn't; and if it works, which
+   package someone chooses is simply *their choice*. No coordination
+   between engines, no shared-vault rules, and **parity is not guaranteed
+   after the port** — each package evolves on its own merits. The Node
+   package is not auto-retired; it remains the agent-side choice.
+4. **The learned state — RULED (build + rehearse the migration; use only
+   on an actual switch).** The export/import roundtrip is part of the port's
+   conformance proof. aifc users start **fresh** with **per-device**
+   learning (derived state never syncs; a fresh install personalizes cold
+   and warms over its first sessions).
+5. **The port trigger — RULED (MET).** Eric's mental model: "get the Node
+   one into a shape we liked, then port to Dart, and maintain that." The
+   shape milestone is **declared met** — the original was the goal
+   (improve and finish it), and it is finished. The named debts (the
+   O(vault) waiver scan, the lock window, pair-exclusivity, §8.1 per-band
+   Q, edge decay) are **accepted as part of the shape** and carry into the
+   Dart package as its opening backlog — they do not block the port.
