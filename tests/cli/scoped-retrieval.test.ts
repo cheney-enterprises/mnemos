@@ -132,10 +132,8 @@ describe("auto-bridge suggestions (debt #6 — strong cross-scope evidence names
     const v = await fs.mkdtemp(path.join(os.tmpdir(), "auto-bridge-"));
     try {
       await runInit({ targetDir: v });
-      // Enable §5 in the fixture's own config (runExplore loads it from disk).
-      const cfgPath = path.join(v, "mnemos.config.yaml");
-      const raw = await fs.readFile(cfgPath, "utf8");
-      await fs.writeFile(cfgPath, raw.replace(/session_scope:\s*\n(\s*)enabled: false/, "session_scope:\n$1enabled: true"));
+      // The scaffold config ships retrieval.session_scope.enabled: true —
+      // §5 weighting is on; runExplore loads it from disk.
 
       await runAdd({
         startDir: v,
@@ -199,9 +197,7 @@ describe("auto-bridge suggestions (debt #6 — strong cross-scope evidence names
     const v = await fs.mkdtemp(path.join(os.tmpdir(), "no-bridge-"));
     try {
       await runInit({ targetDir: v });
-      const cfgPath = path.join(v, "mnemos.config.yaml");
-      const raw = await fs.readFile(cfgPath, "utf8");
-      await fs.writeFile(cfgPath, raw.replace(/session_scope:\s*\n(\s*)enabled: false/, "session_scope:\n$1enabled: true"));
+      // §5 on (scaffold default) — see the sibling test above.
 
       await runAdd({
         startDir: v,

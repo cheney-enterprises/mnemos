@@ -1,4 +1,5 @@
 import path from "node:path";
+import os from "node:os";
 import { promises as fs } from "node:fs";
 import { findVaultRoot, getVaultPaths, listNoteTitles } from "../core/vault.js";
 import {
@@ -186,5 +187,189 @@ export async function runHealth(
       ...(learning ? { learning } : {}),
     },
     warnings: [...templateWarnings, ...configWarnings, ...learningWarnings],
+  };
+}
+
+export type DoctorResult = {
+  success: boolean;
+  data: Record<string, unknown>;
+  warnings: string[];
+};
+
+/**
+ * `mnemos doctor` — the deep sweep (debt #7). Everything `health` checks,
+ * plus the three diagnostics health cannot see:
+ *
+ *   - session-record LOCKS: ops/sessions/.locks/ residue. The mkdir lock
+ *     self-heals on contention (5s steal), so residue is never fatal — but
+ *     it IS visible, and a lock dir that persists across a quiet vault is a
+ *     crashed holder's fingerprint. Reported with ages; never removed here
+ *     (a doctor that deletes things silently is a new way to lose data, and
+ *     the steal already handles the recovery).
+ *
+ *   - INDEX DRIFT: the derived index answering queries vs the vault on
+ *     disk. Read-only: count coverage (note table vs notes dir), the
+ *     note_long migration marker, embeddings rowcount, and note_term
+ *     coverage. Reports the openSyncedIndex repair only as ADVICE — doctor
+ *     never syncs (a diagnostic that writes is a surprise, not a tool).
+ *
+ *   - CONFIG SANITY: paths that don't resolve (wake.project_paths entries,
+ *     engine.db_path), and §5 constants that are mathematically nonsense
+ *     (decay/other/floor outside (0,1], waive floor above 1) — a typo in a
+ *     tunable silently changes retrieval order, and health's llm-key check
+ *     was the only config watchman.
+ */
+export async function runDoctor(startDir: string, linkGraph?: LinkGraph): Promise<DoctorResult> {
+  const base = await runHealth(startDir, linkGraph);
+  const vaultRoot = await findVaultRoot(startDir);
+  const paths = getVaultPaths(vaultRoot);
+  const config = await loadConfig(paths.config);
+  const doctorWarnings: string[] = [...base.warnings];
+
+  // ── Session-record locks ──────────────────────────────────────────────
+  const lockDirRoot = path.join(paths.ops, "sessions", ".locks");
+  let locks: Array<{ slug: string; ageSeconds: number }> = [];
+  try {
+    const entries = await fs.readdir(lockDirRoot);
+    const now = Date.now();
+    for (const entry of entries) {
+      const st = await fs.stat(path.join(lockDirRoot, entry)).catch(() => null);
+      if (!st?.isDirectory()) continue;
+      locks.push({ slug: entry, ageSeconds: Math.round((now - st.mtimeMs) / 1000) });
+    }
+    if (locks.length > 0) {
+      doctorWarnings.push(
+        `${locks.length} session-record lock(s) present: ${locks
+          .map((l) => `${l.slug} (${l.ageSeconds}s)`)
+          .join(", ")}. Locks older than ~5s are crashed-holder residue (the ` +
+          `next writer steals them); if the vault is quiet, they are safe to remove.`,
+      );
+    }
+  } catch {
+    // No .locks dir — no locks, no problem.
+  }
+
+  // ── Index drift (read-only) ───────────────────────────────────────────
+  const dbPath = path.resolve(vaultRoot, config.engine.db_path);
+  type Drift = {
+    indexExists: boolean;
+    vaultNotes: number;
+    indexedNotes: number | null;
+    coverage: string;
+    longsMarker: boolean;
+    embeddingsRows: number | null;
+    longRows: number | null;
+  };
+  let drift: Drift = {
+    indexExists: false, vaultNotes: base.data.noteCount as number,
+    indexedNotes: null, coverage: "no index — run mnemos index build",
+    longsMarker: false, embeddingsRows: null, longRows: null,
+  };
+  try {
+    await fs.access(dbPath);
+    const { default: Database } = await import("better-sqlite3");
+    const db = new Database(dbPath, { readonly: true });
+    try {
+      const indexed = (db.prepare("SELECT COUNT(*) AS c FROM note").get() as { c: number }).c;
+      const embeddings = (db.prepare("SELECT COUNT(*) AS c FROM embeddings").get() as { c: number }).c;
+      let longRows: number | null = null;
+      let longsMarker = false;
+      try {
+        longRows = (db.prepare("SELECT COUNT(*) AS c FROM note_long").get() as { c: number }).c;
+        const marker = db
+          .prepare("SELECT value FROM index_meta WHERE key = 'anchor_longs_built'")
+          .get() as { value: string } | undefined;
+        longsMarker = Boolean(marker);
+      } catch {
+        // note_long/index_meta absent — a pre-anchortokens index.
+      }
+      const indexedNotes = indexed;
+      const covered = indexedNotes === base.data.noteCount;
+      drift = {
+        indexExists: true,
+        vaultNotes: base.data.noteCount as number,
+        indexedNotes,
+        coverage: covered ? "full" : `DRIFT: ${indexedNotes}/${base.data.noteCount} notes covered`,
+        longsMarker,
+        embeddingsRows: embeddings,
+        longRows,
+      };
+      if (!covered) {
+        doctorWarnings.push(
+          `index drift: the derived index covers ${indexedNotes} of ${base.data.noteCount} notes — ` +
+            `postings, edges and cached metrics answer from stale content. The next query ` +
+            `degrades loudly; a full re-index (delete .mnemos/embeddings.db, mnemos index build) repairs it.`,
+        );
+      }
+      if (longRows !== null && !longsMarker) {
+        doctorWarnings.push(
+          "the anchor index migration has not run (no anchor_longs_built marker) — " +
+            "the §5 waiver's anchor phase is answering from a partially-built note_long; the next synced open backfills it.",
+        );
+      }
+      if (embeddings === 0) {
+        doctorWarnings.push("the embeddings table is empty — semantic retrieval will build the index on first use.");
+      }
+    } finally {
+      db.close();
+    }
+  } catch {
+    // No index yet — reported in drift.indexExists, not an error.
+  }
+
+  // ── Config sanity ─────────────────────────────────────────────────────
+  const configSanity: Record<string, unknown> = {};
+  {
+    const badPaths: string[] = [];
+    for (const [dir, tag] of Object.entries(config.wake.project_paths)) {
+      const expanded = dir.startsWith("~") ? path.join(os.homedir(), dir.slice(1)) : dir;
+      try {
+        await fs.access(expanded);
+      } catch {
+        badPaths.push(`${dir} → ${tag}`);
+      }
+    }
+    if (badPaths.length > 0) {
+      doctorWarnings.push(
+        `wake.project_paths entries that do not resolve on disk: ${badPaths.join(", ")} — ` +
+          `the wake resolver silently skips them, so sessions in those directories scope nowhere.`,
+      );
+    }
+    configSanity.projectPaths = {
+      total: Object.keys(config.wake.project_paths).length,
+      unresolvable: badPaths.length,
+    };
+
+    const ss = config.retrieval.session_scope;
+    const bad: string[] = [];
+    if (ss.enabled) {
+      const { lineage_decay: d, unlinked_floor: f, other_scope_multiplier: o, waive_floor: w } = ss;
+      if (d !== undefined && (d <= 0 || d > 1)) bad.push(`lineage_decay=${d}`);
+      if (f !== undefined && (f <= 0 || f > 1)) bad.push(`unlinked_floor=${f}`);
+      if (o !== undefined && (o <= 0 || o > 1)) bad.push(`other_scope_multiplier=${o}`);
+      if (w !== undefined && (w <= 0 || w > 1)) bad.push(`waive_floor=${w}`);
+      if (bad.length > 0) {
+        doctorWarnings.push(
+          `retrieval.session_scope constants outside (0,1]: ${bad.join(", ")} — a multiplier ` +
+            `above 1 AMPLIFIES out-of-scope notes instead of dampening them; a typo here ` +
+            `silently reorders every weighted query.`,
+        );
+      }
+    }
+    configSanity.sessionScope = { enabled: ss.enabled, invalidConstants: bad };
+    configSanity.dbPath = await fs.access(dbPath).then(() => dbPath, () => null);
+  }
+
+  return {
+    success: true,
+    data: {
+      ...base.data,
+      doctor: {
+        locks,
+        indexDrift: drift,
+        configSanity,
+      },
+    },
+    warnings: doctorWarnings,
   };
 }

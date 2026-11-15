@@ -220,6 +220,18 @@ program
   });
 
 program
+  .command("doctor")
+  .description(
+    "Deep sweep: everything health checks, plus stale session-record locks, " +
+      "index drift (derived index vs the vault, read-only), and config sanity",
+  )
+  .action(async () => {
+    const { runDoctor } = await import("./cli/health.js");
+    const result = await runDoctor(process.cwd());
+    await emit(result);
+  });
+
+program
   .command("whats-new [version]")
   .description("Release notes for the installed Mnemos version, or the one given")
   .action(async (version?: string) => {

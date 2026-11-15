@@ -2,6 +2,36 @@
 
 ## [Unreleased]
 
+### Added — the named debt #7: `mnemos doctor` — the deep sweep
+- **What it was.** `health` covered orphans, dangling links, schema,
+  fading, and learning-signal health, but the named-debt list called for
+  three diagnostics it cannot see: stale session-record locks, index
+  drift, and config sanity.
+- **`mnemos doctor` (new CLI verb, 25 commands).** Everything health
+  checks, plus:
+  - **Session-record locks** (`ops/sessions/.locks/`): residue from a
+    crashed holder, reported with ages. Never removed — the 5s steal owns
+    recovery, and a doctor that deletes things silently is a new way to
+    lose data.
+  - **Index drift** (READ-ONLY): the derived index vs the vault on disk —
+    note-table coverage, the `anchor_longs_built` migration marker,
+    note_long and embeddings rowcounts. Drift is named with the repair
+    (full re-index) as ADVICE; doctor never syncs, because a diagnostic
+    that writes is a surprise, not a tool.
+  - **Config sanity**: `wake.project_paths` entries that don't resolve on
+    disk (the wake resolver silently skips them), and §5 constants outside
+    (0,1] — a multiplier above 1 AMPLIFIES out-of-scope notes instead of
+    dampening them, and a typo in a tunable silently reorders every
+    weighted query. Health's llm-key check was the only config watchman.
+- **Physical verification on the live vault**: coverage full (87/87),
+  longsMarker true (debt #1's migration visible to the sweep), 3/3 project
+  paths resolvable, §5 constants valid, zero warnings — a healthy vault is
+  quiet.
+- **Tests** (tests/cli/doctor.test.ts, both sides of every check): fresh
+  vault quiet; stale lock reported with age and NOT removed; full coverage
+  vs a never-indexed note → DRIFT + advice; unresolvable path and
+  multiplier 1.5 flagged. Suite 1,315 → 1,320.
+
 ### Added — the named debt #6: auto-bridge suggestions — strong cross-scope evidence names the link
 - **What it was.** The §5 reach band labels cross-scope results with their
   origin ("relevant from roust") but stopped there — the vault doctrine's
