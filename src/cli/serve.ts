@@ -977,6 +977,51 @@ export async function runServeMcp(startDir: string, vaultOverride?: string) {
     }
   );
 
+  // mnemos_query_outcome — debt #5, the search path's outcome closure.
+  // The query path had no channel for the strongest evidence: which surfaced
+  // notes actually answered the question. The dead-end comment in reward.ts
+  // says why that matters: "read and answered from, but not cited" looked
+  // identical to "read and useless". The report is validated against THIS
+  // session's retrieval log (a note never surfaced carries no signal) and
+  // the credit is assigned at session end with every other signal — the
+  // RewardSource guard is untouched, this is not a per-query write.
+  server.tool(
+    "mnemos_query_outcome",
+    "CLOSE a search: report which surfaced notes actually answered the question " +
+      "(call when a mnemos_query_ranked result was used — before moving on or at session end). " +
+      "Only notes this session's queries surfaced carry the signal; anything else is rejected and reported. " +
+      "Credit is assigned at session end (never per-query).",
+    {
+      query: z.string().optional().describe("The original query text this outcome closes (bookkeeping; the retrieval log is the validator)"),
+      used_notes: z.array(z.string()).describe("Surfaced note titles that actually contributed — the learning signal"),
+      answered: z.boolean().optional().describe("Whether the query was answered (recorded in the response; credit requires used_notes)"),
+    },
+    async ({ query, used_notes, answered }) => {
+      const notBooted = requireBoot();
+      if (notBooted) return errorResult(notBooted);
+      if (!used_notes || used_notes.length === 0) {
+        return errorResult(
+          "used_notes is empty — nothing to report. (A query answered without a specific note is honest, but carries no learning signal.)",
+        );
+      }
+      const { accepted, rejected } = rewardAccumulator.validateReportedUse(used_notes);
+      if (accepted.length > 0) rewardAccumulator.logReportedUse(accepted);
+      return textResult({
+        success: accepted.length > 0 || rejected.length === 0,
+        data: {
+          query: query ?? null,
+          answered: answered ?? null,
+          accepted,
+          rejected,
+          note:
+            accepted.length > 0
+              ? `recorded: ${accepted.length} note(s) reported as used — credit assigned at session end`
+              : "no accepted notes: none of the reported titles were surfaced by this session's queries, so nothing carries the signal",
+        },
+      });
+    }
+  );
+
   // mnemos_explore
   server.tool(
     "mnemos_explore",

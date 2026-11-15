@@ -2,6 +2,37 @@
 
 ## [Unreleased]
 
+### Added — the named debt #5: search-path outcome closure — reported use, on both paths
+- **What it was.** The strongest learning evidence — the agent stating WHICH
+  surfaced notes actually answered the question — existed only on the
+  explore path, and even there it was dead wiring: `concludeExploration`'s
+  doc promised "the caller flushes usedNotes into Q-values / co-occurrence",
+  but NO caller ever did. The `explore_conclude` RewardSource sat in
+  ALLOWED_SOURCES with zero call sites. On the plain query path the gap was
+  worse: reward.ts's own dead_end comment says "read and answered from, but
+  not cited" was indistinguishable from "read and useless", so the only
+  query-path signals were inferred proxies (citation, update, re-recall).
+- **The query path.** New MCP tool `mnemos_query_outcome` (18 → 19 tools):
+  the agent reports which surfaced notes it used. `validateReportedUse`
+  checks the claim against the session's retrieval log — a note the ranker
+  never surfaced cannot be reported, so a hallucinated title cannot steer
+  learning — and the response honestly names accepted vs rejected. Credit
+  is assigned at SESSION END as the new `reported_use` signal (+0.8, first
+  in priority order: direct testimony beats inferred proxies) through the
+  unchanged session_batch path. NOT a per-query write; the RewardSource
+  guard is untouched.
+- **The explore path.** `runExploreConcludeCli` now flushes: each validated
+  usedNote earns REPORTED_USE_REWARD via `updateQ` with source
+  `explore_conclude` (the source's first real use), plus co-occurrence
+  pairs among used notes; the response carries `rewarded` so the flush is
+  observable.
+- **Tests.** reported-use describe in reward.test.ts (credited at value;
+  phantom titles rejected; display-title slug normalization; outranks
+  re-recall); conclude-flush test pins q_history rows with source
+  explore_conclude and the empty-conclude no-write; MCP tests pin the tool
+  contract (accepted/rejected honesty, empty-report refusal). Suite
+  1,306 → 1,313.
+
 ### Added — the named debt #2: resurfacing — wake's empty section gets its mechanism
 - **What it was.** The wake briefing carried a `resurfaced` section that was
   a scaffold since the budget ladder shipped (`cap: 0`, hardcoded empty,

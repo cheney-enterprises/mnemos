@@ -62,6 +62,7 @@ describe("tools listing", () => {
     // tests/cli/explore-steering.test.ts); mnemos_orient, whose onboarding moved
     // into mnemos_wake; and mnemos_status, mnemos_query, mnemos_query_important,
     // mnemos_query_fading, which were SQL queries wearing a tool costume.
+    // +1: mnemos_query_outcome (debt #5 — the search path's outcome closure).
     expect(toolNames).toEqual([
       "memory_sql",
       "mnemos_add",
@@ -72,6 +73,7 @@ describe("tools listing", () => {
       "mnemos_learning_reset",
       "mnemos_promote",
       "mnemos_prune",
+      "mnemos_query_outcome",
       "mnemos_query_ranked",
       "mnemos_query_similar",
       "mnemos_suggest_scope",
@@ -206,6 +208,44 @@ describe("resources", () => {
 // ---------------------------------------------------------------------------
 // 6. mnemos_add
 // ---------------------------------------------------------------------------
+
+describe("mnemos_query_outcome (debt #5 — the search path's outcome closure)", () => {
+  it("accepts a surfaced note as used and rejects a phantom title", async () => {
+    await callTool(ctx.client, "mnemos_wake", {});
+    // Seed a note and surface it through the real query path.
+    await callTool(ctx.client, "mnemos_add", {
+      title: "the outcome closure probe note",
+      type: "insight",
+      content: "A note whose title will be reported as used.",
+      description: "Reported-use outcome closure probe",
+    });
+    const { parsed: q } = await callTool(ctx.client, "mnemos_query_ranked", {
+      query: "outcome closure probe note",
+    });
+    const qd = q as { success: boolean; data: { results: Array<{ title: string }> } };
+    expect(qd.success).toBe(true);
+    expect(qd.data.results.length).toBeGreaterThan(0);
+    const surfaced = qd.data.results[0].title;
+
+    const { parsed: ok } = await callTool(ctx.client, "mnemos_query_outcome", {
+      query: "outcome closure probe note",
+      used_notes: [surfaced, "a-note-no-query-ever-surfaced"],
+    });
+    const od = ok as { success: boolean; data: { accepted: string[]; rejected: string[] } };
+    expect(od.data.accepted.length).toBe(1);
+    expect(od.data.rejected).toEqual(["a-note-no-query-ever-surfaced"]);
+    expect(od.data.note).toMatch(/session end/);
+  });
+
+  it("refuses an empty report with an actionable error", async () => {
+    const { parsed } = await callTool(ctx.client, "mnemos_query_outcome", {
+      used_notes: [],
+    });
+    const d = parsed as { success: boolean; error?: string };
+    expect(d.success).toBe(false);
+    expect(d.error).toMatch(/used_notes is empty/);
+  });
+});
 
 describe("mnemos_add", () => {
   it("creates a note successfully", async () => {

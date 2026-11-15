@@ -735,6 +735,17 @@ export async function runExploreExpandCli(
 
 /**
  * CLI: conclude a persisted session and remove its file.
+ *
+ * The conclude summary's usedNotes ARE the learning signal — conclude-session
+ * doc: "the navigator's actual path IS the reward signal" — and the flush
+ * promised by that doc now happens here: each validated usedNote earns
+ * `REPORTED_USE_REWARD` through `updateQ` with the `explore_conclude`
+ * source (the source the ALLOWED_SOURCES guard was built for and that no
+ * call site ever used — the debt this closes). Co-occurrence pairs among
+ * the used notes are recorded too. Credit requires the note to have been
+ * VISITED this session (concludeExploration already validated that), which
+ * is the explore path's equivalent of the query path's retrieval-log
+ * boundary: nothing the ranker never surfaced can be rewarded.
  */
 export async function runExploreConcludeCli(
   startDir: string,
@@ -748,7 +759,42 @@ export async function runExploreConcludeCli(
   }
   const summary = concludeExploration(state, outcome);
   await deleteSessionState(vaultRoot, explorationId);
-  return { success: true, data: summary, warnings: [] };
+
+  // Flush the learning signal. Best-effort like every intelligence write: a
+  // missing/locked db costs this session's learning, never the conclusion.
+  const warnings: string[] = [];
+  let rewarded = 0;
+  if (summary.usedNotes.length > 0) {
+    try {
+      const config = await loadConfig(getVaultPaths(vaultRoot).config);
+      const dbPath = path.resolve(vaultRoot, config.engine.db_path);
+      await fs.access(dbPath);
+      const { initDB } = await import("../core/engine.js");
+      const { updateQ, initQValueTables } = await import("../core/qvalue.js");
+      const { recordCoRetrieval, initCoOccurrenceTables } = await import("../core/cooccurrence.js");
+      const { REPORTED_USE_REWARD } = await import("../core/reward.js");
+      const db = initDB(dbPath);
+      try {
+        initQValueTables(db); // fresh vaults have no note_q yet
+        initCoOccurrenceTables(db);
+        for (const title of summary.usedNotes) {
+          updateQ(db, title, REPORTED_USE_REWARD, explorationId, "explore_conclude");
+          rewarded++;
+        }
+        for (let i = 0; i < summary.usedNotes.length; i++) {
+          for (let j = i + 1; j < summary.usedNotes.length; j++) {
+            recordCoRetrieval(db, summary.usedNotes[i], summary.usedNotes[j]);
+          }
+        }
+      } finally {
+        db.close();
+      }
+    } catch (err) {
+      warnings.push(`learning flush skipped: ${String(err)}`);
+    }
+  }
+  const data = rewarded > 0 ? { ...summary, rewarded } : summary;
+  return { success: true, data, warnings };
 }
 
 export async function runExploreStart(

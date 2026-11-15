@@ -6,8 +6,19 @@
  * Q-values (see qvalue.ts `updateQ`, and the guard in serve.ts).
  *
  * Reward signals (in priority order):
- *   forward citation +1.0 | update +0.5 | within-session re-recall (distinct queries) +0.4
+ *   reported use +0.8 (the agent's explicit testimony — debt #5) | forward citation +1.0
+ *   | update +0.5 | within-session re-recall (distinct queries) +0.4
  *   reported only, never credited (#37): downstream creation, partial follow-up, dead end, neutral
+ *
+ * Reported use (search-path outcome closure): the query path historically had
+ * NO channel for the strongest evidence — the agent stating which surfaced
+ * notes actually answered the question. The dead_end comment below says it:
+ * "read and answered from, but not cited" was indistinguishable from "read
+ * and useless". The report closes that gap: mnemos_query_outcome validates
+ * the claim against this session's retrieval log (a note never surfaced
+ * carries no signal — the ranker's own output is the honest boundary) and
+ * the credit is assigned here, at session end, with every other signal.
+ * NOT a per-query write; the RewardSource guard is untouched.
  *
  * ## Two production defects fixed 2026-08-28
  *
@@ -51,7 +62,12 @@ import { slugify } from "./slug.js";
  * alongside" at up to 0.6, above an actual update. A created note that links
  * a retrieved one is already a forward_citation.
  */
-const CREDITED_SIGNALS = new Set<string>(["forward_citation", "update", "re_recall"]);
+const CREDITED_SIGNALS = new Set<string>(["forward_citation", "update", "re_recall", "reported_use"]);
+
+/** Credit for a note the agent explicitly reported as used (debt #5). Below
+ * forward_citation (a new note linking it is durable evidence of value),
+ * above update (an edit can be incidental). */
+export const REPORTED_USE_REWARD = 0.8;
 
 export interface RetrievalEvent {
   noteId: string;
@@ -65,6 +81,9 @@ export interface SessionOutcome {
   updatedNotes: string[];
   createdNotes: string[];
   reRecalledNotes: string[];
+  /** Notes the agent explicitly reported as used (validated against the
+   * retrieval log at report time; only accepted ones land here). */
+  reportedUse: string[];
 }
 
 /** Diagnostic breakdown of one session's credit assignment. */
@@ -76,6 +95,7 @@ export interface RewardBreakdown {
     | "update"
     | "downstream_creation"
     | "re_recall"
+    | "reported_use"
     | "partial_follow_up"
     | "dead_end"
     | "neutral";
@@ -86,6 +106,7 @@ export interface RewardBreakdown {
 
 export class SessionRewardAccumulator {
   private retrievals: RetrievalEvent[] = [];
+  private reported: string[] = [];
   private addedContent: string[] = [];
   private updatedNoteIds: string[] = [];
   private createdNoteIds: string[] = [];
@@ -113,6 +134,34 @@ export class SessionRewardAccumulator {
 
   logUpdate(noteId: string): void {
     this.updatedNoteIds.push(slugify(noteId));
+  }
+
+  /**
+   * Record an agent's reported-use outcome (debt #5, mnemos_query_outcome).
+   * Only notes this session actually SURFACED can carry the signal —
+   * `validateReportedUse` decides, and callers must pass its accepted set.
+   */
+  logReportedUse(accepted: string[]): void {
+    for (const n of accepted) this.reported.push(slugify(n));
+  }
+
+  /**
+   * Validate a reported-use claim against this session's retrieval log.
+   * Exact or slug-normalized match (navigators may echo display titles).
+   * The boundary is honest by construction: a note the ranker never
+   * surfaced cannot be reported as used, so a hallucinated title can never
+   * steer learning toward something retrieval didn't offer.
+   */
+  validateReportedUse(notes: string[]): { accepted: string[]; rejected: string[] } {
+    const surfaced = new Set(this.retrievals.map((r) => r.noteId));
+    const accepted: string[] = [];
+    const rejected: string[] = [];
+    for (const raw of notes) {
+      const slug = slugify(raw);
+      if (surfaced.has(slug) || surfaced.has(raw)) accepted.push(slug);
+      else rejected.push(raw);
+    }
+    return { accepted, rejected };
   }
 
   /**
@@ -146,7 +195,14 @@ export class SessionRewardAccumulator {
       let reward: number;
       let signal: RewardBreakdown["signal"];
 
-      if (outcome.forwardCitations.includes(noteId)) {
+      // Reported use FIRST: it is direct testimony, checked before every
+      // inferred proxy. A note the agent said answered the question needs no
+      // circumstantial corroboration — and if it was ALSO cited or updated,
+      // the report is the more honest description of why.
+      if (outcome.reportedUse.includes(noteId)) {
+        reward = REPORTED_USE_REWARD;
+        signal = "reported_use";
+      } else if (outcome.forwardCitations.includes(noteId)) {
         reward = 1.0;
         signal = "forward_citation";
       } else if (outcome.updatedNotes.includes(noteId)) {
@@ -295,11 +351,12 @@ export class SessionRewardAccumulator {
       updatedNotes: [...new Set(this.updatedNoteIds)],
       createdNotes: [...new Set(this.createdNoteIds)],
       reRecalledNotes: [],
+      reportedUse: [...new Set(this.reported)],
     };
   }
 
   hasData(): boolean {
-    return this.retrievals.length > 0;
+    return this.retrievals.length > 0 || this.reported.length > 0;
   }
 }
 

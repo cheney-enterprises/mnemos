@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 import Database from "better-sqlite3";
 import {
   SessionRewardAccumulator,
+  REPORTED_USE_REWARD,
 } from "../../src/core/reward.js";
 import {
   initQValueTables,
@@ -29,6 +30,52 @@ describe("SessionRewardAccumulator", () => {
     const acc = new SessionRewardAccumulator("s1");
     acc.logRetrieval("note-a", 0, "query", "semantic");
     expect(acc.hasData()).toBe(true);
+  });
+
+  describe("reported use (debt #5 — the search path's outcome closure)", () => {
+    it("credits a surfaced note the agent reported as used, at the reported-use value", () => {
+      const acc = new SessionRewardAccumulator("s1");
+      acc.logRetrieval("note-a", 0, "query", "semantic");
+      acc.logRetrieval("note-b", 1, "query", "semantic");
+      const { accepted, rejected } = acc.validateReportedUse(["note-a"]);
+      expect(rejected).toEqual([]);
+      acc.logReportedUse(accepted);
+
+      const rewards = acc.computeRewards(db);
+      expect(rewards.get("note-a")).toBeCloseTo(REPORTED_USE_REWARD, 10);
+      // The unused surfaced note stays a dead end — the report is what
+      // separates "read and answered from" from "read and useless".
+      expect(rewards.has("note-b")).toBe(false);
+      expect(acc.getSignalCounts().dead_end).toBe(1);
+      expect(acc.getSignalCounts().reported_use).toBe(1);
+    });
+
+    it("rejects titles the session never surfaced — a hallucinated note cannot steer learning", () => {
+      const acc = new SessionRewardAccumulator("s1");
+      acc.logRetrieval("note-a", 0, "query", "semantic");
+      const { accepted, rejected } = acc.validateReportedUse(["never-surfaced-note", "note-a"]);
+      expect(accepted).toEqual(["note-a"]);
+      expect(rejected).toEqual(["never-surfaced-note"]);
+    });
+
+    it("accepts display titles via slug normalization", () => {
+      const acc = new SessionRewardAccumulator("s1");
+      acc.logRetrieval("my-note-title", 0, "query", "semantic");
+      const { accepted } = acc.validateReportedUse(["My Note Title!"]);
+      expect(accepted).toEqual(["my-note-title"]);
+    });
+
+    it("outranks an inferred proxy: reported use wins over re-recall", () => {
+      const acc = new SessionRewardAccumulator("s1");
+      acc.logRetrieval("note-a", 0, "query one", "semantic");
+      acc.logRetrieval("note-a", 2, "query two", "semantic"); // re-recall shape
+      const { accepted } = acc.validateReportedUse(["note-a"]);
+      acc.logReportedUse(accepted);
+      const rewards = acc.computeRewards(db);
+      expect(rewards.get("note-a")).toBeCloseTo(REPORTED_USE_REWARD, 10);
+      expect(acc.getSignalCounts().reported_use).toBe(1);
+      expect(acc.getSignalCounts().re_recall).toBeUndefined();
+    });
   });
 
   describe("forward citation detection", () => {
