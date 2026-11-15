@@ -141,3 +141,94 @@ describe("§8.3 concurrency — parallel session-stream writes", () => {
     }
   });
 });
+
+describe("§8.3 the narrow window — rewrites hold the lock too (the named debt closed)", () => {
+  const captureLine = (i: number) => `Captured [[lock window note ${i}]] — stream line ${i}`;
+
+  it("a re-bind rewriting the record cannot eat appends landing mid-rewrite", async () => {
+    const sessionId = "ses_lockwindow_bind";
+    // The record exists and has history before the race starts.
+    await appendToSessionRecord(vault, config, sessionId, [captureLine(99)]);
+    const N = 8;
+    await Promise.all([
+      // 8 appends to the record...
+      ...Array.from({ length: N }, (_, i) =>
+        appendToSessionRecord(vault, config, sessionId, [captureLine(i)]),
+      ),
+      // ...interleaved with re-binds (wholesale read-modify-write rewrites).
+      ...Array.from({ length: 4 }, () =>
+        bindSession(vault, config, { session: sessionId }),
+      ),
+    ]);
+    const parsed = await readFrontmatterFile(recordPath(sessionId));
+    for (let i = 0; i < N; i++) {
+      expect(parsed.body).toContain(`lock window note ${i}]]`);
+    }
+    expect(parsed.body).toContain(`lock window note 99]]`); // the history survived too
+  });
+
+  it("an adoption absorbing the provisional record keeps appends landing mid-adoption", async () => {
+    const provisional = "ses_lockwindow_prov";
+    const explicit = "ses_lockwindow_named";
+    await appendToSessionRecord(vault, config, provisional, [captureLine(50)]);
+    const N = 6;
+    const results = await Promise.all([
+      // Appends racing the adoption: each lands either in the provisional
+      // record (absorbed) or re-creates the provisional after it (kept).
+      ...Array.from({ length: N }, (_, i) =>
+        appendToSessionRecord(vault, config, provisional, [captureLine(i)]),
+      ),
+      bindSession(vault, config, {
+        session: explicit,
+        ephemeralId: provisional,
+      }),
+    ]);
+    expect(results.at(-1)?.adopted).toBe(true);
+    const named = await readFrontmatterFile(recordPath(explicit));
+    const provPath = recordPath(provisional);
+    const provExists = await fs.stat(provPath).then(() => true, () => false);
+    const provBody = provExists ? (await readFrontmatterFile(provPath)).body : "";
+    for (let i = 0; i < N; i++) {
+      const line = `lock window note ${i}]]`;
+      expect(named.body.includes(line) || provBody.includes(line)).toBe(true);
+    }
+    expect(named.body).toContain(`lock window note 50]]`); // the pre-race line was absorbed
+    expect(named.data?.session).toBe(explicit);
+  });
+
+  it("compression re-reads inside the lock: appends landing mid-compression survive", async () => {
+    const sessionId = "ses_lockwindow_compress";
+    const today = new Date();
+    const oldDate = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    // A 30-day-old record with history — inside the compress band.
+    await appendToSessionRecord(vault, config, sessionId, [captureLine(70)]);
+    const recordFile = recordPath(sessionId);
+    const raw = await fs.readFile(recordFile, "utf8");
+    const withOldDate = raw.replace(
+      /created: \d{4}-\d{2}-\d{2}/,
+      `created: ${oldDate}`,
+    );
+    await fs.writeFile(recordFile, withOldDate, "utf8");
+
+    const N = 4;
+    await Promise.all([
+      ...Array.from({ length: N }, (_, i) =>
+        appendToSessionRecord(vault, config, sessionId, [captureLine(i)]),
+      ),
+      // Concurrent decay pass — wholesale body rewrites of the same record.
+      // runCoverDaily-equivalent: apply=true, raw band boundary crossed.
+      (async () => {
+        const { compressSessionStreams } = await import("../../src/core/sessionscope.js");
+        await compressSessionStreams(vault, config, { apply: true });
+      })(),
+    ]);
+    const parsed = await readFrontmatterFile(recordFile);
+    // Every capture link survives — the appended captures either kept their
+    // line (append after compression) or their link (append absorbed by the
+    // compression's link pass). No lost updates either way.
+    for (let i = 0; i < N; i++) {
+      expect(parsed.body).toContain(`lock window note ${i}]]`);
+    }
+    expect(parsed.body).toContain(`lock window note 70]]`);
+  });
+});

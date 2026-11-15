@@ -2,6 +2,27 @@
 
 ## [Unreleased]
 
+### Fixed — the named debt #3: session-record rewrites hold the record lock too
+- **What it was.** Appends serialize per record on the §8.3 mkdir lock, but
+  the two wholesale rewriters did not: a re-bind's read-modify-write of the
+  record, an adoption's rename/merge/repoint, and the §8.2 compression pass
+  all wrote records without holding the lock — a capture appending in that
+  window could be eaten. The compression pass had the same race one level
+  up: it read the body BEFORE taking the lock and wrote that stale read back
+  inside it.
+- **The closure.** `bindSession` now holds the named record's lock for its
+  whole rewrite, the adoption runs under the named + provisional locks (two
+  distinct slugs — reentrant acquisition on one slug would self-deadlock
+  into the 5s steal), every repoint takes the target's own lock and
+  RE-READS inside it (the pre-lock read is only a decision hint), and
+  `compressSessionStreams` re-derives the links from a fresh read inside its
+  lock. No cycle is possible: an appender holds at most one lock, and the
+  adoption's second-level acquisitions are never another binder's named
+  record.
+- **Proven the tests bite.** Run against the pre-fix module, the new race
+  tests fail (appends lost mid-adoption, links lost mid-compression); with
+  the fix, all pass. Three new tests in the §8.3 suite. Suite 1,292 → 1,295.
+
 ### Fixed — the named debt #1: the waiver's anchor scan is O(query), not O(vault)
 - **What it was.** The §5 anchor waiver ran `matchForForget` on every weighted
   query, and the matcher's anchor phase read and re-tokenized **every note

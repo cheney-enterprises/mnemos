@@ -110,7 +110,6 @@ export async function appendToSessionRecord(
   await fs.mkdir(dir, { recursive: true });
   const slug = slugify(trimmedId);
   const filePath = path.join(dir, `${slug}.md`);
-
   return withRecordLock(dir, slug, async () => {
     const today = new Date().toISOString().slice(0, 10);
     const stamp = new Date().toISOString().slice(0, 16).replace("T", " ");
@@ -258,9 +257,8 @@ export async function compressSessionStreams(
       continue;
     }
 
-    // The capture links are the provenance — they always survive.
-    const links = [...parsed.body.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim());
-    const uniqueLinks = [...new Set(links)];
+    // The band decision is a pre-lock hint; the links are re-derived inside
+    // the lock (an appender may have added captures since this read).
     const ageBucket = ageDays > compressDays ? "archived" : "compressed";
 
     if (result.dryRun) {
@@ -269,25 +267,32 @@ export async function compressSessionStreams(
     }
 
     await withRecordLock(dir, entry.replace(/\.md$/, ""), async () => {
+      // Re-read inside the lock — the pre-lock read only decided the band;
+      // an appender may have appended between that read and the lock
+      // acquisition, and writing the stale read back would eat its lines
+      // (the same §8.3 window the bind/adoption closure covers).
+      const fresh = parseFrontmatter(await fs.readFile(filePath, "utf8"));
+      const freshData = (fresh.data ?? {}) as Record<string, unknown>;
+      const freshLinks = [
+        ...new Set([...fresh.body.matchAll(/\[\[([^\]]+)\]\]/g)].map((m) => m[1].trim())),
+      ];
       if (ageBucket === "archived") {
         await fs.mkdir(archiveDir, { recursive: true });
         // Compress THEN archive: the archived record carries the summary.
         const summary =
           `# Session stream (compressed ${new Date(now).toISOString().slice(0, 10)})\n\n` +
-          `Captured ${uniqueLinks.length} notes:\n` +
-          uniqueLinks.map((l) => `- [[${l}]]`).join("\n") +
+          `Captured ${freshLinks.length} notes:\n` +
+          freshLinks.map((l) => `- [[${l}]]`).join("\n") +
           "\n";
-        const data2 = { ...data };
         await fs.writeFile(path.join(archiveDir, entry), summary, "utf8");
         await fs.rm(filePath, { force: true });
-        void data2;
         result.archived.push(entry);
       } else {
         const compressedBody =
-          `Captured ${uniqueLinks.length} notes (prose compressed §8.2):\n` +
-          uniqueLinks.map((l) => `- [[${l}]]`).join("\n") +
+          `Captured ${freshLinks.length} notes (prose compressed §8.2):\n` +
+          freshLinks.map((l) => `- [[${l}]]`).join("\n") +
           "\n";
-        await writeFileAtomic(filePath, stringifyFrontmatter(data, compressedBody));
+        await writeFileAtomic(filePath, stringifyFrontmatter(freshData, compressedBody));
         result.compressed.push(entry);
       }
     });
@@ -327,44 +332,59 @@ export async function bindSession(
   const paths = getVaultPaths(vaultRoot);
   const dir = path.join(paths.ops, "sessions");
   await fs.mkdir(dir, { recursive: true });
-  const filePath = path.join(dir, `${slugify(explicit)}.md`);
+  const explicitSlug = slugify(explicit);
+  const filePath = path.join(dir, `${explicitSlug}.md`);
 
   const parent = intake.parent?.trim() || null;
   const lineage: LineageEdge | null = parent ? normalizeLineage(intake.lineage) : null;
 
-  // §3.2 ADOPTION: the named identity adopts the provisional id's record.
+  // §8.3, the narrow-window debt closed: the re-bind rewrite below is a
+  // read-modify-write of the record an appender may be appending to RIGHT
+  // NOW, so it holds the same per-record lock the appender holds. The
+  // adoption is wrapped too — it rewrites the named record (outer lock) and
+  // the provisional record (inner lock; reentrancy on the same slug would
+  // self-deadlock into the 5s steal, so the two locks are distinct slugs).
+  // No cycle is possible: an appender holds at most one lock, and the
+  // adoption's second-level acquisitions are always provisional/repoint
+  // targets, never another binder's named record.
   const provisional = intake.ephemeralId?.trim();
-  let adopted = false;
-  if (provisional && provisional !== explicit) {
-    adopted = await adoptRecord(dir, provisional, explicit, parent, lineage);
-  }
+  const shouldAdopt = Boolean(provisional && provisional !== explicit);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const data: Record<string, unknown> = { session: explicit };
-  let body = RECORD_HEADER(explicit);
+  return withRecordLock(dir, explicitSlug, async () => {
+    let adopted = false;
+    if (shouldAdopt && provisional) {
+      adopted = await withRecordLock(dir, slugify(provisional), () =>
+        adoptRecord(dir, provisional, explicit, parent, lineage),
+      );
+    }
 
-  const existing = await fs.readFile(filePath, "utf8").catch(() => null);
-  if (existing !== null) {
-    const parsed = parseFrontmatter(existing);
-    // Idempotent re-bind: the harness's latest metadata is authoritative
-    // (deterministic intake), but nothing else the record carries is lost.
-    if (parsed.data) Object.assign(data, parsed.data);
-    data.session = explicit;
-    if (parsed.body.trim().length > 0) body = parsed.body;
-  }
-  if (!data.created) data.created = today;
-  // Lineage is written only when the harness states it — a re-bind without
-  // parent= must not wipe an existing edge (harnesses may pass parentage
-  // only on the first call). Clearing is deliberate metadata, not an
-  // omission; zero migration (§8) keeps untouched records as roots.
-  if (parent && lineage) {
-    delete data.continues;
-    delete data.branched_from;
-    data[lineage] = parent;
-  }
+    const today = new Date().toISOString().slice(0, 10);
+    const data: Record<string, unknown> = { session: explicit };
+    let body = RECORD_HEADER(explicit);
 
-  await writeFileAtomic(filePath, stringifyFrontmatter(data, body));
-  return { enabled: true, id: explicit, ephemeral: false, record: filePath, lineage, adopted: adopted || undefined };
+    const existing = await fs.readFile(filePath, "utf8").catch(() => null);
+    if (existing !== null) {
+      const parsed = parseFrontmatter(existing);
+      // Idempotent re-bind: the harness's latest metadata is authoritative
+      // (deterministic intake), but nothing else the record carries is lost.
+      if (parsed.data) Object.assign(data, parsed.data);
+      data.session = explicit;
+      if (parsed.body.trim().length > 0) body = parsed.body;
+    }
+    if (!data.created) data.created = today;
+    // Lineage is written only when the harness states it — a re-bind without
+    // parent= must not wipe an existing edge (harnesses may pass parentage
+    // only on the first call). Clearing is deliberate metadata, not an
+    // omission; zero migration (§8) keeps untouched records as roots.
+    if (parent && lineage) {
+      delete data.continues;
+      delete data.branched_from;
+      data[lineage] = parent;
+    }
+
+    await writeFileAtomic(filePath, stringifyFrontmatter(data, body));
+    return { enabled: true, id: explicit, ephemeral: false, record: filePath, lineage, adopted: adopted || undefined };
+  });
 }
 
 /**
@@ -444,20 +464,29 @@ async function adoptRecord(
 
   // Repoint: every OTHER session record whose lineage edge referenced the
   // provisional id now points at the named id — the thread stays connected.
+  //
+  // Each repoint takes the target's own record lock and RE-READS the file
+  // inside it: the pre-lock read above is only a decision hint, and an
+  // appender may have appended between that read and the lock acquisition
+  // (writing the stale read back would eat the appender's lines — the exact
+  // §8.3 window this closure exists for).
   for (const entry of await fs.readdir(dir)) {
     if (!entry.endsWith(".md")) continue;
     if (entry === `${slugify(provisionalId)}.md` || entry === `${slugify(explicit)}.md`) continue;
     const filePath = path.join(dir, entry);
-    const parsed = parseFrontmatter(await fs.readFile(filePath, "utf8"));
-    const data = (parsed.data ?? {}) as Record<string, unknown>;
-    let changed = false;
-    for (const key of ["continues", "branched_from"]) {
-      if (data[key] === provisionalId) {
-        data[key] = explicit;
-        changed = true;
+    const targetSlug = entry.replace(/\.md$/, "");
+    await withRecordLock(dir, targetSlug, async () => {
+      const parsed = parseFrontmatter(await fs.readFile(filePath, "utf8"));
+      const data = (parsed.data ?? {}) as Record<string, unknown>;
+      let changed = false;
+      for (const key of ["continues", "branched_from"]) {
+        if (data[key] === provisionalId) {
+          data[key] = explicit;
+          changed = true;
+        }
       }
-    }
-    if (changed) await writeFileAtomic(filePath, stringifyFrontmatter(data, parsed.body));
+      if (changed) await writeFileAtomic(filePath, stringifyFrontmatter(data, parsed.body));
+    });
   }
 
   // The provisional record is absorbed — remove it. Session records are
