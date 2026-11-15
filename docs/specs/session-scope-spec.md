@@ -12,6 +12,7 @@ re-deriving intent from chat. Building starts against it when Eric says go.
 | 2026-11-11 (`f5b41ac`) | Known-or-ask: silent scoping from intent signals only; else ask immediately | The fuzzy hint layer retired; roster lives in the question text |
 | 2026-11-12 (evening) | **The pivot:** session-as-unit, project-as-firm-metadata, invisible machinery, newb/pro parity | This spec. Current contracts remain IN FORCE until the benchmark-gated flip (§9) |
 | 2026-11-15 | **§5 blessing clarified:** Eric's blessing was given under the understanding that lineage was topic-based; after the correction (lineage = **asserted session-id edges** — topic relatedness is the *retrieval* layer, already shipped), blessing confirmed "as long as it works". **§5 interpretation (amended same day):** the floor design — unlinked notes sit at **L_floor = 0.8** (tunable), so the ladder reads own 1.0 > lineage 0.92^h > unlinked 0.8 > cross-scope 0.6. Rationale: §5's own sentence ("unrelated noise … must be *clearly better* to outrank own-scope context") requires own-scope context to sit ABOVE the unlinked mass, which the first proposed reading (unlinked = L 1.0) failed — and under it, asserting a lineage edge would DEMOTE a note (0.92 < 1.0), inverting §5's intent. The floor keeps the no-hard-filter promise (0.8 multiplies uniformly; rank order within the unlinked mass is unchanged) and makes lineage edges the promotion structure §5 intends. Eric's session observation — most sessions are compactions, forks, handoff-restarts, or fresh starts — accepted: lineage is expected to be SPARSE; the zero-wiring amendment (§3, pending) captures handoff-restart continuity as asserted edges. | `scopeweight` built with the floor design; constants tunable by the benchmark |
+| 2026-11-15 (§3 amendments drafted) | **Zero-wiring ladder (§3.1) + late-binding record ADOPTION (§3.2)** written into the spec as first-class language. Evidence: Eric's session taxonomy — handoff-restart is the dominant pattern and only the MODEL can see its continuity (the harness cannot); rung 1 (model relay) is the only mechanism that captures it, and adoption keeps the thread consolidated when identity arrives late. Principles: the model is the adapter; one thread of work = one record (never fork); adoption is asserted, never content-inferred. | §3 sub-sections 3.1/3.2; the one remaining build behind them is the adoption path in `bindSession` |
 
 The pivot supersedes known-or-ask **eventually, not now**. Nothing in this
 spec changes live behavior until §9's criteria are met.
@@ -63,6 +64,46 @@ Wake stops resolving a project and starts **binding a session**:
   remains exactly as shipped. Projects become **inferred metadata** stamped
   from harness source/repo at capture — a hint for navigation and the user's
   curation, never a gate.
+
+### 3.1 The zero-wiring ladder (who supplies identity, by harness class)
+
+The binding args above are the *mechanics*. This ladder is the *supply path* —
+and its principle is: **the model is the adapter.** No harness is excluded;
+harness wiring is an optimization, never an entry requirement.
+
+| Rung | Identity source | Result |
+|---|---|---|
+| **0** | Nothing → mnemos mints an **ephemeral id** per connection | Durable captures from the very first session, unnamed |
+| **1** | The **model relays** what its context already shows — nearly every harness prints its session id; the model repeats it as `session=` | Durable **named** sessions with zero harness code changes |
+| **2** | The **harness passes metadata** (hooks, plugin, native integration) | Deterministic intake — Pattern A, the optimization |
+
+Rung 1 is first-class, not a fallback: the model reading its own context is
+deterministic intake by another channel. The relay is honest exactly when the
+model can SEE the id — an id the model invented is rung 0, not rung 1.
+Lineage rides the same ladder: a session that knows it continued or forked
+another session's work asserts `parent=` at any rung (see §3.2 and §4).
+
+### 3.2 Late-binding record ADOPTION (rename + repoint, never fork)
+
+Identity commonly arrives LATE: a session works under an ephemeral id (rung
+0) or a provisional one, and only later — the harness reveals it, or the
+model reads the handoff and recognizes the thread — does the real identity
+appear. When it does:
+
+- The named session **ADOPTS** the existing record: rename the record file,
+  update the `session:` field, repoint every capture that referenced the old
+  id, and preserve `created`, body, and any existing lineage edges.
+- The thread **never forks**. One thread of work = one record, always; a
+  fork would strand half the thread's memory under an orphan — the exact
+  fragmentation this spec exists to prevent.
+- If the adopted identity also declares `parent=`, the lineage edge is
+  written at adoption — the handoff-restart becomes a first-class
+  continuation instead of an invisible one.
+
+Trigger conditions: adoption happens on explicit identity arrival (harness
+metadata, or the model asserting an id it can genuinely see in context).
+It is never triggered by content similarity — adoption is asserted, like
+every lineage edge (§4).
 
 ## 4. Lineage edges
 
