@@ -298,6 +298,7 @@ export async function runWake(
       ephemeral: binding.ephemeral,
       record: binding.record,
       lineage: binding.lineage,
+      ...(binding.adopted ? { adopted: true } : {}),
     };
   }
 

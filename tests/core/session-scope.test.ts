@@ -16,6 +16,7 @@ import { runInit } from "../../src/cli/init.js";
 import { runIndexBuild } from "../../src/cli/indexcmd.js";
 import { runWake } from "../../src/cli/wake.js";
 import { bindSession, normalizeLineage, newEphemeralSessionId } from "../../src/core/sessionscope.js";
+import { slugify } from "../../src/core/slug.js";
 import { loadConfig } from "../../src/core/config.js";
 import { readFrontmatterFile } from "../../src/core/frontmatter.js";
 
@@ -214,5 +215,123 @@ describe("runWake integration (flag contract end to end)", () => {
     });
     expect(r.session_binding?.id).toBe("ses_explicit");
     expect(r.session_binding?.ephemeral).toBe(false);
+  });
+});
+
+describe("bindSession — §3.2 late-binding record ADOPTION", () => {
+  // Record filenames are slugified (underscores deleted) — build every
+  // expected path through the same slugify the product uses, never by hand.
+  const recordPath = (vault: string, id: string) =>
+    path.join(vault, "ops", "sessions", `${slugify(id)}.md`);
+
+  it("adopt: the provisional record becomes the named record — renamed, not forked", async () => {
+    const config = await loadConfig(path.join(flagOnVault, "mnemos.config.yaml"));
+    // The provisional thread: a record exists with a body that references
+    // the notes it captured.
+    await bindSession(flagOnVault, config, { session: "ses_prov" });
+    const provPath = recordPath(flagOnVault, "ses_prov");
+    const raw = await fs.readFile(provPath, "utf8");
+    await fs.writeFile(
+      provPath,
+      raw.replace(/\s*$/, "\nCaptured [[the provisional thread note one]] and [[the provisional thread note two]].\n"),
+    );
+    // Late binding: the real identity arrives, the provisional id in play.
+    const b = await bindSession(flagOnVault, config, {
+      session: "ses_real",
+      ephemeralId: "ses_prov",
+    });
+    expect(b.adopted).toBe(true);
+    expect(b.id).toBe("ses_real");
+    // The provisional file is GONE — never forked.
+    await expect(fs.access(provPath)).rejects.toThrow();
+    // The named record carries the adopted thread: session field rewritten,
+    // body preserved (the [[links]] moved with it).
+    const named = await readFrontmatterFile(recordPath(flagOnVault, "ses_real"));
+    expect(named.data?.session).toBe("ses_real");
+    expect(named.body).toContain("[[the provisional thread note one]]");
+    expect(named.body).toContain("[[the provisional thread note two]]");
+  });
+
+  it("adopt merges when BOTH records exist: earliest created wins, body carries over", async () => {
+    const config = await loadConfig(path.join(flagOnVault, "mnemos.config.yaml"));
+    // Provisional first (earlier created), named second.
+    const prov = await bindSession(flagOnVault, config, { session: "ses_merge_prov" });
+    const provCreated = (await readFrontmatterFile(prov.record as string)).data?.created;
+    await new Promise((r) => setTimeout(r, 1100)); // distinct created dates
+    const named = await bindSession(flagOnVault, config, { session: "ses_merge_named" });
+    const namedPath = named.record as string;
+    // Give the provisional a link the named record lacks.
+    const raw = await fs.readFile(prov.record as string, "utf8");
+    await fs.writeFile(
+      prov.record as string,
+      raw.replace(/\s*$/, "\nCaptured [[the merge adoption note]].\n"),
+    );
+    const b = await bindSession(flagOnVault, config, {
+      session: "ses_merge_named",
+      ephemeralId: "ses_merge_prov",
+    });
+    expect(b.adopted).toBe(true);
+    const merged = await readFrontmatterFile(namedPath);
+    // Earliest created wins — the thread started when the provisional did.
+    expect(merged.data?.created).toBe(provCreated);
+    // Body carries over; one record, not two.
+    expect(merged.body).toContain("[[the merge adoption note]]");
+    const files = await fs.readdir(path.join(flagOnVault, "ops", "sessions"));
+    expect(files.filter((f) => f.startsWith(slugify("ses_merge")))).toHaveLength(1);
+  });
+
+  it("adopt repoints other records' lineage edges — the thread stays connected", async () => {
+    const config = await loadConfig(path.join(flagOnVault, "mnemos.config.yaml"));
+    // A follower already points at the provisional id.
+    await bindSession(flagOnVault, config, {
+      session: "ses_follower",
+      parent: "ses_repoint_prov",
+    });
+    // The provisional record exists (adoption target).
+    await bindSession(flagOnVault, config, { session: "ses_repoint_prov" });
+    const b = await bindSession(flagOnVault, config, {
+      session: "ses_repointed_real",
+      ephemeralId: "ses_repoint_prov",
+    });
+    expect(b.adopted).toBe(true);
+    const follower = await readFrontmatterFile(recordPath(flagOnVault, "ses_follower"));
+    expect(follower.data?.continues).toBe("ses_repointed_real");
+  });
+
+  it("adopt writes the declared lineage edge onto the adopted record", async () => {
+    const config = await loadConfig(path.join(flagOnVault, "mnemos.config.yaml"));
+    await bindSession(flagOnVault, config, { session: "ses_adopt_edge_prov" });
+    const b = await bindSession(flagOnVault, config, {
+      session: "ses_adopt_edge_real",
+      ephemeralId: "ses_adopt_edge_prov",
+      parent: "ses_the_root",
+      lineage: "branched_from",
+    });
+    expect(b.adopted).toBe(true);
+    expect(b.lineage).toBe("branched_from");
+    const adopted = await readFrontmatterFile(recordPath(flagOnVault, "ses_adopt_edge_real"));
+    expect(adopted.data?.branched_from).toBe("ses_the_root");
+    expect(adopted.data?.continues).toBeUndefined();
+  });
+
+  it("no provisional record → adoption is a silent no-op (normal bind)", async () => {
+    const config = await loadConfig(path.join(flagOnVault, "mnemos.config.yaml"));
+    const b = await bindSession(flagOnVault, config, {
+      session: "ses_plain_named",
+      ephemeralId: "ses_never_existed",
+    });
+    expect(b.adopted).toBeUndefined();
+    expect(b.record).toBe(recordPath(flagOnVault, "ses_plain_named"));
+  });
+
+  it("wake surface: adoption is visible in the session_binding payload", async () => {
+    const config = await loadConfig(path.join(flagOnVault, "mnemos.config.yaml"));
+    await bindSession(flagOnVault, config, { session: "ses_wake_adopt_prov" });
+    const r = await runWake(flagOnVault, 96, undefined, undefined, false, {
+      session: "ses_wake_adopt_real",
+      ephemeralId: "ses_wake_adopt_prov",
+    });
+    expect(r.session_binding?.adopted).toBe(true);
+    expect(r.session_binding?.id).toBe("ses_wake_adopt_real");
   });
 });
