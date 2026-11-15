@@ -474,7 +474,23 @@ export async function runExplore(
   // unweighted callers (§10).
   const traced = finalResults.filter((r) => r.scopeTrace);
   let scopeDigest:
-    | { bands: Record<string, number>; reach: Array<{ title: string; origin?: string; waived: boolean }>; origins: string[] }
+    | {
+        bands: Record<string, number>;
+        reach: Array<{ title: string; origin?: string; waived: boolean }>;
+        origins: string[];
+        /** Debt #6 — auto-bridge suggestions. Advisory, never a write: the
+         * reach band's origins ARE strong cross-project evidence (the anchor
+         * machinery decided rare evidence crosses), so name the concrete
+         * link the agent can choose to make. Present only when at least one
+         * origin clears the strength bar. */
+        bridge_suggestions?: Array<{
+          origin: string;
+          evidence: number;
+          waived: number;
+          map: string | null;
+          hint: string;
+        }>;
+      }
     | undefined;
   if (traced.length > 0) {
     const bands: Record<string, number> = {};
@@ -484,10 +500,60 @@ export async function runExplore(
     }
     const reach = traced.filter((r) => r.scopeTrace!.band === "reach" || r.scopeTrace!.origin);
     const origins = [...new Set(reach.map((r) => r.scopeTrace!.origin).filter(Boolean))] as string[];
+
+    // Auto-bridge suggestions (debt #6). Strength bar per origin: at least
+    // one REACH-BAND result — a waived crossing (the anchor waiver's
+    // no-miss guarantee: rare evidence crossed deliberately). Non-waived
+    // cross-scope results sit in the "other" band, penalized background —
+    // they are the noise the ladder suppresses, never bridge-worthy, and
+    // counting them suggested bridges for incidental top-ups. The
+    // suggestion is the vault doctrine's own next step ("if it is durably
+    // useful to this project, link it in or capture a bridging note") made
+    // concrete with the origin project's map slug. Never auto-written: a
+    // link asserts a real relationship, and only the agent that read the
+    // evidence knows whether the connection is real.
+    const bridgeSuggestions: NonNullable<NonNullable<typeof scopeDigest>["bridge_suggestions"]> = [];
+    if (origins.length > 0) {
+      const routing = config.promote.project_map_routing;
+      const resolveMap = (tag: string): string | null => {
+        const routingHit = routing[tag] && allTitles.includes(routing[tag]) ? routing[tag] : undefined;
+        if (routingHit) return routingHit;
+        return (
+          allTitles.find(
+            (t) => /(^|[-\s])map$/i.test(t.trim()) && t.toLowerCase().includes(tag.toLowerCase()),
+          ) ?? null
+        );
+      };
+      for (const origin of origins) {
+        const fromOrigin = reach.filter(
+          (r) => r.scopeTrace!.origin === origin && r.scopeTrace!.band === "reach",
+        );
+        if (fromOrigin.length < 1) continue;
+        const map = resolveMap(origin);
+        bridgeSuggestions.push({
+          origin,
+          evidence: fromOrigin.length,
+          waived: fromOrigin.filter((r) => r.scopeTrace!.waived).length,
+          map,
+          hint: map
+            ? `results are relevant from ${origin} — if durably useful to this project, link it: add [[${map}]] to your note, or capture a bridging note naming both projects`
+            : `results are relevant from ${origin} (no map found) — if durably useful, capture a bridging note naming both projects`,
+        });
+      }
+      if (bridgeSuggestions.length > 0) {
+        warnings.push(
+          `Cross-scope evidence: ${bridgeSuggestions
+            .map((b) => `${b.evidence} from ${b.origin}`)
+            .join(", ")} — consider a [[bridge]] link (see scope_digest.bridge_suggestions).`,
+        );
+      }
+    }
+
     scopeDigest = {
       bands,
       reach: reach.map((r) => ({ title: r.title, origin: r.scopeTrace!.origin, waived: r.scopeTrace!.waived })),
       origins,
+      ...(bridgeSuggestions.length > 0 ? { bridge_suggestions: bridgeSuggestions } : {}),
     };
   }
 

@@ -126,6 +126,134 @@ describe("degenerate scopes", () => {
   });
 });
 
+describe("auto-bridge suggestions (debt #6 — strong cross-scope evidence names the link)", () => {
+  it("a rare-anchor result relevant from ANOTHER project carries a concrete bridge suggestion", async () => {
+    // Own vault, §5 enabled, one rare-anchor helios note a terra query reaches.
+    const v = await fs.mkdtemp(path.join(os.tmpdir(), "auto-bridge-"));
+    try {
+      await runInit({ targetDir: v });
+      // Enable §5 in the fixture's own config (runExplore loads it from disk).
+      const cfgPath = path.join(v, "mnemos.config.yaml");
+      const raw = await fs.readFile(cfgPath, "utf8");
+      await fs.writeFile(cfgPath, raw.replace(/session_scope:\s*\n(\s*)enabled: false/, "session_scope:\n$1enabled: true"));
+
+      await runAdd({
+        startDir: v,
+        title: "helios-kappa7 panel protocol quirks",
+        type: "insight",
+        description: "the kappa7 telemetry panel drops frames above 90 hz",
+        project: ["helios"],
+        content: "The kappa7 telemetry panel drops frames above 90 hz. Entry point [[helios project map]].",
+      });
+      await runAdd({
+        startDir: v,
+        title: "helios project map",
+        type: "moc",
+        description: "Map for the helios solar dashboard project",
+        project: ["helios"],
+        content: "Entry point for helios.",
+      });
+      await runAdd({
+        startDir: v,
+        title: "terra vernalization winter memory of seeds",
+        type: "insight",
+        description: "terra garden planner fact",
+        project: ["terra"],
+        content: "Vernalization is the winter memory of seeds. [[terra project map]]",
+      });
+      await runAdd({
+        startDir: v,
+        title: "terra project map",
+        type: "moc",
+        description: "Map for the terra garden planner project",
+        project: ["terra"],
+        content: "Entry point for terra.",
+      });
+      await runIndexBuild(v, false);
+
+      // Reading from terra; the query names the rare anchor that lives in helios.
+      const r = await runExplore(v, "helios-kappa7 telemetry frames dropped", {
+        limit: 10,
+        recursive: false,
+        scopeProject: "terra",
+      });
+      const digest = r.data.scope_digest;
+      expect(digest).toBeDefined();
+      const kappa = digest!.reach.find((x) => x.title.includes("helios-kappa7"));
+      expect(kappa?.waived).toBe(true); // rare evidence crossed — the strength bar
+      expect(kappa?.origin).toBe("helios");
+
+      const bridge = digest!.bridge_suggestions?.find((b) => b.origin === "helios");
+      expect(bridge).toBeDefined();
+      expect(bridge!.map).toBe("helios-project-map");
+      expect(bridge!.hint).toContain("[[helios-project-map]]");
+      expect(r.warnings.join(" ")).toContain("bridge_suggestions");
+    } finally {
+      await fs.rm(v, { recursive: true, force: true, maxRetries: 5 }).catch(() => undefined);
+    }
+  }, 120000);
+
+  it("no suggestion when the cross-scope hit is weak or one-off", async () => {
+    // Same vault shape; a query with NO rare anchor that reaches the other
+    // project only weakly — below the strength bar, no suggestion.
+    const v = await fs.mkdtemp(path.join(os.tmpdir(), "no-bridge-"));
+    try {
+      await runInit({ targetDir: v });
+      const cfgPath = path.join(v, "mnemos.config.yaml");
+      const raw = await fs.readFile(cfgPath, "utf8");
+      await fs.writeFile(cfgPath, raw.replace(/session_scope:\s*\n(\s*)enabled: false/, "session_scope:\n$1enabled: true"));
+
+      await runAdd({
+        startDir: v,
+        title: "alpha telemetry barometer drift confirmed",
+        type: "insight",
+        description: "alpha project fact",
+        project: ["alpha"],
+        content: "Barometer drift on the alpha transmitter. [[alpha project map]]",
+      });
+      await runAdd({
+        startDir: v,
+        title: "alpha project map",
+        type: "moc",
+        description: "Map for the alpha project",
+        project: ["alpha"],
+        content: "Entry point for alpha.",
+      });
+      await runAdd({
+        startDir: v,
+        title: "beta composer animation curve timing",
+        type: "insight",
+        description: "beta project fact",
+        project: ["beta"],
+        content: "Animation curves in the beta composer. [[beta project map]]",
+      });
+      await runAdd({
+        startDir: v,
+        title: "beta project map",
+        type: "moc",
+        description: "Map for the beta project",
+        project: ["beta"],
+        content: "Entry point for beta.",
+      });
+      await runIndexBuild(v, false);
+
+      // Reading from beta with a query about beta's own subject: any alpha
+      // hit is incidental, not anchored — no bridge suggestion expected.
+      const r = await runExplore(v, "beta composer animation curve timing", {
+        limit: 10,
+        recursive: false,
+        scopeProject: "beta",
+      });
+      const digest = r.data.scope_digest;
+      if (digest) {
+        expect(digest.bridge_suggestions ?? []).toEqual([]);
+      }
+    } finally {
+      await fs.rm(v, { recursive: true, force: true, maxRetries: 5 }).catch(() => undefined);
+    }
+  }, 120000);
+});
+
 describe("inline suggestions (no separate call)", () => {
   it("a scoped query whose content lives elsewhere carries ranked suggestions in the SAME response", async () => {
     // The beta-scoped query about alpha's vocabulary: thin in scope, the

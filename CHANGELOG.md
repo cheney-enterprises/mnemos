@@ -2,6 +2,32 @@
 
 ## [Unreleased]
 
+### Added — the named debt #6: auto-bridge suggestions — strong cross-scope evidence names the link
+- **What it was.** The §5 reach band labels cross-scope results with their
+  origin ("relevant from roust") but stopped there — the vault doctrine's
+  own next step ("if it is durably useful to this project, link it in
+  ([[the-note]]) or capture a bridging note — the link is the memory of the
+  connection") was left for the agent to reinvent every time, or forget.
+- **The mechanism.** The scope digest (scope-weighted explore) now carries
+  `bridge_suggestions`: per origin project that cleared the strength bar —
+  at least one REACH-BAND (waived) result, i.e. the anchor machinery itself
+  decided rare evidence crossed the boundary — the suggestion names the
+  concrete link: the origin project's map slug (resolved via the same
+  routing chain as the ritual: config `project_map_routing`, then the
+  `<tag>…map` convention), the evidence counts, and the action. A warning
+  line surfaces it in the same response.
+- **Advisory, never a write.** A link asserts a real relationship; only the
+  agent that read the evidence knows whether the connection is real. The
+  suggestion names the link; capture/update writes it.
+- **The strength-bar bug the test caught.** The first draft counted any
+  cross-scope result (including "other"-band penalized background) toward
+  a two-result bar — a beta query with two incidental alpha top-ups
+  suggested a bridge. Reach-band only now: noise the ladder suppresses is
+  never bridge-worthy.
+- **Tests.** Rare-anchor crossing produces the suggestion with the map
+  slug and warning (scoped-retrieval.test.ts); the weak/incidental shape
+  produces none. Probe unchanged: hard 9/9. Suite 1,313 → 1,315.
+
 ### Added — the named debt #5: search-path outcome closure — reported use, on both paths
 - **What it was.** The strongest learning evidence — the agent stating WHICH
   surfaced notes actually answered the question — existed only on the
